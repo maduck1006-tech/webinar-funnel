@@ -12,7 +12,7 @@ import {
   statusTone,
   won,
 } from "@/components/admin-ui";
-import { forceStatus, regrantAccess, resendMessage } from "./actions";
+import { ManualActions } from "./ManualActions";
 
 export const dynamic = "force-dynamic";
 
@@ -114,34 +114,11 @@ export default async function CrmDetailPage({
 
         <Card>
           <p className="mb-3 text-sm font-bold">수동 조치</p>
-          <div className="space-y-3 text-sm">
-            <form action={resendMessage}>
-              <input type="hidden" name="leadId" value={lead.id} />
-              <input type="hidden" name="trigger" value="signup_confirm" />
-              <button className="w-full rounded-lg border py-2">
-                시청 안내 문자 재발송
-              </button>
-            </form>
-            <form action={regrantAccess}>
-              <input type="hidden" name="leadId" value={lead.id} />
-              <button className="w-full rounded-lg border py-2">
-                시청 권한 재부여 (48h 연장)
-              </button>
-            </form>
-            <form action={forceStatus} className="space-y-1">
-              <input type="hidden" name="leadId" value={lead.id} />
-              <select name="status" className="w-full rounded border px-2 py-1">
-                {Object.entries(STATUS_LABEL).map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v}
-                  </option>
-                ))}
-              </select>
-              <button className="w-full rounded-lg border py-2">
-                상태 강제 변경
-              </button>
-            </form>
-          </div>
+          <ManualActions
+            leadId={lead.id}
+            statusOptions={Object.entries(STATUS_LABEL)}
+            currentStatus={lead.status}
+          />
         </Card>
       </div>
     </>
