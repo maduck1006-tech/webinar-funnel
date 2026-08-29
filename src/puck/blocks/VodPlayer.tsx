@@ -7,7 +7,7 @@ export function VodPlayer({ src, poster }: { src: string; poster: string }) {
   if (!url)
     return (
       <div className="fn-bleed my-4 grid aspect-video place-items-center bg-black text-sm font-medium text-white/50">
-        ▶ 웨비나 영상
+        ▶ 강의 영상
       </div>
     );
 
@@ -18,7 +18,7 @@ export function VodPlayer({ src, poster }: { src: string; poster: string }) {
         <iframe
           className="h-full w-full"
           src={embed}
-          title="웨비나 영상"
+          title="강의 영상"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
         />

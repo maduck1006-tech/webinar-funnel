@@ -120,7 +120,7 @@ export const config: Config<FunnelProps, RootProps> = {
       },
       defaultProps: {
         image: "",
-        eyebrow: "무료 웨비나",
+        eyebrow: "무료 강의",
         title: "제목을 입력하세요",
         subtitle: "",
         height: "tall",

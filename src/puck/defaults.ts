@@ -29,7 +29,7 @@ export const defaultPages: Record<string, FunnelData> = {
         props: {
           id: "hero",
           image: "",
-          eyebrow: "무료 웨비나 · 신청 즉시 시청 가능",
+          eyebrow: "무료 강의 · 신청 즉시 시청 가능",
           title: "3시간이면 이해되는\n실전 강의",
           subtitle: "광고에서 약속한 그 내용,\n신청하면 다음 화면에서 바로 재생됩니다.",
           height: "tall",

@@ -17,7 +17,7 @@ type PageData = {
   content?: Block[];
 };
 
-const HERO_EYEBROW = "무료 웨비나 · 신청 즉시 시청 가능";
+const HERO_EYEBROW = "무료 강의 · 신청 즉시 시청 가능";
 const HERO_SUBTITLE = "광고에서 약속한 그 내용,\n신청하면 다음 화면에서 바로 재생됩니다.";
 const FORM_HEADING_EYEBROW = "이메일 인증·대기 없음";
 const FORM_NOTE = "신청하면 다음 화면에서 바로 재생 · 48시간 무제한";
@@ -40,6 +40,16 @@ function patch(data: PageData): boolean {
   const content = data.content;
   if (!Array.isArray(content)) return false;
   let changed = false;
+
+  // "웨비나" → "강의" 일괄 (사용자에게 덜 익숙한 표현)
+  for (const b of content) {
+    for (const [k, v] of Object.entries(b.props ?? {})) {
+      if (typeof v === "string" && v.includes("웨비나")) {
+        b.props[k] = v.replace(/웨비나/g, "강의").replace(/강의 강의/g, "강의");
+        changed = true;
+      }
+    }
+  }
 
   const hero = content.find((b) => b.type === "Hero");
   if (hero) {

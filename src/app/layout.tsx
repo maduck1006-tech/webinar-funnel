@@ -20,8 +20,8 @@ const sansKr = IBM_Plex_Sans_KR({
 });
 
 export const metadata: Metadata = {
-  title: "웨비나 퍼널",
-  description: "무료 웨비나 신청 · 시청 · 상담 예약",
+  title: "무료 강의 신청",
+  description: "무료 강의 신청 · 시청 · 상담 예약",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
