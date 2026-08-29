@@ -150,7 +150,7 @@ export function MessageEditor({
             className="h-40 w-full rounded-lg border px-3 py-2 text-[13px] leading-relaxed"
           />
           <p className="text-[11.5px] text-zinc-500">
-            { } 안은 자동으로 채워집니다 · {"{이름} {링크} {예약링크} {상품명} {다운로드링크} {마감시각}"}
+            { } 안은 자동으로 채워집니다 · {"{이름} {링크} {예약링크} {결제링크} {상품명} {다운로드링크} {마감시각}"}
           </p>
           {stop.offsetHours != null && (
             <label className="flex items-center gap-2 text-[12px] text-zinc-500">

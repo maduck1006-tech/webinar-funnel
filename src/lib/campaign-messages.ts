@@ -9,6 +9,7 @@ import {
   messageLogs,
   type messageTrigger,
 } from "@/db/schema";
+import { checkoutUrlWithLead, getActiveOffer } from "@/lib/funnel-offer";
 import { renderMessage, sendSms } from "@/lib/solapi";
 
 type Trigger = (typeof messageTrigger.enumValues)[number];
@@ -103,6 +104,16 @@ export async function renderCampaignMessage(
   const watchUrl = `${SITE}${basePath}/vod?l=${vars.leadId}`;
   const bookingUrl = `${SITE}${basePath}/booking?l=${vars.leadId}`;
 
+  // 결제링크: 활성 저가상품(vod_bottom)의 래피드 결제 페이지 + lead 식별자.
+  // 상품에 결제 URL 미설정 시 시청링크로 폴백(문자에 깨진 링크 방지).
+  let checkoutUrl = watchUrl;
+  if (campaignId) {
+    const offer = await getActiveOffer(campaignId, "vod_bottom");
+    if (offer?.checkoutUrl) {
+      checkoutUrl = checkoutUrlWithLead(offer.checkoutUrl, vars.leadId);
+    }
+  }
+
   const resolved = await resolveTrigger(campaignId, trigger);
   if (resolved.template) {
     const [lead] = await db
@@ -113,6 +124,7 @@ export async function renderCampaignMessage(
     return fill(resolved.template, {
       링크: watchUrl,
       예약링크: bookingUrl,
+      결제링크: checkoutUrl,
       다운로드링크: downloadUrl || watchUrl,
       상품명: vars.productName ?? "자료",
       이름: lead?.name ?? "회원",

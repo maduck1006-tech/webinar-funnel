@@ -28,7 +28,7 @@ const TRIGGERS = [
 ] as const;
 
 const VARS_HINT =
-  "변수: {이름} {링크} {예약링크} {상품명} {마감시각} · 비우면 기본 문구 사용";
+  "변수: {이름} {링크} {예약링크} {결제링크} {상품명} {마감시각} · 비우면 기본 문구 사용";
 
 export default async function AutomationPage({
   searchParams,
