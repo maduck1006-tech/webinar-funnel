@@ -27,7 +27,7 @@ export type FunnelProps = {
     eyebrow: string;
     title: string;
     subtitle: string;
-    height: "tall" | "medium" | "short";
+    height: "banner" | "tall" | "medium" | "short";
   };
   Image: { image: string; alt: string; fullBleed: boolean; flushTop?: boolean; ratio: "auto" | "square" | "wide" | "portrait" };
   Video: { src: string; poster: string };
@@ -112,6 +112,7 @@ export const config: Config<FunnelProps, RootProps> = {
         height: {
           type: "select",
           options: [
+            { label: "배너 (16:9 · 그라데이션·문구 없음)", value: "banner" },
             { label: "크게", value: "tall" },
             { label: "보통", value: "medium" },
             { label: "작게", value: "short" },
@@ -126,6 +127,19 @@ export const config: Config<FunnelProps, RootProps> = {
         height: "tall",
       },
       render: ({ image, eyebrow, title, subtitle, height }) => {
+        // 배너 모드: 완성된 홍보 배너를 그대로. 자르지 않고(16:9), 어두운 오버레이·텍스트 없음.
+        if (image && height === "banner") {
+          return (
+            <div className="fn-bleed relative -mt-4 mb-6 overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={image}
+                alt={title || ""}
+                className="block aspect-video w-full object-cover"
+              />
+            </div>
+          );
+        }
         // 이미지가 있을 때만 큰 히어로. 없으면 헤드라인이 첫 화면에 바로 보이도록 컴팩트하게.
         const h = image
           ? height === "tall"
