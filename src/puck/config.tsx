@@ -126,15 +126,17 @@ export const config: Config<FunnelProps, RootProps> = {
         height: "tall",
       },
       render: ({ image, eyebrow, title, subtitle, height }) => {
-        const h =
-          height === "tall"
+        // 이미지가 있을 때만 큰 히어로. 없으면 헤드라인이 첫 화면에 바로 보이도록 컴팩트하게.
+        const h = image
+          ? height === "tall"
             ? "min-h-[70svh]"
             : height === "short"
               ? "min-h-[40svh]"
-              : "min-h-[55svh]";
+              : "min-h-[55svh]"
+          : "min-h-[240px]";
         return (
           <div
-            className={`fn-bleed relative mb-6 flex ${h} flex-col justify-end overflow-hidden`}
+            className={`fn-bleed relative mb-6 flex ${h} flex-col ${image ? "justify-end" : "justify-center"} overflow-hidden`}
           >
             {image ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -144,10 +146,12 @@ export const config: Config<FunnelProps, RootProps> = {
                 className="absolute inset-0 h-full w-full object-cover"
               />
             ) : (
-              <div className="absolute inset-0 bg-gradient-to-b from-zinc-700 to-zinc-900" />
+              <div className="absolute inset-0 bg-gradient-to-b from-zinc-800 to-zinc-950" />
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-[var(--fn-bg)] via-[var(--fn-bg)]/40 to-transparent" />
-            <div className="relative px-5 pb-8 pt-24 text-center">
+            <div
+              className={`relative px-5 text-center ${image ? "pb-8 pt-24" : "py-10"}`}
+            >
               {eyebrow && (
                 <span className="mb-3 inline-block rounded-full border border-[var(--fn-accent)] px-3 py-1 text-[11px] font-bold tracking-wide text-[var(--fn-accent)]">
                   {eyebrow}
@@ -189,7 +193,7 @@ export const config: Config<FunnelProps, RootProps> = {
         },
       },
       defaultProps: { image: "", alt: "", fullBleed: true, ratio: "auto" },
-      render: ({ image, alt, fullBleed, ratio }) => {
+      render: ({ image, alt, fullBleed, ratio, puck }) => {
         const r =
           ratio === "square"
             ? "aspect-square"
@@ -200,12 +204,15 @@ export const config: Config<FunnelProps, RootProps> = {
                 : "";
         const wrap = `my-5 overflow-hidden ${fullBleed ? "fn-bleed" : "rounded-2xl"}`;
         if (!image)
-          return (
+          // 빈 이미지 블록은 편집 화면에서만 자리표시. 실제 페이지에선 렌더 안 함.
+          return puck?.isEditing ? (
             <div
               className={`${wrap} grid h-52 place-items-center bg-[var(--fn-bg-2)] text-sm text-[var(--fn-sub)]`}
             >
               이미지 영역
             </div>
+          ) : (
+            <></>
           );
         return (
           <div className={wrap}>
@@ -231,7 +238,13 @@ export const config: Config<FunnelProps, RootProps> = {
       defaultProps: { src: "", poster: "" },
       render: ({ src, poster, puck }) => {
         const meta = puck?.metadata as { vodSrc?: string } | undefined;
-        return <VodPlayer src={src || meta?.vodSrc || ""} poster={poster} />;
+        return (
+          <VodPlayer
+            src={src || meta?.vodSrc || ""}
+            poster={poster}
+            editing={puck?.isEditing}
+          />
+        );
       },
     },
 

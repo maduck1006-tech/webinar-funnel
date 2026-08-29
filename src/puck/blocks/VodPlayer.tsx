@@ -1,15 +1,24 @@
 "use client";
 
 /** P2에서 Mux Player 등으로 교체 가능. YouTube/Vimeo 링크는 iframe, 그 외는 <video>. */
-export function VodPlayer({ src, poster }: { src: string; poster: string }) {
+export function VodPlayer({
+  src,
+  poster,
+  editing,
+}: {
+  src: string;
+  poster: string;
+  editing?: boolean;
+}) {
   const url = (src || process.env.NEXT_PUBLIC_VOD_SRC || "").trim();
 
   if (!url)
-    return (
+    // 영상 미설정: 편집 화면에서만 자리표시. 실제 페이지에선 렌더 안 함(깨진 검은 박스 방지).
+    return editing ? (
       <div className="fn-bleed my-4 grid aspect-video place-items-center bg-black text-sm font-medium text-white/50">
-        ▶ 강의 영상
+        ▶ 강의 영상 (영상 링크를 입력하세요)
       </div>
-    );
+    ) : null;
 
   const embed = toEmbedUrl(url);
   if (embed)
