@@ -29,7 +29,7 @@ export type FunnelProps = {
     subtitle: string;
     height: "tall" | "medium" | "short";
   };
-  Image: { image: string; alt: string; fullBleed: boolean; ratio: "auto" | "square" | "wide" | "portrait" };
+  Image: { image: string; alt: string; fullBleed: boolean; flushTop?: boolean; ratio: "auto" | "square" | "wide" | "portrait" };
   Video: { src: string; poster: string };
   Heading: { text: string; level: 1 | 2 | 3; align: "left" | "center"; eyebrow: string };
   Text: { text: string; align: "left" | "center"; style: "body" | "lead" | "bubble" };
@@ -182,6 +182,13 @@ export const config: Config<FunnelProps, RootProps> = {
             { label: "여백 유지", value: false },
           ],
         },
+        flushTop: {
+          type: "radio",
+          options: [
+            { label: "상단 배너 (상단바에 딱 붙임)", value: true },
+            { label: "일반 (위아래 여백)", value: false },
+          ],
+        },
         ratio: {
           type: "select",
           options: [
@@ -192,8 +199,8 @@ export const config: Config<FunnelProps, RootProps> = {
           ],
         },
       },
-      defaultProps: { image: "", alt: "", fullBleed: true, ratio: "auto" },
-      render: ({ image, alt, fullBleed, ratio, puck }) => {
+      defaultProps: { image: "", alt: "", fullBleed: true, flushTop: false, ratio: "auto" },
+      render: ({ image, alt, fullBleed, flushTop, ratio, puck }) => {
         const r =
           ratio === "square"
             ? "aspect-square"
@@ -202,7 +209,9 @@ export const config: Config<FunnelProps, RootProps> = {
               : ratio === "portrait"
                 ? "aspect-[4/5]"
                 : "";
-        const wrap = `my-5 overflow-hidden ${fullBleed ? "fn-bleed" : "rounded-2xl"}`;
+        // 상단 배너: 루트 래퍼의 위 패딩(py-4=16px)까지 상쇄해 상단바에 딱 붙임
+        const spacing = flushTop ? "-mt-4 mb-6" : "my-5";
+        const wrap = `${spacing} overflow-hidden ${fullBleed ? "fn-bleed" : "rounded-2xl"}`;
         if (!image)
           // 빈 이미지 블록은 편집 화면에서만 자리표시. 실제 페이지에선 렌더 안 함.
           return puck?.isEditing ? (
