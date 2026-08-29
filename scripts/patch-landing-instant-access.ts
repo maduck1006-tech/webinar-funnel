@@ -53,14 +53,17 @@ function patch(data: PageData): boolean {
     }
   }
 
-  // 마지막 LeadForm 과 그 직전 Heading 을 대상으로
-  const formIdx = content.map((b) => b.type).lastIndexOf("LeadForm");
-  if (formIdx !== -1) {
-    const form = content[formIdx];
-    if (form.props.note !== FORM_NOTE) {
-      form.props.note = FORM_NOTE;
+  // 모든 LeadForm note 를 즉시성 문구로
+  for (const b of content) {
+    if (b.type === "LeadForm" && b.props.note !== FORM_NOTE) {
+      b.props.note = FORM_NOTE;
       changed = true;
     }
+  }
+
+  // 마지막 LeadForm 직전 Heading + how 블록 삽입 기준점
+  const formIdx = content.map((b) => b.type).lastIndexOf("LeadForm");
+  if (formIdx !== -1) {
 
     // 직전 Heading eyebrow
     for (let i = formIdx - 1; i >= 0; i--) {
