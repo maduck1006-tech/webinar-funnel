@@ -29,9 +29,9 @@ export const defaultPages: Record<string, FunnelData> = {
         props: {
           id: "hero",
           image: "",
-          eyebrow: "무료 온라인 웨비나",
+          eyebrow: "무료 웨비나 · 신청 즉시 시청 가능",
           title: "3시간이면 이해되는\n실전 강의",
-          subtitle: "광고에서 약속한 그 내용,\n신청 즉시 바로 확인하실 수 있습니다.",
+          subtitle: "광고에서 약속한 그 내용,\n신청하면 다음 화면에서 바로 재생됩니다.",
           height: "tall",
         },
       },
@@ -64,8 +64,20 @@ export const defaultPages: Record<string, FunnelData> = {
         },
       },
       {
+        type: "Bullets",
+        props: {
+          id: "how",
+          title: "신청하면 이렇게 진행돼요",
+          items: [
+            { text: "이메일 입력하고 무료 신청 (10초)" },
+            { text: "다음 화면에서 강의 즉시 재생 — 대기·승인 없음" },
+            { text: "48시간 동안 무제한 반복 시청" },
+          ],
+        },
+      },
+      {
         type: "Heading",
-        props: { id: "h2", eyebrow: "", text: "지금 무료로 신청하세요", level: 2, align: "center" },
+        props: { id: "h2", eyebrow: "이메일 인증·대기 없음", text: "지금 무료로 신청하세요", level: 2, align: "center" },
       },
       {
         type: "LeadForm",
@@ -73,7 +85,7 @@ export const defaultPages: Record<string, FunnelData> = {
           id: "form",
           headline: "",
           submitLabel: "무료 강의 신청하기",
-          note: "10초면 신청 완료 · 스팸 없음",
+          note: "신청하면 다음 화면에서 바로 재생 · 48시간 무제한",
           nextPath: "/thankyou",
           sticky: true,
         },
