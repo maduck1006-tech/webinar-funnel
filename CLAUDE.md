@@ -1,1 +1,46 @@
-@AGENTS.md
+
+## 프로젝트
+웨비나 기반 세일즈 퍼널. **멀티 캠페인**(캠페인마다 랜딩페이지 세트). Next.js(App Router) + Puck + Drizzle/Postgres.
+설계 문서: docs/multi-campaign-plan.md
+
+- 캠페인 = 웨비나 오퍼 한 벌. `campaigns` 테이블, slug 로 식별. 기본 캠페인(is_default)은 `/` 로 서빙, 나머지는 `/{slug}/...`
+- 사용자 퍼널: /(landing) → /thankyou → /vod → /booking  (또는 /{slug}, /{slug}/vod ...)
+- page_type: landing|thankyou|vod|booking. `campaign_pages`(campaign_id + page_type + version + published + Puck data)
+- FunnelPage({campaign, pageType}): src/components/funnel-views.tsx 의 LandingView/ThankYouView/VodView/BookingView 가 캠페인 해석해 넘김. metadata 로 basePath·campaignId·vodSrc·checkoutUrl·카운트다운 주입
+- 캠페인 해석: src/lib/campaign.ts (getDefaultCampaign, resolveCampaignSlug, getCampaignPageData, campaignBasePath). slug redirect 테이블 campaign_slug_redirects
+- 상품: 전역 풀 products + campaign_products 매핑(placement). getActiveOffer(campaignId, placement)
+- 마이그레이션: npm run migrate:campaigns (재실행 안전). 기존 funnel_pages → main 캠페인, _template 캠페인 생성
+- 관리자: /admin/campaigns(목록), /[id](허브), /[id]/settings(영상·캘린더·카운트다운·픽셀·상품매핑), /new(복제). 빌더 /admin/builder/[campaignId]/[pageType]. API /api/campaigns/[id]/pages/[type]
+- 대시보드·CRM·주문에 캠페인 필터(?campaign=id). src/components/CampaignFilter.tsx, listCampaigns()
+- 문자: src/lib/campaign-messages.ts resolveTrigger(campaignId,trigger) = campaign_messages 오버라이드 → automation_triggers 전역. renderCampaignMessage 가 basePath 붙인 링크 + 템플릿 변수치환({이름}{링크}{예약링크}{상품명}{마감시각}). 크론·웹훅이 사용. /admin/automation?campaign= 에서 캠페인별 편집(전역 기본값 vs 캠페인 전용)
+- 추적: campaigns.metaPixelId/ga4MeasurementId → src/components/CampaignTracking.tsx (FunnelPage 에서 렌더). src/lib/track.ts track(event) = fbq+gtag. LeadForm 제출=lead, CTAButton 결제클릭=checkout_start, /vod?paid=1 =purchase(PaidTracker). 결제후 리다이렉트 기본값 /{slug}/vod?paid=1
+- 웹훅 상품매칭: lead 캠페인의 campaign_products 우선
+- 결제: 래피드(Latpeed) 웹훅 /api/latpeed/webhook. 서명 스펙 불명확 → verifyLatpeedSignature 가 HMAC 4포맷+공유토큰 자동시도, 통과 방식은 webhook_events.error 에 "verified: ..." 로 기록
+- 상품 결제 연결: products.latpeedCheckoutUrl(관리자 폼 라벨 "결제 페이지 URL", 상품목록에 "결제 연결" 배지). CTA href 를 "{{checkout}}" 로 두면 funnel-offer.ts 가 활성상품 URL 을 Render metadata.checkoutUrl 로 주입. Price 블록 price/compareAt 0 이면 상품값 사용. 웹훅 없이 CTA 연결만으로 운영 가능(래피드 자체 감사문자)
+- lead 연속성: /api/leads 가 fnl 쿠키 설정, resolveLeadId(src/lib/lead.ts)가 ?l= 없으면 쿠키 폴백. 래피드 결제후 리다이렉트는 /vod 로 설정
+- 연동 설정 화면: /admin/settings (솔라피 테스트발송 버튼, 되는시간 가이드, 웹훅 URL, env 체크리스트, 상품 연결). 솔라피 테스트: (dash)/settings/actions.ts sendTestSms
+- 되는시간 임베드: BookingView 가 lead 이름·이메일·전화를 URL 파라미터(?name=&email=&phone=)로 붙여 예약폼 프리필
+- 솔라피 연결됨(.env.local + Vercel). sendSms 에 SOLAPI_DRY_RUN 플래그(테스트는 이걸로 실행 → 실발송 방지)
+- /vod?paid=1: PaidTracker 가 광고 픽셀 Purchase 만 발화(서버 DB 기록 없음 - 래피드 자체 추적으로 충분)
+- 되는시간 웹훅: /api/whattime/webhook?token=WHATTIME_WEBHOOK_SECRET. schedule_created→lead booked(이메일/전화 매칭), schedule_canceled→revert. webhook_events(provider=whattime) 로그. API키(WHATTIME_API_KEY, GET /reservations)는 미사용
+- CRM: 솔라피 문자, 리마인더 크론 /api/cron/reminders (24h/36h/47h). signup_confirm=신청 즉시(/api/leads after()), pre_payment_nudge 기본 0.5h. campaign-messages.ts sendTriggerOnce(dedup+log+send) 헬퍼. 변수 {다운로드링크}=campaigns.download_url(없으면 시청링크)
+- 여정 지도: /admin/journey (vod-e7 작업, 퍼널+문자 통합 타임라인). CRM 문구 seed: npm run 없음 → tsx scripts/seed-crm-templates.ts
+- 스키마: src/db/schema.ts / 마이그레이션: npm run db:push
+- 랜딩 A/B: campaigns.ab_landing + campaign_pages.variant('a'|'b') + leads.landing_variant. middleware 가 랜딩 진입 시 abv 쿠키 50:50 지정(sticky), FunnelPage variant prop. 시작/종료 src/app/admin/(dash)/campaigns/actions.ts startAbTest/endAbTest. 캠페인 허브에서 A vs B 전환율 + 채택
+- 인증(Clerk), Mux VOD는 P2
+- 개발용 화면 오버뷰: /preview (프로덕션 비활성), ?preview=1 로 VOD 게이팅 우회
+- DB: Neon 연결됨, npm run db:push / npm run seed (샘플 데이터). Clerk/Mux/Sentry는 약관 수락 후 vercel integration add
+- 관리자 화면: /admin(대시보드), /admin/flow(퍼널 흐름도), /admin/products, /admin/crm[+/[id]], /admin/automation, /admin/orders, /admin/builder/[slug]
+- 퍼널 흐름도: @xyflow/react, 페이지 노드(라이브 iframe) + 이동 연결 편집. PATCH /api/funnel/[slug]/link 로 블록 href/nextPath 수정+발행. flow-types.ts(클라 안전) / flow.ts(server-only) 분리
+- 사용자 퍼널 디자인: 국내 웨비나 랜딩 스타일. globals.css .funnel-theme(다크 기본)/.funnel-theme-light, --fn-* 토큰, --fn-accent(#ff3d2e). 풀블리드는 .fn-bleed(--fn-pad)
+- Puck 블록: Hero(풀블리드 이미지+가독성용 다크 그라디언트 오버레이) / Image(fullBleed·ratio) / Heading / Text(body·lead·bubble) / Bullets(번호 리스트) / CTAButton / Countdown / Price / LeadForm / Video. root props: theme·topbarText·topbarCtaLabel/Href
+- config.root.render 가 .funnel-theme 래핑 → 에디터 캔버스에도 다크 테마/토큰 적용됨. FunnelPage는 topbar/footer만 담당
+- 이미지 업로드: Vercel Blob(webinar-funnel-media, BLOB_READ_WRITE_TOKEN). POST /api/upload. Puck 커스텀필드 src/puck/fields/ImageField.tsx, 관리자폼 src/components/ImagePicker.tsx
+- 관리자도 사용자 퍼널과 통일된 다크 테마. globals.css .admin-theme 래퍼가 --fn-* 토큰 + raw 엘리먼트/유틸리티(bg-white·text-zinc-*·border·input 등)를 재매핑, (dash)/layout.tsx 에서 적용. 상품에 imageUrl 컬럼 추가
+- 관리자 공용 UI: src/components/admin-ui.tsx. 사이드바 레이아웃은 src/app/admin/(dash)/layout.tsx (라우트그룹). builder는 (dash) 밖이라 사이드바 없이 Puck 풀스크린
+- 서버 액션: 각 admin 폴더 actions.ts
+- 관리자 인증: Clerk. src/middleware.ts clerkMiddleware 가 /admin·/api/campaigns·/api/crm·/api/upload·/preview 보호(auth.protect). /admin/sign-in 예외. src/app/admin/layout.tsx = ClerkProvider + ADMIN_EMAILS 허용목록. 사이드바 UserButton. 공개: 퍼널·/api/leads·/api/latpeed/webhook·/api/cron/*
+- 미리보기 게이트: src/lib/preview.ts (VERCEL_ENV==='production'에서만 차단). /preview, ?preview=1
+- 테스트: npm run test:webhook / test:cron (dev 서버 필요, LATPEED_WEBHOOK_SECRET·CRON_SECRET 필요)
+- VOD 카운트다운: /vod 가 lead.vodExpiresAt를 Render metadata.vodDeadlineIso로 주입, Countdown 블록이 사용
+- 에러 리포팅: src/lib/report.ts + src/instrumentation.ts (Sentry 자리, 현재 구조화 로그만)

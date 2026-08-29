@@ -3,24 +3,228 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* 관리자(라이트) 토큰 */
+  --brand: #4f46e5;
+  --brand-hover: #4338ca;
+  --brand-soft: #eef2ff;
+  --ink: #0f172a;
+  --muted: #64748b;
+  --line: #e2e8f0;
+  --surface: #ffffff;
+  --page: #f6f7fb;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --color-brand: var(--brand);
+  --color-brand-soft: var(--brand-soft);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-accent: var(--fn-accent);
+  --font-sans: var(--font-sans-kr), var(--font-geist-sans), system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  -webkit-text-size-adjust: 100%;
 }
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans-kr), var(--font-geist-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+::selection {
+  background: var(--fn-accent, #4f46e5);
+  color: #fff;
+}
+
+/* =========================================================
+   퍼널(사용자) 페이지 — 국내 웨비나 랜딩 스타일
+   기본 다크. .funnel-theme-light 로 라이트 전환.
+   ========================================================= */
+.funnel-theme {
+  --fn-accent: #ff3d2e;
+  --fn-accent-2: #ff8a00;
+  --fn-bg: #0b0b0d;
+  --fn-bg-2: #141417;
+  --fn-card: #17171b;
+  --fn-line: #26262c;
+  --fn-ink: #f5f5f6;
+  --fn-sub: #a3a3ad;
+  --fn-field: #1e1e23;
+}
+.funnel-theme-light {
+  --fn-accent: #ff3d2e;
+  --fn-accent-2: #ff8a00;
+  --fn-bg: #ffffff;
+  --fn-bg-2: #f6f6f7;
+  --fn-card: #ffffff;
+  --fn-line: #e6e6e9;
+  --fn-ink: #17171b;
+  --fn-sub: #6b6b76;
+  --fn-field: #ffffff;
+}
+
+.funnel-shell {
+  min-height: 100dvh;
+  background: var(--fn-bg);
+  color: var(--fn-ink);
+}
+/* 본문 좌우 여백을 뚫고 나가는 풀블리드 요소 */
+.fn-bleed {
+  margin-left: calc(var(--fn-pad) * -1);
+  margin-right: calc(var(--fn-pad) * -1);
+  width: calc(100% + var(--fn-pad) * 2);
+}
+
+@keyframes fn-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.fn-in {
+  animation: fn-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* 스크롤 시 상단 고정 CTA/카운트다운 바 */
+.fn-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: color-mix(in srgb, var(--fn-bg) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--fn-line);
+}
+
+/* =========================================================
+   관리자(어드민) — 사용자 퍼널과 통일된 다크 테마
+   .admin-theme 래퍼가 토큰 + raw 엘리먼트/유틸리티를 재매핑한다.
+   ========================================================= */
+.admin-theme {
+  --fn-accent: #ff3d2e;
+  --fn-accent-2: #ff8a00;
+  --fn-bg: #0b0b0d;
+  --fn-bg-2: #141417;
+  --fn-card: #17171b;
+  --fn-line: #26262c;
+  --fn-ink: #f5f5f6;
+  --fn-sub: #a3a3ad;
+  --fn-field: #1e1e23;
+
+  background: var(--fn-bg);
+  color: var(--fn-ink);
+}
+
+.admin-theme ::selection {
+  background: var(--fn-accent);
+  color: #fff;
+}
+
+/* --- 구조 색상 --- */
+.admin-theme .border,
+.admin-theme .border-b,
+.admin-theme .border-r,
+.admin-theme .border-t,
+.admin-theme .border-l {
+  border-color: var(--fn-line) !important;
+}
+.admin-theme .divide-y > * + * {
+  border-color: var(--fn-line) !important;
+}
+
+/* --- 서피스 --- */
+.admin-theme .bg-white {
+  background-color: var(--fn-card) !important;
+}
+.admin-theme .bg-zinc-50,
+.admin-theme .bg-zinc-100 {
+  background-color: var(--fn-bg-2) !important;
+}
+.admin-theme .bg-zinc-800,
+.admin-theme .bg-black {
+  background-color: var(--fn-accent) !important;
+  color: #fff !important;
+}
+.admin-theme .hover\:bg-zinc-50:hover,
+.admin-theme .hover\:bg-zinc-100:hover {
+  background-color: var(--fn-bg-2) !important;
+}
+.admin-theme .hover\:text-zinc-900:hover {
+  color: var(--fn-ink) !important;
+}
+
+/* --- 텍스트 --- */
+.admin-theme .text-zinc-900,
+.admin-theme .text-zinc-800,
+.admin-theme .text-zinc-700 {
+  color: var(--fn-ink) !important;
+}
+.admin-theme .text-zinc-600,
+.admin-theme .text-zinc-500,
+.admin-theme .text-zinc-400 {
+  color: var(--fn-sub) !important;
+}
+.admin-theme .text-blue-600,
+.admin-theme .text-blue-700 {
+  color: var(--fn-accent) !important;
+}
+
+/* --- 폼 요소 --- */
+.admin-theme input,
+.admin-theme select,
+.admin-theme textarea {
+  background-color: var(--fn-field) !important;
+  border-color: var(--fn-line) !important;
+  color: var(--fn-ink) !important;
+}
+.admin-theme input::placeholder,
+.admin-theme textarea::placeholder {
+  color: color-mix(in srgb, var(--fn-sub) 70%, transparent);
+}
+.admin-theme option {
+  background-color: var(--fn-field);
+  color: var(--fn-ink);
+}
+
+/* --- 상태 뱃지: 어두운 배경 톤으로 --- */
+.admin-theme .bg-amber-50,
+.admin-theme .bg-amber-100 {
+  background-color: color-mix(in srgb, #f59e0b 18%, transparent) !important;
+}
+.admin-theme .bg-green-100 {
+  background-color: color-mix(in srgb, #22c55e 18%, transparent) !important;
+}
+.admin-theme .bg-red-100 {
+  background-color: color-mix(in srgb, #ef4444 18%, transparent) !important;
+}
+.admin-theme .bg-blue-100 {
+  background-color: color-mix(in srgb, #3b82f6 20%, transparent) !important;
+}
+.admin-theme .text-amber-600,
+.admin-theme .text-amber-700 {
+  color: #fbbf24 !important;
+}
+.admin-theme .text-green-700 {
+  color: #4ade80 !important;
+}
+.admin-theme .text-red-700 {
+  color: #f87171 !important;
+}
+
+/* --- 코드 --- */
+.admin-theme code {
+  background-color: var(--fn-bg-2);
+  border: 1px solid var(--fn-line);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  font-size: 0.9em;
 }
