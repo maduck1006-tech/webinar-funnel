@@ -19,7 +19,9 @@ function envSet(key: string) {
 export default async function SettingsPage() {
   const site =
     process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
-    "https://도메인미설정";
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : "https://도메인미설정");
   const webhookUrl = `${site}/api/latpeed/webhook`;
 
   const defaultCampaign = await getDefaultCampaign();

@@ -14,7 +14,11 @@ function service() {
   return _service;
 }
 
-const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+const SITE =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : "");
 
 /**
  * 트리거별 문자 본문. 알림톡 템플릿 승인 후에는 templateId 방식으로 교체.

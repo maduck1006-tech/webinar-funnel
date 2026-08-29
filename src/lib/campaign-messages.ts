@@ -13,7 +13,13 @@ import { renderMessage, sendSms } from "@/lib/solapi";
 
 type Trigger = (typeof messageTrigger.enumValues)[number];
 
-const SITE = (process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
+/** 문자 링크용 절대 도메인. env 미설정 시 Vercel 프로덕션 도메인으로 폴백 */
+const SITE = (
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : "")
+).replace(/\/$/, "");
 
 export type ResolvedTrigger = {
   enabled: boolean;
