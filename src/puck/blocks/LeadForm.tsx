@@ -79,10 +79,21 @@ export function LeadForm({
     setError(null);
     const fd = new FormData(e.currentTarget);
     const utm: Record<string, string> = {};
+    const cookie = (n: string) =>
+      typeof document !== "undefined"
+        ? document.cookie.match(new RegExp(`(?:^|;\\s*)${n}=([^;]+)`))?.[1]
+        : undefined;
+    let fbclid: string | undefined;
+    let landingUrl: string | undefined;
+    let referrer: string | undefined;
     if (typeof window !== "undefined") {
-      new URLSearchParams(window.location.search).forEach((v, k) => {
+      const q = new URLSearchParams(window.location.search);
+      q.forEach((v, k) => {
         if (k.startsWith("utm_")) utm[k] = v;
       });
+      fbclid = q.get("fbclid") ?? undefined;
+      landingUrl = window.location.href.slice(0, 500);
+      referrer = document.referrer ? document.referrer.slice(0, 300) : undefined;
     }
     try {
       const res = await fetch("/api/leads", {
@@ -94,11 +105,16 @@ export function LeadForm({
           email: fd.get("email"),
           phone: fd.get("phone"),
           utm,
+          fbclid,
+          fbc: cookie("_fbc"),
+          fbp: cookie("_fbp"),
+          landingUrl,
+          referrer,
         }),
       });
       if (!res.ok) throw new Error("submit failed");
       const { leadId } = await res.json();
-      track("lead");
+      track("lead", {}, leadId ? `lead.${leadId}` : undefined);
       router.push(`${nextPath}?l=${leadId}`);
     } catch {
       setError("잠시 후 다시 시도해 주세요.");

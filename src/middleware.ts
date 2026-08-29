@@ -1,5 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { getAbLandingState } from "@/lib/campaign";
 
 export const runtime = "nodejs";
@@ -17,6 +17,37 @@ const isAdmin = createRouteMatcher([
   "/api/upload",
   "/preview",
 ]);
+
+/**
+ * 최초 광고 진입의 클릭 식별자를 90일 쿠키로 고정한다.
+ * - _fbc: Meta 표준 포맷(fb.1.<ts>.<fbclid>). 픽셀보다 먼저/확실하게 심는다.
+ * - _ft : first-touch 원본(JSON) — utm_*, fbclid, ref, lp, ts. 리드 생성 시 병합.
+ * 이미 있으면 덮어쓰지 않는다(first-touch 유지).
+ */
+function applyFirstTouch(req: NextRequest, res: NextResponse) {
+  const url = req.nextUrl;
+  const fbclid = url.searchParams.get("fbclid");
+  const cookies = req.cookies;
+  const opts = { path: "/", maxAge: 60 * 60 * 24 * 90, sameSite: "lax" as const };
+
+  if (fbclid && !cookies.get("_fbc")) {
+    res.cookies.set("_fbc", `fb.1.${Date.now()}.${fbclid}`, opts);
+  }
+  if (!cookies.get("_ft")) {
+    const ft: Record<string, string> = {};
+    url.searchParams.forEach((v, k) => {
+      if (k.startsWith("utm_") || k === "gclid" || k === "ttclid") ft[k] = v;
+    });
+    if (fbclid) ft.fbclid = fbclid;
+    const ref = req.headers.get("referer");
+    if (ref && !ref.includes(url.host)) ft.ref = ref.slice(0, 300);
+    ft.lp = url.pathname;
+    ft.ts = String(Date.now());
+    if (Object.keys(ft).length > 2) {
+      res.cookies.set("_ft", JSON.stringify(ft).slice(0, 900), opts);
+    }
+  }
+}
 
 export default clerkMiddleware(async (auth, req) => {
   const path = req.nextUrl.pathname;
@@ -42,11 +73,14 @@ export default clerkMiddleware(async (auth, req) => {
         maxAge: 60 * 60 * 24 * 30,
         sameSite: "lax",
       });
+      applyFirstTouch(req, res);
       return res;
     }
   }
 
-  return NextResponse.next();
+  const res = NextResponse.next();
+  applyFirstTouch(req, res);
+  return res;
 });
 
 export const config = {

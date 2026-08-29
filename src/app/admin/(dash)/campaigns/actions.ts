@@ -103,6 +103,13 @@ export async function updateCampaign(fd: FormData) {
     return v ? Number(String(v).replace(/[^\d]/g, "")) : null;
   };
   const str = (k: string) => String(fd.get(k) ?? "").trim() || null;
+  const list = (k: string) => {
+    const v = String(fd.get(k) ?? "")
+      .split(/[\s,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return v.length ? v : null;
+  };
 
   const newSlug = String(fd.get("slug") ?? "").trim().toLowerCase();
   const [cur] = await db.select().from(campaigns).where(eq(campaigns.id, id));
@@ -139,6 +146,8 @@ export async function updateCampaign(fd: FormData) {
       metaPixelId: str("metaPixelId"),
       ga4MeasurementId: str("ga4MeasurementId"),
       defaultUtmCampaign: str("defaultUtmCampaign"),
+      metaAdAccountId: str("metaAdAccountId")?.replace(/^act_/, "") ?? null,
+      metaAdCampaignIds: list("metaAdCampaignIds"),
       updatedAt: new Date(),
     })
     .where(eq(campaigns.id, id));

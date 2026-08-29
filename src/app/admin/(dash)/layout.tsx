@@ -11,6 +11,7 @@ const nav = [
   { href: "/admin/journey", label: "여정 지도" },
   { href: "/admin/automation", label: "자동화" },
   { href: "/admin/orders", label: "결제/주문" },
+  { href: "/admin/analytics", label: "광고 성과" },
   { href: "/admin/settings", label: "연동 설정" },
 ];
 

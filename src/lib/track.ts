@@ -26,14 +26,16 @@ type Params = {
   [k: string]: unknown;
 };
 
-export function track(event: TrackEvent, params: Params = {}) {
+export function track(event: TrackEvent, params: Params = {}, eventId?: string) {
   if (typeof window === "undefined") return;
   const w = window as unknown as {
     fbq?: (...a: unknown[]) => void;
     gtag?: (...a: unknown[]) => void;
   };
   try {
-    w.fbq?.("track", META_MAP[event], params);
+    // 4번째 인자 eventID → 서버 Conversions API 와 중복 제거
+    if (eventId) w.fbq?.("track", META_MAP[event], params, { eventID: eventId });
+    else w.fbq?.("track", META_MAP[event], params);
   } catch {
     /* noop */
   }
@@ -45,7 +47,12 @@ export function track(event: TrackEvent, params: Params = {}) {
 }
 
 /** sessionStorage 로 1회만 발화 (예: 결제 리다이렉트 Purchase) */
-export function trackOnce(key: string, event: TrackEvent, params: Params = {}) {
+export function trackOnce(
+  key: string,
+  event: TrackEvent,
+  params: Params = {},
+  eventId?: string,
+) {
   if (typeof window === "undefined") return;
   try {
     if (sessionStorage.getItem(key)) return;
@@ -53,5 +60,5 @@ export function trackOnce(key: string, event: TrackEvent, params: Params = {}) {
   } catch {
     /* 프라이빗 모드 등 — 그냥 발화 */
   }
-  track(event, params);
+  track(event, params, eventId);
 }

@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { and, desc, eq, or } from "drizzle-orm";
 import { db } from "@/db";
-import { leads, orders, webhookEvents } from "@/db/schema";
+import { campaigns, leads, orders, webhookEvents } from "@/db/schema";
 import { normalizePhone } from "@/lib/latpeed";
 import { reportError } from "@/lib/report";
+import { sendMetaEvent } from "@/lib/meta-capi";
 
 export const runtime = "nodejs";
 
@@ -109,6 +110,37 @@ export async function POST(req: Request) {
           .update(leads)
           .set({ status: "booked", updatedAt: new Date() })
           .where(eq(leads.id, lead.id));
+
+        // Meta Conversions API — Schedule (상담 예약 확정)
+        let pixelId: string | null | undefined;
+        if (lead.campaignId) {
+          const [c] = await db
+            .select({ metaPixelId: campaigns.metaPixelId })
+            .from(campaigns)
+            .where(eq(campaigns.id, lead.campaignId));
+          pixelId = c?.metaPixelId;
+        }
+        try {
+          await sendMetaEvent({
+            pixelId,
+            eventName: "Schedule",
+            eventId: `schedule.${schedule.code ?? lead.id}`,
+            actionSource: "system_generated",
+            eventSourceUrl: lead.landingUrl ?? undefined,
+            user: {
+              email: lead.email,
+              phone: lead.phone,
+              firstName: lead.name ?? undefined,
+              fbc: lead.fbc,
+              fbp: lead.fbp,
+              clientIp: lead.clientIp,
+              clientUa: lead.clientUa,
+              externalId: lead.id,
+            },
+          });
+        } catch {
+          /* CApI 실패가 예약 처리를 막지 않음 */
+        }
       }
     } else if (canceled && lead.status === "booked") {
       const [paid] = await db

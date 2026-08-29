@@ -125,6 +125,24 @@ export default async function CampaignSettings({
               name="defaultUtmCampaign"
               defaultValue={c.defaultUtmCampaign ?? c.slug}
             />
+            <F
+              label="Meta 광고 계정 ID (숫자만 · 비우면 전역 기본값)"
+              name="metaAdAccountId"
+              defaultValue={c.metaAdAccountId ?? ""}
+              mono
+            />
+            <label className="block">
+              <span className="mb-1 block text-xs text-zinc-500">
+                Meta 광고 캠페인 ID (쉼표/줄바꿈 구분 · 비우면 계정 전체
+                광고비를 기본 캠페인에 귀속)
+              </span>
+              <textarea
+                name="metaAdCampaignIds"
+                rows={2}
+                defaultValue={(c.metaAdCampaignIds ?? []).join(", ")}
+                className="w-full rounded-md border px-2 py-1 font-mono text-xs"
+              />
+            </label>
 
             <button className="mt-2 w-full rounded-lg bg-black py-2 font-semibold text-white">
               저장

@@ -67,6 +67,10 @@ export default async function SettingsPage() {
     { key: "NEXT_PUBLIC_SITE_URL", label: "사이트 도메인" },
     { key: "LATPEED_WEBHOOK_SECRET", label: "래피드 웹훅 시크릿 (선택)" },
     { key: "NEXT_PUBLIC_VOD_SRC", label: "VOD 기본 영상 (선택·캠페인별 우선)" },
+    { key: "META_ACCESS_TOKEN", label: "Meta 시스템 사용자 토큰 (광고지표+CApI)" },
+    { key: "META_AD_ACCOUNT_ID", label: "Meta 광고 계정 ID (숫자)" },
+    { key: "META_CAPI_TOKEN", label: "Meta CApI 전용 토큰 (선택·없으면 위 토큰)" },
+    { key: "META_CAPI_TEST_CODE", label: "Meta CApI 테스트 코드 (검증용·평시 비움)" },
   ];
 
   return (

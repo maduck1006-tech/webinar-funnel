@@ -98,6 +98,10 @@ export const campaigns = pgTable(
     // 추적
     metaPixelId: text("meta_pixel_id"),
     ga4MeasurementId: text("ga4_measurement_id"),
+    /** Meta 광고 지표 수집: 계정 ID(act_ 접두 없이 숫자). 비우면 env META_AD_ACCOUNT_ID */
+    metaAdAccountId: text("meta_ad_account_id"),
+    /** 이 캠페인에 귀속할 Meta 광고 캠페인 ID 목록. 비우면(기본 캠페인 한정) 계정 전체 광고비 귀속 */
+    metaAdCampaignIds: jsonb("meta_ad_campaign_ids").$type<string[]>(),
     googleAds: jsonb("google_ads").$type<{
       conversionId?: string;
       labels?: { lead?: string; purchase?: string; booking?: string };
@@ -140,8 +144,18 @@ export const leads = pgTable(
     status: leadStatus("status").notNull().default("applied"),
     /** 개인정보 수집·이용 동의 시각 (null = 동의 도입 전 리드) */
     consentAt: timestamp("consent_at", { withTimezone: true }),
-    /** 광고 유입 추적 (PRD Open Q9) */
+    /** 광고 유입 추적 (PRD Open Q9). first-touch utm 병합 저장 */
     utm: jsonb("utm").$type<Record<string, string>>(),
+    /** Meta 클릭 식별자 — CApI user_data + 광고 귀속용 */
+    fbc: text("fbc"),
+    fbp: text("fbp"),
+    fbclid: text("fbclid"),
+    /** CApI user_data (해싱 전 원본은 저장 안 함, IP/UA 는 필요) */
+    clientIp: text("client_ip"),
+    clientUa: text("client_ua"),
+    /** 최초 진입 URL / 리퍼러 (귀속 디버깅) */
+    landingUrl: text("landing_url"),
+    referrer: text("referrer"),
     firstWatchedAt: timestamp("first_watched_at", { withTimezone: true }),
     /** DB 입력 시점 + 48h. 시청 만료 판정에 사용 */
     vodExpiresAt: timestamp("vod_expires_at", { withTimezone: true }).notNull(),
@@ -218,6 +232,35 @@ export const webhookEvents = pgTable("webhook_events", {
     .notNull()
     .defaultNow(),
 });
+
+/**
+ * 광고 플랫폼 일자별 지표 (Meta Marketing API insights). 크론이 upsert.
+ * spend 는 광고 계정 통화 그대로(원 가정) 반올림 정수.
+ */
+export const adDailyStats = pgTable(
+  "ad_daily_stats",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    /** YYYY-MM-DD (광고 계정 타임존 기준) */
+    date: text("date").notNull(),
+    source: text("source").notNull().default("meta"),
+    impressions: integer("impressions").notNull().default(0),
+    clicks: integer("clicks").notNull().default(0),
+    spend: integer("spend").notNull().default(0),
+    reach: integer("reach").notNull().default(0),
+    raw: jsonb("raw"),
+    syncedAt: timestamp("synced_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("ad_daily_stats_key").on(t.campaignId, t.date, t.source),
+    index("ad_daily_stats_date_idx").on(t.date),
+  ],
+);
 
 /** 솔라피 발송 로그 (PRD 6.5) */
 export const messageLogs = pgTable(

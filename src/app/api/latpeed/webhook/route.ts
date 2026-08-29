@@ -3,11 +3,13 @@ import { desc, eq, or } from "drizzle-orm";
 import { db } from "@/db";
 import {
   campaignProducts,
+  campaigns,
   leads,
   orders,
   products,
   webhookEvents,
 } from "@/db/schema";
+import { sendMetaEvent } from "@/lib/meta-capi";
 import {
   latpeedWebhookSchema,
   normalizePhone,
@@ -151,12 +153,50 @@ async function handlePayment(
     });
 
   if (payment.status === "SUCCESS" && lead) {
+    const alreadyPurchased = lead.status === "purchased";
     // 4단계 접근 권한은 lead.status 로 관리 (웹훅 기반 자동 부여)
     await db
       .update(leads)
       .set({ status: "purchased", updatedAt: new Date() })
       .where(eq(leads.id, lead.id));
     // 결제완료 문자는 발송하지 않음 (래피드 자체 감사문자로 충분)
+
+    // Meta Conversions API — Purchase (중복 웹훅이면 스킵, 픽셀과 event_id 공유)
+    if (!alreadyPurchased) {
+      let pixelId: string | null | undefined;
+      if (lead.campaignId) {
+        const [c] = await db
+          .select({ metaPixelId: campaigns.metaPixelId })
+          .from(campaigns)
+          .where(eq(campaigns.id, lead.campaignId));
+        pixelId = c?.metaPixelId;
+      }
+      try {
+        await sendMetaEvent({
+          pixelId,
+          eventName: "Purchase",
+          eventId: `purchase.lead.${lead.id}`,
+          eventSourceUrl: lead.landingUrl ?? undefined,
+          user: {
+            email: lead.email,
+            phone: lead.phone,
+            firstName: lead.name ?? undefined,
+            fbc: lead.fbc,
+            fbp: lead.fbp,
+            clientIp: lead.clientIp,
+            clientUa: lead.clientUa,
+            externalId: lead.id,
+          },
+          custom: {
+            value: payment.amount,
+            currency: "KRW",
+            content_name: product?.name,
+          },
+        });
+      } catch {
+        /* CApI 실패가 주문 처리를 막지 않음 */
+      }
+    }
   }
 
   // CANCEL(환불) 정책 (PRD Open Q6):

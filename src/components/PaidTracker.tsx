@@ -16,10 +16,12 @@ export function PaidTracker({
 }) {
   useEffect(() => {
     const t = setTimeout(() => {
-      trackOnce(`purchase:${leadId ?? "anon"}`, "purchase", {
-        value: value ?? undefined,
-        currency: "KRW",
-      });
+      trackOnce(
+        `purchase:${leadId ?? "anon"}`,
+        "purchase",
+        { value: value ?? undefined, currency: "KRW" },
+        leadId ? `purchase.lead.${leadId}` : undefined,
+      );
     }, 700);
     return () => clearTimeout(t);
   }, [leadId, value]);
