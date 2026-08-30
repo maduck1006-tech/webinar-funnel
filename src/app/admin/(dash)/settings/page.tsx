@@ -71,6 +71,8 @@ export default async function SettingsPage() {
     { key: "META_AD_ACCOUNT_ID", label: "Meta 광고 계정 ID (숫자)" },
     { key: "META_CAPI_TOKEN", label: "Meta CApI 전용 토큰 (선택·없으면 위 토큰)" },
     { key: "META_CAPI_TEST_CODE", label: "Meta CApI 테스트 코드 (검증용·평시 비움)" },
+    { key: "SMS_QUIET_START", label: "문자 야간 차단 시작 시각 (기본 21)" },
+    { key: "SMS_QUIET_END", label: "문자 야간 차단 종료 시각 (기본 8)" },
   ];
 
   return (
