@@ -182,7 +182,10 @@ export async function sendTriggerOnce(opts: {
       leadId: opts.leadId,
       productName: opts.productName,
     });
-    await sendSms(opts.phone, text);
+    // 신청 직후 확인 문자는 야간이어도 즉시 발송 (사용자가 방금 신청함)
+    await sendSms(opts.phone, text, {
+      immediate: opts.trigger === "signup_confirm",
+    });
     await db
       .update(messageLogs)
       .set({ status: "sent", sentAt: new Date() })

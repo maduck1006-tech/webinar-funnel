@@ -25,7 +25,7 @@
 - 연동 설정 화면: /admin/settings (솔라피 테스트발송 버튼, 되는시간 가이드, 웹훅 URL, env 체크리스트, 상품 연결). 솔라피 테스트: (dash)/settings/actions.ts sendTestSms
 - 되는시간 임베드: BookingView 가 lead 이름·이메일·전화를 URL 파라미터(?name=&email=&phone=)로 붙여 예약폼 프리필
 - 솔라피 연결됨(.env.local + Vercel). sendSms 에 SOLAPI_DRY_RUN 플래그(테스트는 이걸로 실행 → 실발송 방지)
-- 야간 발송 제한: src/lib/solapi.ts scheduledSendTime() 가 KST 기준 SMS_QUIET_START(기본21)~SMS_QUIET_END(기본8) 에 걸리면 다음 아침 08:00 KST 로 Solapi 예약발송(scheduledDate). 즉시발송·리마인더·nudge 전부 sendSms 경유라 일괄 적용. message_logs.sentAt 은 예약 등록시각
+- 야간 발송 제한: src/lib/solapi.ts scheduledSendTime() 가 KST 기준 SMS_QUIET_START(기본0=자정)~SMS_QUIET_END(기본8) 에 걸리면 다음 아침 08:00 KST 로 Solapi 예약발송(scheduledDate). 리마인더·nudge 전부 sendSms 경유라 일괄 적용. 단 signup_confirm(신청 직후)은 sendSms(...,{immediate:true}) 로 야간에도 즉시. message_logs.sentAt 은 예약 등록시각
 - /vod?paid=1: PaidTracker 가 광고 픽셀 Purchase 만 발화(서버 DB 기록 없음 - 래피드 자체 추적으로 충분)
 - 되는시간 웹훅: /api/whattime/webhook?token=WHATTIME_WEBHOOK_SECRET. schedule_created→lead booked(이메일/전화 매칭), schedule_canceled→revert. webhook_events(provider=whattime) 로그. API키(WHATTIME_API_KEY, GET /reservations)는 미사용
 - CRM: 솔라피 문자, 리마인더 크론 /api/cron/reminders (24h/36h/47h). signup_confirm=신청 즉시(/api/leads after()), pre_payment_nudge 기본 0.5h. campaign-messages.ts sendTriggerOnce(dedup+log+send) 헬퍼. 변수 {다운로드링크}=campaigns.download_url(없으면 시청링크)

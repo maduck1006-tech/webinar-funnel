@@ -53,7 +53,7 @@ export function renderMessage(
  * 예: 21시~다음날 8시 사이 요청 → 그날/다음날 08:00 KST 로 예약.
  */
 function quietHours() {
-  const start = Number(process.env.SMS_QUIET_START ?? 21);
+  const start = Number(process.env.SMS_QUIET_START ?? 0);
   const end = Number(process.env.SMS_QUIET_END ?? 8);
   return { start, end };
 }
@@ -89,8 +89,15 @@ export function scheduledSendTime(now = new Date()): string | undefined {
   )} ${p(end)}:00:00`;
 }
 
-export async function sendSms(to: string, text: string) {
-  const scheduledDate = scheduledSendTime();
+/**
+ * @param opts.immediate  야간 차단 무시하고 즉시 발송 (예: 신청 직후 확인 문자)
+ */
+export async function sendSms(
+  to: string,
+  text: string,
+  opts?: { immediate?: boolean },
+) {
+  const scheduledDate = opts?.immediate ? undefined : scheduledSendTime();
   if (process.env.SOLAPI_DRY_RUN === "1" || process.env.SOLAPI_DRY_RUN === "true") {
     console.info(
       `[solapi:dry-run]${scheduledDate ? ` (예약 ${scheduledDate})` : ""} → ${to}: ${text.replace(/\n/g, " ").slice(0, 60)}`,
