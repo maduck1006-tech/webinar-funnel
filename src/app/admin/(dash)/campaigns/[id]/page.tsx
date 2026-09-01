@@ -2,16 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import {
-  adDailyStats,
-  campaignPages,
-  campaigns,
-  leads,
-  messageAutomations,
-  orders,
-} from "@/db/schema";
+import { adDailyStats, campaignPages, campaigns, leads, orders } from "@/db/schema";
 import { Card, PageHeader, Stat, Tag, won } from "@/components/admin-ui";
 import { campaignBasePath } from "@/lib/campaign";
+import { getSetupChecklist } from "@/lib/campaign-setup";
 import {
   ADDABLE_STEPS,
   flowSummary,
@@ -67,16 +61,7 @@ export default async function CampaignHub({
     .where(eq(adDailyStats.campaignId, id))
     .catch(() => [{ spend: 0, clicks: 0 }]);
 
-  const [autoOff] = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(messageAutomations)
-    .where(
-      and(
-        eq(messageAutomations.campaignId, id),
-        eq(messageAutomations.enabled, false),
-      ),
-    )
-    .catch(() => [{ n: 0 }]);
+  const checklist = await getSetupChecklist(campaign).catch(() => null);
 
   const pages = await db
     .select({
@@ -159,18 +144,86 @@ export default async function CampaignHub({
         }
       />
 
-      {Number(autoOff?.n ?? 0) > 0 && (
-        <Link
-          href={`/admin/automation?campaign=${id}`}
-          className="mb-4 flex items-center justify-between rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm"
-        >
-          <span className="text-amber-800">
-            이 퍼널의 자동 메시지 {Number(autoOff.n)}개가 <b>꺼져 있어요</b> — 문구
-            검토하고 켜세요
-          </span>
-          <span className="font-semibold text-amber-700">→</span>
-        </Link>
-      )}
+      {checklist &&
+        (() => {
+          const allDone =
+            checklist.groups
+              .flatMap((g) => g.items)
+              .every((i) => i.done) || false;
+          const reqLeft = checklist.requiredTotal - checklist.requiredDone;
+          return (
+            <details
+              open={!allDone}
+              className="mb-5 rounded-xl border border-zinc-200 bg-white"
+            >
+              <summary className="flex cursor-pointer items-center justify-between px-4 py-3 text-sm font-bold">
+                <span>
+                  퍼널 설정 체크리스트{" "}
+                  {allDone ? (
+                    <span className="text-emerald-600">· 발행 준비 완료 ✓</span>
+                  ) : reqLeft > 0 ? (
+                    <span className="text-amber-600">
+                      · 필수 {reqLeft}개 남음
+                    </span>
+                  ) : (
+                    <span className="text-blue-600">· 발행은 가능 (권장 항목 남음)</span>
+                  )}
+                </span>
+              </summary>
+              <div className="space-y-4 border-t px-4 py-3">
+                {checklist.groups.map((g) => (
+                  <div key={g.title}>
+                    <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-zinc-400">
+                      {g.title}
+                    </p>
+                    <ul className="space-y-1.5">
+                      {g.items.map((it) => (
+                        <li
+                          key={it.id}
+                          className="flex items-start gap-2 text-[13px]"
+                        >
+                          <span
+                            className={
+                              it.done
+                                ? "text-emerald-500"
+                                : it.required
+                                  ? "text-amber-500"
+                                  : "text-zinc-300"
+                            }
+                          >
+                            {it.done ? "✓" : it.required ? "!" : "○"}
+                          </span>
+                          <span className="flex-1">
+                            <span
+                              className={
+                                it.done ? "text-zinc-400 line-through" : "text-zinc-800"
+                              }
+                            >
+                              {it.label}
+                            </span>
+                            {!it.done && it.help && (
+                              <span className="block text-[11px] text-zinc-400">
+                                {it.help}
+                              </span>
+                            )}
+                          </span>
+                          {!it.done && it.href && (
+                            <Link
+                              href={it.href}
+                              className="shrink-0 text-[12px] font-semibold text-blue-600"
+                            >
+                              하러가기 →
+                            </Link>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </details>
+          );
+        })()}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="신청" value={`${Number(m?.leads ?? 0)}건`} />

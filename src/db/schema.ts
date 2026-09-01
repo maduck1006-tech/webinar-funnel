@@ -95,6 +95,8 @@ export const campaigns = pgTable(
     isDefault: boolean("is_default").notNull().default(false),
     /** 새 캠페인 복제 소스로 노출 */
     isTemplate: boolean("is_template").notNull().default(false),
+    /** 생성 시 쓴 퍼널 템플릿 키 (설정 체크리스트용) src/lib/funnel-templates.ts */
+    templateKey: text("template_key"),
     /** 랜딩 A/B 테스트 진행 중 (variant a/b 50:50 분배) */
     abLanding: boolean("ab_landing").notNull().default(false),
 

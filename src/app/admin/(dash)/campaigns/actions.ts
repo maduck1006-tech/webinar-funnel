@@ -48,6 +48,7 @@ export async function createCampaign(fd: FormData) {
       status: "draft",
       funnelType,
       terminalStep,
+      templateKey: template?.key ?? null,
       flow: template
         ? { steps: template.steps.map((pt) => ({ pageType: pt, enabled: true })) }
         : seedFlow({ funnelType, terminalStep }),
