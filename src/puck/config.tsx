@@ -392,8 +392,8 @@ export const config: Config<FunnelProps, RootProps> = {
         sub: { type: "text" },
         href: {
           type: "text",
-          // "{{checkout}}" = 활성 상품 결제 URL · "{{terminal}}" = 캠페인 종착 스텝
-          // "{{groupchat}}" = 캠페인 설정의 단톡방 초대 링크
+          // "{{checkout}}" = 활성 상품 결제 URL · "{{next}}" = 다음 단계 · "{{terminal}}" = 종착 단계
+          // "{{groupchat}}" 단톡방 · "{{download}}" 구매 파일 · "{{live}}" 외부 라이브
         },
         variant: {
           type: "radio",
@@ -411,6 +411,7 @@ export const config: Config<FunnelProps, RootProps> = {
               checkoutUrl?: string;
               basePath?: string;
               terminalUrl?: string;
+              nextStepUrl?: string;
               groupChatUrl?: string;
               downloadUrl?: string;
               liveUrl?: string;
@@ -418,10 +419,11 @@ export const config: Config<FunnelProps, RootProps> = {
           | undefined;
         const wantsCheckout =
           !href || href === "#" || href === "{{checkout}}" || href === "결제";
-        // {{terminal}} = 캠페인 종착 스텝(예약/단톡방/세일즈)
+        // {{next}} = 퍼널 흐름상 다음 단계 · {{terminal}} = 마지막(종착) 단계
         // {{groupchat}} = 단톡방 링크 · {{download}} = 구매한 파일 다운로드 링크
         // {{live}} = 라이브 웨비나 신청 퍼널의 외부 라이브(유튜브 라이브 등) URL
         // checkoutUrl 은 상품이 무료면 /api/claim(체크아웃 스킵)을 가리킴
+        const wantsNext = href === "{{next}}";
         const wantsTerminal = href === "{{terminal}}";
         const wantsGroupChat = href === "{{groupchat}}";
         const wantsDownload = href === "{{download}}";
@@ -429,15 +431,17 @@ export const config: Config<FunnelProps, RootProps> = {
         const isCheckout = wantsCheckout && !!meta?.checkoutUrl;
         const resolved = wantsCheckout
           ? (meta?.checkoutUrl ?? "#")
-          : wantsTerminal
-            ? (meta?.terminalUrl ?? "#")
-            : wantsGroupChat
-              ? (meta?.groupChatUrl ?? "#")
-              : wantsDownload
-                ? (meta?.downloadUrl ?? "#")
-                : wantsLive
-                  ? (meta?.liveUrl ?? "#")
-                  : withBase(href, meta?.basePath);
+          : wantsNext
+            ? (meta?.nextStepUrl ?? "#")
+            : wantsTerminal
+              ? (meta?.terminalUrl ?? "#")
+              : wantsGroupChat
+                ? (meta?.groupChatUrl ?? "#")
+                : wantsDownload
+                  ? (meta?.downloadUrl ?? "#")
+                  : wantsLive
+                    ? (meta?.liveUrl ?? "#")
+                    : withBase(href, meta?.basePath);
         return (
         <CtaLink
           href={resolved}
@@ -519,15 +523,20 @@ export const config: Config<FunnelProps, RootProps> = {
       },
       render: ({ headline, submitLabel, note, nextPath, sticky, puck }) => {
         const meta = puck?.metadata as
-          | { basePath?: string; campaignId?: string }
+          | { basePath?: string; campaignId?: string; nextStepPath?: string }
           | undefined;
+        // "{{next}}" = 퍼널 흐름상 다음 단계 (LeadForm 은 ?l= 를 자체 부착하므로 쿼리 없는 경로)
+        const resolvedNext =
+          nextPath === "{{next}}"
+            ? (meta?.nextStepPath ?? withBase("/thankyou", meta?.basePath))
+            : withBase(nextPath, meta?.basePath);
         return (
           <div id="apply" className="scroll-mt-16">
             <LeadForm
               headline={headline}
               submitLabel={submitLabel}
               note={note}
-              nextPath={withBase(nextPath, meta?.basePath)}
+              nextPath={resolvedNext}
               sticky={sticky}
               campaignId={meta?.campaignId}
             />

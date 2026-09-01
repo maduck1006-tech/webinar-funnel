@@ -25,13 +25,28 @@ import {
   lessonUnlocked,
   youtubeEmbedUrl,
 } from "@/lib/courses";
+import {
+  lastEnabledStep,
+  nextEnabledStep,
+  resolveFlowSteps,
+  stepPath,
+} from "@/lib/funnel-flow";
 import { products } from "@/db/schema";
 
 /** 2단계 — 랜딩(신청) */
 export async function LandingView({ campaign }: { campaign: Campaign }) {
   const variant = campaign.abLanding ? await resolveVariant() : "a";
+  const basePath = campaignBasePath(campaign);
+  const next = nextEnabledStep(resolveFlowSteps(campaign), "landing");
   return (
-    <FunnelPage campaign={campaign} pageType="landing" variant={variant} />
+    <FunnelPage
+      campaign={campaign}
+      pageType="landing"
+      variant={variant}
+      metadata={{
+        nextStepPath: next ? stepPath(next, basePath) : `${basePath}/thankyou`,
+      }}
+    />
   );
 }
 
@@ -69,6 +84,11 @@ export async function ThankYouView({
         compareAt: offer?.compareAt ?? undefined,
         eventStartsAtIso,
         liveUrl,
+        nextStepUrl: nextStepUrl(campaign, "thankyou", leadId),
+        nextStepPath: (() => {
+          const next = nextEnabledStep(resolveFlowSteps(campaign), "thankyou");
+          return next ? stepPath(next, basePath) : `${basePath}/vod`;
+        })(),
       }}
     />
   );
@@ -76,19 +96,24 @@ export async function ThankYouView({
 
 /**
  * 웨비나형 퍼널의 종착 스텝 경로 (basePath + ?l= 포함).
- * campaign.terminalStep: 'booking' | 'groupchat' | 'sales'
+ * flow 의 마지막 enabled 단계 우선, 없으면 campaign.terminalStep.
  */
 function terminalUrl(campaign: Campaign, leadId?: string | null): string {
   const base = campaignBasePath(campaign);
-  const q = leadId ? `?l=${leadId}` : "";
-  switch (campaign.terminalStep) {
-    case "groupchat":
-      return `${base}/community${q}`;
-    case "sales":
-      return `${base}/sales${q}`;
-    default:
-      return `${base}/booking${q}`;
-  }
+  const last = lastEnabledStep(resolveFlowSteps(campaign));
+  const target = last ?? campaign.terminalStep ?? "booking";
+  return stepPath(target, base, leadId);
+}
+
+/** 현재 단계 다음 enabled 단계 경로 (없으면 종착으로 폴백) */
+function nextStepUrl(
+  campaign: Campaign,
+  current: string,
+  leadId?: string | null,
+): string {
+  const base = campaignBasePath(campaign);
+  const next = nextEnabledStep(resolveFlowSteps(campaign), current);
+  return next ? stepPath(next, base, leadId) : terminalUrl(campaign, leadId);
 }
 
 /** live_webinar_reg 전용 VOD 게이팅 — 회차(event) 시작/종료 기준 */
@@ -235,6 +260,7 @@ export async function VodView({
       price: offer?.price,
       compareAt: offer?.compareAt ?? undefined,
       terminalUrl: terminalUrl(campaign, leadId),
+      nextStepUrl: nextStepUrl(campaign, "vod", leadId),
       groupChatUrl: campaign.groupChatUrl ?? undefined,
     };
   }

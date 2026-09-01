@@ -68,6 +68,34 @@ export function seedFlow(
   };
 }
 
+/** 현재 단계 다음에 오는 enabled 단계의 pageType (없으면 null) */
+export function nextEnabledStep(
+  steps: FlowStep[],
+  current: string,
+): string | null {
+  const on = steps.filter((s) => s.enabled).map((s) => s.pageType);
+  const i = on.indexOf(current);
+  if (i === -1 || i === on.length - 1) return null;
+  return on[i + 1];
+}
+
+/** 마지막 enabled 단계 (종착) */
+export function lastEnabledStep(steps: FlowStep[]): string | null {
+  const on = steps.filter((s) => s.enabled);
+  return on.length ? on[on.length - 1].pageType : null;
+}
+
+/** pageType → 이 캠페인 기준 경로 (basePath 접두, leadId 옵션) */
+export function stepPath(
+  pageType: string,
+  basePath: string,
+  leadId?: string | null,
+): string {
+  const p = STEP_META[pageType]?.path ?? "/";
+  const path = `${basePath}${p === "/" ? "" : p}` || "/";
+  return leadId ? `${path}?l=${leadId}` : path;
+}
+
 /** "랜딩 → 땡큐 → VOD → 단톡방" 한 줄 요약 (enabled 만) */
 export function flowSummary(steps: FlowStep[]): string {
   return steps

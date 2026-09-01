@@ -87,7 +87,7 @@ export const defaultPages: Record<string, FunnelData> = {
           headline: "",
           submitLabel: "무료 강의 신청하기",
           note: "신청하면 다음 화면에서 바로 재생 · 48시간 무제한",
-          nextPath: "/thankyou",
+          nextPath: "{{next}}",
           sticky: true,
         },
       },
@@ -112,7 +112,7 @@ export const defaultPages: Record<string, FunnelData> = {
       },
       {
         type: "CTAButton",
-        props: { id: "watch", label: "강의 바로 보기", sub: "지금 시작 · 48시간 무제한", href: "/vod", variant: "primary" },
+        props: { id: "watch", label: "강의 바로 보기", sub: "지금 시작 · 48시간 무제한", href: "{{next}}", variant: "primary" },
       },
       {
         type: "Heading",
@@ -138,7 +138,7 @@ export const defaultPages: Record<string, FunnelData> = {
       },
       {
         type: "CTAButton",
-        props: { id: "s", label: "일단 강의부터 볼게요", sub: "", href: "/vod", variant: "ghost" },
+        props: { id: "s", label: "일단 강의부터 볼게요", sub: "", href: "{{next}}", variant: "ghost" },
       },
     ],
   },
@@ -153,7 +153,7 @@ export const defaultPages: Record<string, FunnelData> = {
       { type: "Video", props: { id: "v", src: "", poster: "" } },
       {
         type: "CTAButton",
-        props: { id: "b", label: "다음 단계로 →", sub: "강의를 다 봤다면 여기서 이어집니다", href: "{{terminal}}", variant: "primary" },
+        props: { id: "b", label: "다음 단계로 →", sub: "강의를 다 봤다면 여기서 이어집니다", href: "{{next}}", variant: "primary" },
       },
       {
         type: "Heading",
