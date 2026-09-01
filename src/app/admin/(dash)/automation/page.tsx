@@ -2,20 +2,23 @@ import Link from "next/link";
 import { and, asc, count, eq, isNull, or } from "drizzle-orm";
 import { db } from "@/db";
 import { messageAutomations, messageAutomationSteps } from "@/db/schema";
-import { Card, EmptyRow, PageHeader, Tag } from "@/components/admin-ui";
+import { Card, PageHeader } from "@/components/admin-ui";
 import { CampaignFilter } from "@/components/CampaignFilter";
 import { listCampaigns } from "@/lib/campaign";
 import { cloneForCampaign, createAutomation, toggleAutomation } from "./actions";
+import {
+  automationSummary,
+  MiniTimeline,
+  ToggleSwitch,
+  TRIGGER_META,
+} from "./_ui";
 
 export const dynamic = "force-dynamic";
 
-export const TRIGGER_LABEL: Record<string, string> = {
-  signup: "무료 신청했을 때",
-  watch_start: "강의 시청을 시작했을 때",
-  purchase: "결제했을 때",
-  booking: "상담 예약했을 때",
-  manual: "직접 등록",
-};
+/** 다른 파일(에디터)에서도 씀 — 기존 이름 유지 */
+export const TRIGGER_LABEL: Record<string, string> = Object.fromEntries(
+  Object.entries(TRIGGER_META).map(([k, v]) => [k, v.label]),
+);
 
 export default async function AutomationPage({
   searchParams,
@@ -27,7 +30,7 @@ export default async function AutomationPage({
   let campaignOptions: Awaited<ReturnType<typeof listCampaigns>> = [];
   let rows: {
     a: typeof messageAutomations.$inferSelect;
-    steps: number;
+    steps: (typeof messageAutomationSteps.$inferSelect)[];
   }[] = [];
   try {
     campaignOptions = await listCampaigns();
@@ -44,13 +47,14 @@ export default async function AutomationPage({
       )
       .orderBy(asc(messageAutomations.createdAt));
     rows = await Promise.all(
-      autos.map(async (a) => {
-        const [{ c } = { c: 0 }] = await db
-          .select({ c: count() })
+      autos.map(async (a) => ({
+        a,
+        steps: await db
+          .select()
           .from(messageAutomationSteps)
-          .where(eq(messageAutomationSteps.automationId, a.id));
-        return { a, steps: Number(c) };
-      }),
+          .where(eq(messageAutomationSteps.automationId, a.id))
+          .orderBy(asc(messageAutomationSteps.stepOrder)),
+      })),
     );
   } catch {
     /* DB 미연결 */
@@ -65,45 +69,48 @@ export default async function AutomationPage({
   );
   const campaignRows = rows.filter((r) => r.a.campaignId);
 
-  function Row({ a, steps }: (typeof rows)[number]) {
+  function AutomationCard({ a, steps }: (typeof rows)[number]) {
+    const meta = TRIGGER_META[a.trigger];
+    const enabledSteps = steps.filter((s) => s.enabled);
     return (
-      <tr>
-        <td className="py-2 font-medium">
-          <Link
-            href={`/admin/automation/${a.id}`}
-            className="text-blue-600 underline"
-          >
-            {a.name}
-          </Link>
-        </td>
-        <td className="py-2 text-xs text-zinc-500">
-          {TRIGGER_LABEL[a.trigger] ?? a.trigger}
-        </td>
-        <td className="py-2">문자 {steps}개</td>
-        <td className="py-2">
-          <Tag tone={a.enabled ? "green" : "gray"}>
-            {a.enabled ? "켜짐" : "꺼짐"}
-          </Tag>
-        </td>
-        <td className="py-2 text-right">
-          <form action={toggleAutomation} className="inline">
+      <div
+        className={`flex flex-col gap-3 rounded-xl border p-4 transition sm:flex-row sm:items-center ${
+          a.enabled ? "border-zinc-200 bg-white" : "border-zinc-100 bg-zinc-50"
+        }`}
+      >
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          <span className="mt-0.5 text-2xl leading-none">{meta?.icon ?? "✉️"}</span>
+          <div className="min-w-0">
+            <Link
+              href={`/admin/automation/${a.id}`}
+              className="font-semibold text-zinc-900 hover:underline"
+            >
+              {a.name}
+            </Link>
+            <p className="mt-0.5 text-[12.5px] leading-relaxed text-zinc-500">
+              {automationSummary(a.trigger, steps.length, a.stopOn ?? [])}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-4 pl-9 sm:pl-0">
+          <MiniTimeline delays={enabledSteps.map((s) => s.delayMinutes)} />
+          <form action={toggleAutomation}>
             <input type="hidden" name="id" value={a.id} />
             <input type="hidden" name="next" value={String(!a.enabled)} />
-            <button className="text-xs text-zinc-500 underline">
-              {a.enabled ? "끄기" : "켜기"}
-            </button>
+            <ToggleSwitch on={a.enabled} />
           </form>
           {campaignId && !a.campaignId && (
-            <form action={cloneForCampaign} className="ml-2 inline">
+            <form action={cloneForCampaign}>
               <input type="hidden" name="sourceId" value={a.id} />
               <input type="hidden" name="campaignId" value={campaignId} />
-              <button className="text-xs text-blue-600 underline">
+              <button className="whitespace-nowrap rounded-lg border px-2.5 py-1.5 text-xs text-blue-600 hover:bg-blue-50">
                 이 캠페인만 수정
               </button>
             </form>
           )}
-        </td>
-      </tr>
+        </div>
+      </div>
     );
   }
 
@@ -111,94 +118,120 @@ export default async function AutomationPage({
     <>
       <PageHeader
         title="자동 메시지"
-        desc="신청·시청·결제·예약 이후 자동으로 나가는 문자. 캠페인을 고르면 캠페인별로 덮어쓸 수 있습니다."
+        desc="손님이 어떤 행동을 하면, 정해둔 시간에, 문자가 저절로 나가도록 만드는 곳이에요."
         actions={<CampaignFilter options={campaignOptions} />}
       />
 
+      {/* 초보자용 설명 카드 */}
+      <Card className="mb-6 !bg-zinc-900 text-white">
+        <p className="text-sm font-bold">💡 처음이신가요? 이렇게 동작해요</p>
+        <div className="mt-3 grid gap-3 text-[12.5px] leading-relaxed sm:grid-cols-3">
+          <div className="rounded-lg bg-white/10 p-3">
+            <p className="text-lg">1️⃣ 👤</p>
+            <p className="mt-1 font-semibold">손님이 행동합니다</p>
+            <p className="mt-0.5 text-white/70">
+              무료 신청 · 강의 시청 · 결제 · 상담 예약 중 하나
+            </p>
+          </div>
+          <div className="rounded-lg bg-white/10 p-3">
+            <p className="text-lg">2️⃣ ⏱️</p>
+            <p className="mt-1 font-semibold">정해둔 시간이 지납니다</p>
+            <p className="mt-0.5 text-white/70">
+              바로 · 30분 뒤 · 1일 뒤처럼 자유롭게 정할 수 있어요
+            </p>
+          </div>
+          <div className="rounded-lg bg-white/10 p-3">
+            <p className="text-lg">3️⃣ 💬</p>
+            <p className="mt-1 font-semibold">문자가 자동으로 나갑니다</p>
+            <p className="mt-0.5 text-white/70">
+              한 번 만들어두면 사람이 계속 안 눌러도 계속 나가요
+            </p>
+          </div>
+        </div>
+        <p className="mt-3 text-[11.5px] text-white/60">
+          아래 목록의 각 항목이 &quot;자동 메시지&quot; 하나입니다. 이름을 눌러
+          들어가면 문자를 하나씩 추가·수정할 수 있어요.
+        </p>
+      </Card>
+
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-6">
-          <Card className="overflow-x-auto">
-            <p className="mb-2 text-sm font-bold">
-              시스템 기본{campaignId ? " (이 캠페인에 적용 중)" : " (모든 캠페인)"}
+          <Card>
+            <p className="mb-3 text-sm font-bold">
+              🌐 기본으로 켜져 있는 자동 메시지
+              {campaignId ? " (이 캠페인에도 적용 중)" : " · 모든 캠페인 공통"}
             </p>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-xs text-zinc-500">
-                  <th className="pb-2">이름</th>
-                  <th className="pb-2">시작 시점</th>
-                  <th className="pb-2">문자</th>
-                  <th className="pb-2">상태</th>
-                  <th className="pb-2"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {globals.length === 0 && (
-                  <EmptyRow colSpan={5} text="기본 자동화 없음 (마이그레이션 필요)" />
-                )}
-                {globals.map((r) => (
-                  <Row key={r.a.id} {...r} />
-                ))}
-              </tbody>
-            </table>
+            <div className="space-y-2.5">
+              {globals.length === 0 && (
+                <p className="py-6 text-center text-sm text-zinc-400">
+                  기본 자동화가 없습니다.
+                </p>
+              )}
+              {globals.map((r) => (
+                <AutomationCard key={r.a.id} {...r} />
+              ))}
+            </div>
           </Card>
 
           {campaignId && (
-            <Card className="overflow-x-auto">
-              <p className="mb-2 text-sm font-bold">이 캠페인 전용</p>
-              <table className="w-full text-sm">
-                <tbody className="divide-y">
-                  {campaignRows.length === 0 && (
-                    <EmptyRow
-                      colSpan={5}
-                      text="캠페인 전용 자동화 없음 — 위에서 '이 캠페인만 수정' 또는 오른쪽에서 새로 추가"
-                    />
-                  )}
-                  {campaignRows.map((r) => (
-                    <Row key={r.a.id} {...r} />
-                  ))}
-                </tbody>
-              </table>
+            <Card>
+              <p className="mb-3 text-sm font-bold">📌 이 캠페인만의 자동 메시지</p>
+              <div className="space-y-2.5">
+                {campaignRows.length === 0 && (
+                  <p className="py-6 text-center text-sm text-zinc-400">
+                    아직 없어요. 위 목록에서 <b>&quot;이 캠페인만 수정&quot;</b>을
+                    누르거나, 오른쪽에서 새로 만들어보세요.
+                  </p>
+                )}
+                {campaignRows.map((r) => (
+                  <AutomationCard key={r.a.id} {...r} />
+                ))}
+              </div>
             </Card>
           )}
         </div>
 
-        <Card>
-          <p className="mb-3 text-sm font-bold">새 자동 메시지</p>
+        <Card className="h-fit">
+          <p className="mb-1 text-sm font-bold">➕ 새 자동 메시지 만들기</p>
+          <p className="mb-3 text-[12px] text-zinc-500">
+            이름은 관리용이라 손님에게 안 보여요. 자유롭게 지으세요.
+          </p>
           <form action={createAutomation} className="space-y-3 text-sm">
             {campaignId && (
               <input type="hidden" name="campaignId" value={campaignId} />
             )}
             <label className="block">
-              <span className="text-xs text-zinc-500">이름 (나만 봄)</span>
+              <span className="text-xs font-medium text-zinc-600">이름</span>
               <input
                 name="name"
                 required
                 placeholder="예: 신청 후 5일 스토리"
-                className="mt-1 w-full rounded border px-2 py-1"
+                className="mt-1 w-full rounded-lg border px-3 py-2"
               />
             </label>
             <label className="block">
-              <span className="text-xs text-zinc-500">언제 시작?</span>
+              <span className="text-xs font-medium text-zinc-600">
+                손님이 언제 이 흐름에 들어오나요?
+              </span>
               <select
                 name="trigger"
-                className="mt-1 w-full rounded border px-2 py-1"
+                className="mt-1 w-full rounded-lg border px-3 py-2"
               >
-                {Object.entries(TRIGGER_LABEL).map(([v, t]) => (
+                {Object.entries(TRIGGER_META).map(([v, t]) => (
                   <option key={v} value={v}>
-                    {t}
+                    {t.icon} {t.label}
                   </option>
                 ))}
               </select>
             </label>
-            <button className="w-full rounded-lg bg-black py-2 font-semibold text-white">
-              만들고 문자 추가하기
+            <button className="w-full rounded-lg bg-black py-2.5 font-semibold text-white hover:bg-zinc-800">
+              만들고 문자 추가하러 가기 →
             </button>
           </form>
-          <p className="mt-3 text-[11px] leading-relaxed text-zinc-400">
-            만든 뒤 &quot;문자 1 / 문자 2 …&quot;를 추가하며 각각{" "}
-            <b>며칠 뒤 · 누구에게 · 무슨 내용</b>인지 채우면 됩니다. 크론이 15분마다
-            발송 대상을 확인합니다. (시작 즉시 = 0분 뒤로 설정)
-          </p>
+          <div className="mt-4 rounded-lg bg-amber-50 p-3 text-[11.5px] leading-relaxed text-amber-800">
+            🕒 문자는 <b>15분마다</b> 자동으로 확인해서 보낼 시간이 된 것만
+            나갑니다. &quot;바로&quot;로 설정하면 그 행동 즉시 나가요.
+          </div>
         </Card>
       </div>
     </>
