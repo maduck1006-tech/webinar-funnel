@@ -19,6 +19,7 @@ import {
   replayOpensAt,
 } from "@/lib/events";
 import { getEntitlement, grantEntitlement, hasEntitlement } from "@/lib/entitlements";
+import { hasActiveSubscription } from "@/lib/subscriptions";
 import {
   getCourseByProduct,
   getProgress,
@@ -506,6 +507,8 @@ export async function DeliveryView({
     await grantEntitlement({ leadId, productId, product });
     ok = true;
   }
+  // 활성 멤버십이 있으면 접근 허용
+  if (!ok && (await hasActiveSubscription(leadId))) ok = true;
 
   if (!ok) {
     return (
@@ -564,7 +567,8 @@ export async function CourseView({
   }
 
   const ent = await getEntitlement(leadId, offer.productId);
-  if (!ent) {
+  const member = ent ? false : await hasActiveSubscription(leadId);
+  if (!ent && !member) {
     return (
       <Gate title="구매가 필요합니다">
         아직 구매하지 않은 강의예요.{" "}
@@ -586,7 +590,7 @@ export async function CourseView({
 
   const allLessons = tree.modules.flatMap((m) => m.lessons);
   const unlockedLessons = allLessons.filter((ls) =>
-    lessonUnlocked(ls, ent.grantedAt),
+    lessonUnlocked(ls, ent?.grantedAt ?? new Date(0)),
   );
   const current =
     unlockedLessons.find((ls) => ls.id === lesson) ?? unlockedLessons[0];
@@ -651,7 +655,7 @@ export async function CourseView({
               </p>
               <ul className="space-y-1">
                 {m.lessons.map((ls) => {
-                  const unlocked = lessonUnlocked(ls, ent.grantedAt);
+                  const unlocked = lessonUnlocked(ls, ent?.grantedAt ?? new Date(0));
                   const isCurrent = current?.id === ls.id;
                   return (
                     <li key={ls.id}>

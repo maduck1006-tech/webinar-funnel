@@ -68,12 +68,24 @@ export default async function UpsellPage({
       style={{ background: "var(--fn-bg)" }}
     >
       <div className="w-full max-w-[440px] text-center">
+        {!isDownsell && (
+          <p className="mb-2 rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-bold text-emerald-300">
+            ✓ 결제가 완료됐습니다
+          </p>
+        )}
         <p className="text-xs font-bold tracking-wide text-[var(--fn-accent)]">
-          {isDownsell ? "그럼 이건 어떠세요?" : "잠깐만요 — 결제 전 마지막 제안"}
+          {isDownsell
+            ? "그럼 이건 어떠세요?"
+            : "잠깐 — 딱 한 번만 드리는 제안이에요"}
         </p>
         <h1 className="mt-2 text-xl font-extrabold leading-snug text-white">
           {product.name}
         </h1>
+        {!isDownsell && (
+          <p className="mt-1.5 text-[12px] text-white/50">
+            이 화면을 벗어나면 이 가격으로는 다시 살 수 없습니다.
+          </p>
+        )}
 
         {product.imageUrl && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -111,9 +123,9 @@ export default async function UpsellPage({
         </a>
         <a
           href={declineUrl}
-          className="mt-3 block text-sm text-white/45 underline"
+          className="mt-3 block text-[13px] text-white/40 underline"
         >
-          아니요, 괜찮습니다
+          아니요, 이 혜택은 받지 않을게요
         </a>
       </div>
     </div>

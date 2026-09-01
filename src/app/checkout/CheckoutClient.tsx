@@ -14,6 +14,8 @@ export type CheckoutClientProps = {
     compareAt: number | null;
     description: string;
     imageUrl: string | null;
+    kind: string;
+    freeMonths: number;
   };
   bump: { name: string; price: number; description: string } | null;
   campaignId: string | null;
@@ -104,6 +106,9 @@ export function CheckoutClient(props: CheckoutClientProps) {
         <PayStep
           clientKey={clientKey}
           productId={product.id}
+          productKind={product.kind}
+          productName={product.name}
+          freeMonths={product.freeMonths}
           role={role}
           lead={lead}
           bump={bump}
@@ -241,6 +246,9 @@ function Field({
 function PayStep({
   clientKey,
   productId,
+  productKind,
+  productName,
+  freeMonths,
   role,
   lead,
   bump,
@@ -252,6 +260,9 @@ function PayStep({
 }: {
   clientKey: string;
   productId: string;
+  productKind: string;
+  productName: string;
+  freeMonths: number;
   role: "main" | "upsell" | "downsell";
   lead: Lead | null;
   bump: { name: string; price: number; description: string } | null;
@@ -261,14 +272,40 @@ function PayStep({
   successUrl: string;
   failUrl: string;
 }) {
-  const [ready, setReady] = useState(false);
+  const [widgetReady, setWidgetReady] = useState(false);
   const [paying, setPaying] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const widgetsRef = useRef<Widgets | null>(null);
   const startedRef = useRef(false);
 
-  // 위젯 초기화 (1회) — StrictMode 이중 마운트에도 렌더는 1번만
+  const isMembership = productKind === "membership";
+  const ready = isMembership || widgetReady;
+
+  // 멤버십: 빌링 인증(카드 등록) → 리다이렉트. 정기결제는 크론이 청구.
+  const payMembership = useCallback(async () => {
+    if (paying || !lead?.id) return;
+    setPaying(true);
+    setErr(null);
+    try {
+      const toss = await loadTossPayments(clientKey);
+      const payment = toss.payment({ customerKey: lead.id });
+      await payment.requestBillingAuth({
+        method: "CARD",
+        successUrl,
+        failUrl,
+        customerEmail: lead.email,
+        customerName: lead.name || undefined,
+      });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!msg.includes("CANCELED")) setErr(msg);
+      setPaying(false);
+    }
+  }, [paying, lead, clientKey, successUrl, failUrl]);
+
+  // 위젯 초기화 (1회) — 멤버십은 위젯 대신 빌링 인증이라 스킵
   useEffect(() => {
+    if (isMembership) return;
     if (startedRef.current) return;
     startedRef.current = true;
     (async () => {
@@ -279,7 +316,7 @@ function PayStep({
         await widgets.renderPaymentMethods({ selector: "#toss-payment-method" });
         await widgets.renderAgreement({ selector: "#toss-agreement" });
         widgetsRef.current = widgets;
-        setReady(true);
+        setWidgetReady(true);
       } catch (e) {
         startedRef.current = false; // 실패 시 재시도 허용
         setErr(String(e));
@@ -344,27 +381,75 @@ function PayStep({
     }
   }, [paying, productId, role, lead, withBump, bump, amount, successUrl, failUrl]);
 
+  if (isMembership) {
+    return (
+      <div>
+        <div className="mb-4 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/80">
+          <p className="font-semibold text-white">{productName}</p>
+          <p className="mt-1 text-white/60">
+            {freeMonths > 0
+              ? `${freeMonths}개월 무료 후 매달 ${won(amount)} 자동 결제`
+              : `매달 ${won(amount)} 자동 결제`}
+            {" · "}언제든 해지 가능
+          </p>
+        </div>
+        {err && (
+          <p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400">
+            {err}
+          </p>
+        )}
+        <button
+          onClick={payMembership}
+          disabled={paying || !lead?.id}
+          className="mt-2 w-full rounded-xl py-4 text-base font-bold text-white disabled:opacity-50"
+          style={{ background: "var(--fn-accent)" }}
+        >
+          {paying ? "진행 중…" : "카드 등록하고 시작하기"}
+        </button>
+        <p className="mt-2 text-center text-[11px] text-white/40">
+          지금은 카드만 등록합니다.{" "}
+          {freeMonths > 0 ? `첫 결제는 ${freeMonths}개월 뒤입니다.` : ""}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div>
-      {/* 오더 범프 */}
+      {/* 오더 범프 — 클릭퍼널스식 (눈에 띄는 박스 + 화살표 + 1인칭 긍정 문구) */}
       {bump && (
-        <label className="mb-4 flex cursor-pointer gap-3 rounded-xl border-2 border-dashed border-[var(--fn-accent)]/60 bg-[var(--fn-accent)]/5 p-3.5">
-          <input
-            type="checkbox"
-            checked={withBump}
-            onChange={(e) => setWithBump(e.target.checked)}
-            className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--fn-accent)]"
-          />
-          <span className="text-[13px] leading-relaxed text-white/85">
-            <b className="text-white">
-              {bump.description || `${bump.name} 추가하기`}
-            </b>
-            <br />
-            <span className="text-white/60">
-              지금만 <b className="text-white">{won(bump.price)}</b> 추가
+        <div className="mb-4">
+          <p className="mb-1 text-center text-[12px] font-bold text-amber-300">
+            ▼ 이 주문에만 드리는 제안 ▼
+          </p>
+          <label
+            className={`flex cursor-pointer gap-3 rounded-xl border-2 border-dashed p-3.5 transition ${
+              withBump
+                ? "border-amber-400 bg-amber-400/15"
+                : "border-amber-400/70 bg-amber-400/8"
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={withBump}
+              onChange={(e) => setWithBump(e.target.checked)}
+              className="mt-0.5 h-5 w-5 shrink-0 accent-amber-500"
+            />
+            <span className="text-[13px] leading-relaxed text-white/90">
+              <b className="text-amber-200">
+                네, {bump.name} 추가할게요!
+              </b>
+              <br />
+              <span className="text-white/70">
+                {bump.description || `지금 함께 담으면 딱 맞습니다.`}
+              </span>
+              <br />
+              <span className="mt-1 inline-block text-white/60">
+                +{won(bump.price)} · 이 화면에서만
+              </span>
             </span>
-          </span>
-        </label>
+          </label>
+        </div>
       )}
 
       {/* 토스 결제수단 위젯 (흰 배경) */}

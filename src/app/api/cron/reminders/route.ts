@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { runDueAutomationSteps } from "@/lib/messaging";
 import { sendEventPreReminders } from "@/lib/events";
 import { enrollAbandonedCarts } from "@/lib/cart";
+import { runDueBilling } from "@/lib/billing";
 
 export const runtime = "nodejs";
 
@@ -23,12 +24,18 @@ export async function GET(req: Request) {
     const carts = await enrollAbandonedCarts().catch(() => 0);
     const result = await runDueAutomationSteps();
     const events = await sendEventPreReminders().catch(() => ({ d1: 0, h1: 0 }));
+    const billing = await runDueBilling().catch(() => ({
+      due: 0,
+      charged: 0,
+      failed: 0,
+    }));
     return NextResponse.json({
       ok: true,
       at: new Date().toISOString(),
       ...result,
       events,
       cartsEnrolled: carts,
+      billing,
     });
   } catch (e) {
     return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });

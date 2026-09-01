@@ -88,12 +88,17 @@ export default async function CheckoutPage({
   }
 
   const hasContact = Boolean(lead?.name && lead?.email && lead?.phone);
+  const isMembership = product.kind === "membership";
 
   const origin =
     process.env.NEXT_PUBLIC_SITE_URL ||
     (process.env.VERCEL_PROJECT_PRODUCTION_URL
       ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
       : "");
+
+  const successUrl = isMembership
+    ? `${origin}/api/toss/billing-confirm?p=${product.id}${leadId ? `&l=${leadId}` : ""}`
+    : `${origin}/api/toss/confirm`;
 
   return (
     <div className="funnel-theme min-h-dvh" style={{ background: "var(--fn-bg)" }}>
@@ -106,8 +111,10 @@ export default async function CheckoutPage({
           compareAt: product.compareAtPrice,
           description: product.description ?? "",
           imageUrl: product.imageUrl ?? null,
+          kind: product.kind,
+          freeMonths: product.membershipFreeMonths ?? 0,
         }}
-        bump={bump}
+        bump={isMembership ? null : bump}
         campaignId={campaignId}
         lead={
           lead
@@ -121,7 +128,7 @@ export default async function CheckoutPage({
         }
         role={orderRole}
         startStep={hasContact || orderRole !== "main" ? "pay" : "contact"}
-        successUrl={`${origin}/api/toss/confirm`}
+        successUrl={successUrl}
         failUrl={`${origin}/checkout/fail`}
       />
     </div>

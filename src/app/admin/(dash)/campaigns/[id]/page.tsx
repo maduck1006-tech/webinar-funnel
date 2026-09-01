@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { campaignPages, campaigns, leads, orders } from "@/db/schema";
+import { adDailyStats, campaignPages, campaigns, leads, orders } from "@/db/schema";
 import { Card, PageHeader, Stat, Tag, won } from "@/components/admin-ui";
 import { campaignBasePath } from "@/lib/campaign";
 import {
@@ -38,6 +38,8 @@ export default async function CampaignHub({
     .select({
       leads: sql<number>`count(*)`,
       watched: sql<number>`count(*) filter (where ${leads.firstWatchedAt} is not null)`,
+      booked: sql<number>`count(*) filter (where ${leads.status} in ('booked','consulted'))`,
+      purchasedLeads: sql<number>`count(*) filter (where ${leads.status} in ('purchased','booked','consulted','member'))`,
     })
     .from(leads)
     .where(eq(leads.campaignId, id));
@@ -48,6 +50,14 @@ export default async function CampaignHub({
     })
     .from(orders)
     .where(eq(orders.campaignId, id));
+  const [ad] = await db
+    .select({
+      spend: sql<number>`coalesce(sum(${adDailyStats.spend}), 0)`,
+      clicks: sql<number>`coalesce(sum(${adDailyStats.clicks}), 0)`,
+    })
+    .from(adDailyStats)
+    .where(eq(adDailyStats.campaignId, id))
+    .catch(() => [{ spend: 0, clicks: 0 }]);
 
   const pages = await db
     .select({
@@ -139,6 +149,81 @@ export default async function CampaignHub({
         <Stat label="저가 구매" value={`${Number(o?.n ?? 0)}건`} />
         <Stat label="매출" value={won(Number(o?.revenue ?? 0))} />
       </div>
+
+      {(() => {
+        const nLeads = Number(m?.leads ?? 0);
+        const nWatch = Number(m?.watched ?? 0);
+        const nBuy = Number(o?.n ?? 0);
+        const nBook = Number(m?.booked ?? 0);
+        const revenue = Number(o?.revenue ?? 0);
+        const spend = Number(ad?.spend ?? 0);
+        const clicks = Number(ad?.clicks ?? 0);
+        const pct = (a: number, b: number) =>
+          b > 0 ? `${Math.round((a / b) * 100)}%` : "—";
+        const aov = nBuy > 0 ? won(Math.round(revenue / nBuy)) : "—";
+        const epc = clicks > 0 ? won(Math.round(revenue / clicks)) : "—";
+        const roas = spend > 0 ? `${(revenue / spend).toFixed(2)}x` : "—";
+        const cpl = spend > 0 && nLeads > 0 ? won(Math.round(spend / nLeads)) : "—";
+
+        const funnel: { label: string; n: number; of: number }[] = [
+          { label: "신청", n: nLeads, of: nLeads },
+          { label: "시청 시작", n: nWatch, of: nLeads },
+          { label: "저가 구매", n: nBuy, of: nWatch || nLeads },
+          { label: "예약", n: nBook, of: nBuy || nWatch || nLeads },
+        ];
+
+        return (
+          <Card className="mt-6">
+            <p className="mb-3 text-sm font-bold">퍼널 지표</p>
+            <div className="space-y-2">
+              {funnel.map((f, i) => (
+                <div key={f.label} className="flex items-center gap-3 text-sm">
+                  <span className="w-16 shrink-0 text-zinc-500">{f.label}</span>
+                  <div className="h-6 flex-1 overflow-hidden rounded bg-zinc-100">
+                    <div
+                      className="h-full rounded bg-[var(--fn-accent,#ff3d2e)]"
+                      style={{
+                        width: `${
+                          nLeads > 0 ? Math.max(2, (f.n / nLeads) * 100) : 0
+                        }%`,
+                      }}
+                    />
+                  </div>
+                  <span className="w-10 shrink-0 text-right font-semibold text-zinc-800">
+                    {f.n}
+                  </span>
+                  <span className="w-12 shrink-0 text-right text-xs text-zinc-400">
+                    {i === 0 ? "" : pct(f.n, f.of)}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3 border-t pt-3 text-xs sm:grid-cols-4">
+              <div>
+                <p className="text-zinc-400">객단가(AOV)</p>
+                <p className="font-bold text-zinc-800">{aov}</p>
+              </div>
+              <div>
+                <p className="text-zinc-400">클릭당 수익(EPC)</p>
+                <p className="font-bold text-zinc-800">{epc}</p>
+              </div>
+              <div>
+                <p className="text-zinc-400">ROAS</p>
+                <p className="font-bold text-zinc-800">{roas}</p>
+              </div>
+              <div>
+                <p className="text-zinc-400">신청 단가(CPL)</p>
+                <p className="font-bold text-zinc-800">{cpl}</p>
+              </div>
+            </div>
+            {spend === 0 && (
+              <p className="mt-2 text-[11px] text-zinc-400">
+                광고 지표는 캠페인 설정에서 Meta 광고 계정을 연결하면 채워집니다.
+              </p>
+            )}
+          </Card>
+        );
+      })()}
 
       {campaign.abLanding ? (
         <Card className="mt-6">
