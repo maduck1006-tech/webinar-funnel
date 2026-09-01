@@ -156,3 +156,77 @@ export async function getLibrary(userId: string): Promise<LibraryItem[]> {
 
   return items;
 }
+
+export type CrossSell = {
+  productId: string;
+  title: string;
+  reason: string;
+  price: number;
+  compareAt: number | null;
+  imageUrl: string | null;
+  href: string;
+};
+
+/**
+ * 크로스셀: 보유 상품의 next_offer 중 아직 안 산 것을 "다음 단계"로 제안.
+ * (docs/multi-product-funnel-plan.md 크로스셀/번들 — 러셀 브런슨 상승)
+ */
+export async function getCrossSell(userId: string): Promise<CrossSell[]> {
+  const myLeads = await db
+    .select({
+      id: leads.id,
+      slug: campaigns.slug,
+      isDefault: campaigns.isDefault,
+    })
+    .from(leads)
+    .leftJoin(campaigns, eq(campaigns.id, leads.campaignId))
+    .where(eq(leads.userId, userId));
+  if (myLeads.length === 0) return [];
+  const leadIds = myLeads.map((l) => l.id);
+  const anyLead = myLeads[0];
+  const bp = basePath(anyLead.slug ?? "", anyLead.isDefault ?? true);
+
+  const owned = await db
+    .select({ productId: entitlements.productId })
+    .from(entitlements)
+    .where(
+      and(
+        inArray(entitlements.leadId, leadIds),
+        eq(entitlements.status, "active"),
+      ),
+    );
+  const ownedSet = new Set(owned.map((o) => o.productId));
+  if (ownedSet.size === 0) return [];
+
+  const ownedProducts = await db
+    .select({
+      id: products.id,
+      name: products.name,
+      nextOfferId: products.nextOfferId,
+    })
+    .from(products)
+    .where(inArray(products.id, [...ownedSet]));
+
+  const wanted = new Map<string, string>(); // nextOfferId -> reason(구매한 상품명)
+  for (const p of ownedProducts) {
+    if (p.nextOfferId && !ownedSet.has(p.nextOfferId) && !wanted.has(p.nextOfferId)) {
+      wanted.set(p.nextOfferId, p.name);
+    }
+  }
+  if (wanted.size === 0) return [];
+
+  const offers = await db
+    .select()
+    .from(products)
+    .where(and(inArray(products.id, [...wanted.keys()]), eq(products.active, true)));
+
+  return offers.map((o) => ({
+    productId: o.id,
+    title: o.name,
+    reason: `${wanted.get(o.id)} 다음 단계`,
+    price: o.price,
+    compareAt: o.compareAtPrice,
+    imageUrl: o.imageUrl,
+    href: `${bp}/sales?l=${anyLead.id}&p=${o.id}`,
+  }));
+}

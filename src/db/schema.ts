@@ -311,6 +311,13 @@ export const products = pgTable("products", {
   upsellProductId: uuid("upsell_product_id"),
   /** 업셀 거절 시 뜨는 다운셀 상품 (선택) */
   downsellProductId: uuid("downsell_product_id"),
+  /**
+   * 번들: 이 값이 있으면 이 상품 구매 시 포함된 상품들의 엔타이틀먼트도 함께 부여.
+   * (docs/multi-product-funnel-plan.md 크로스셀/번들)
+   */
+  bundleProductIds: jsonb("bundle_product_ids").$type<string[]>(),
+  /** 크로스셀: 이 상품 구매자에게 다음 단계로 제안할 상품 (/library 상단 노출) */
+  nextOfferId: uuid("next_offer_id"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

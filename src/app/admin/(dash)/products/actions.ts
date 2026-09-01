@@ -50,6 +50,11 @@ function parse(fd: FormData) {
     bumpDescription: String(fd.get("bumpDescription") ?? "").trim() || null,
     upsellProductId: uuidOrNull("upsellProductId"),
     downsellProductId: uuidOrNull("downsellProductId"),
+    nextOfferId: uuidOrNull("nextOfferId"),
+    bundleProductIds: (() => {
+      const ids = fd.getAll("bundleProductIds").map(String).filter(Boolean);
+      return ids.length ? ids : null;
+    })(),
     active: fd.get("active") === "on",
   };
 }

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { getLibrary, type LibraryItem } from "@/lib/library";
+import { getCrossSell, getLibrary, type LibraryItem } from "@/lib/library";
 import { LogoutButton } from "./LogoutButton";
 
 export const dynamic = "force-dynamic";
@@ -70,7 +70,11 @@ export default async function LibraryPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/library");
 
-  const items = await getLibrary(user.id);
+  const [items, crossSell] = await Promise.all([
+    getLibrary(user.id),
+    getCrossSell(user.id),
+  ]);
+  const won = (n: number) => n.toLocaleString("ko-KR") + "원";
 
   return (
     <div className="funnel-theme funnel-shell min-h-dvh px-5 py-10">
@@ -123,6 +127,53 @@ export default async function LibraryPage() {
               );
             })}
           </div>
+        )}
+
+        {crossSell.length > 0 && (
+          <section className="mt-8">
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--fn-accent)]">
+              다음 단계
+            </p>
+            <div className="space-y-2">
+              {crossSell.map((c) => (
+                <a
+                  key={c.productId}
+                  href={c.href}
+                  className="flex items-center gap-3 rounded-2xl border border-[var(--fn-accent)]/40 bg-[var(--fn-accent)]/8 p-3.5 transition hover:border-[var(--fn-accent)]"
+                >
+                  {c.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={c.imageUrl}
+                      alt=""
+                      className="h-12 w-12 shrink-0 rounded-xl object-cover"
+                    />
+                  ) : (
+                    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[var(--fn-bg)] text-lg">
+                      🚀
+                    </span>
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[10px] font-semibold text-[var(--fn-accent)]">
+                      {c.reason}
+                    </span>
+                    <span className="block truncate text-[14.5px] font-semibold text-[var(--fn-ink)]">
+                      {c.title}
+                    </span>
+                    <span className="block text-[12px] text-[var(--fn-sub)]">
+                      {c.compareAt && c.compareAt > c.price && (
+                        <span className="mr-1 line-through">
+                          {won(c.compareAt)}
+                        </span>
+                      )}
+                      {won(c.price)}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-[var(--fn-accent)]">→</span>
+                </a>
+              ))}
+            </div>
+          </section>
         )}
 
         <p className="mt-10 text-center text-[11px] text-[var(--fn-sub)]">

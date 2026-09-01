@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, gt, isNull, or } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, or } from "drizzle-orm";
 import { db } from "@/db";
 import { entitlements, products, type Product } from "@/db/schema";
 
@@ -26,14 +26,20 @@ export async function grantEntitlement(opts: {
   leadId: string;
   productId: string;
   sourceOrderId?: string | null;
-  product?: Pick<Product, "type" | "accessDays">;
+  product?: Pick<Product, "type" | "accessDays" | "bundleProductIds">;
+  /** 번들 재귀 방지 */
+  _depth?: number;
 }): Promise<void> {
   const { leadId, productId, sourceOrderId } = opts;
 
   let p = opts.product;
   if (!p) {
     const [row] = await db
-      .select({ type: products.type, accessDays: products.accessDays })
+      .select({
+        type: products.type,
+        accessDays: products.accessDays,
+        bundleProductIds: products.bundleProductIds,
+      })
       .from(products)
       .where(eq(products.id, productId));
     if (!row) return;
@@ -64,6 +70,29 @@ export async function grantEntitlement(opts: {
         grantedAt: new Date(),
       },
     });
+
+  // 번들: 포함 상품 엔타이틀먼트도 함께 (1단계만)
+  const bundleIds = p.bundleProductIds ?? [];
+  if (bundleIds.length > 0 && (opts._depth ?? 0) < 1) {
+    const members = await db
+      .select({
+        id: products.id,
+        type: products.type,
+        accessDays: products.accessDays,
+        bundleProductIds: products.bundleProductIds,
+      })
+      .from(products)
+      .where(inArray(products.id, bundleIds));
+    for (const m of members) {
+      await grantEntitlement({
+        leadId,
+        productId: m.id,
+        sourceOrderId: sourceOrderId ?? null,
+        product: m,
+        _depth: 1,
+      });
+    }
+  }
 }
 
 /** 리드의 이 상품 엔타이틀먼트 행(유효한 것만). 없으면 null */

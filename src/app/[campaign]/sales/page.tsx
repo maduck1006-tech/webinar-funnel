@@ -6,10 +6,10 @@ export default async function CampaignSales({
   searchParams,
 }: {
   params: Promise<{ campaign: string }>;
-  searchParams: Promise<{ l?: string }>;
+  searchParams: Promise<{ l?: string; p?: string }>;
 }) {
   const { campaign: slug } = await params;
   const campaign = await resolveOr404(slug, "/sales");
-  const { l } = await searchParams;
-  return <SalesView campaign={campaign} l={l} />;
+  const { l, p } = await searchParams;
+  return <SalesView campaign={campaign} l={l} p={p} />;
 }

@@ -90,6 +90,16 @@ export default async function CheckoutPage({
   const hasContact = Boolean(lead?.name && lead?.email && lead?.phone);
   const isMembership = product.kind === "membership";
 
+  let bundleNames: string[] = [];
+  if (product.bundleProductIds && product.bundleProductIds.length > 0) {
+    const { inArray } = await import("drizzle-orm");
+    const rows = await db
+      .select({ name: products.name })
+      .from(products)
+      .where(inArray(products.id, product.bundleProductIds));
+    bundleNames = rows.map((r) => r.name);
+  }
+
   const origin =
     process.env.NEXT_PUBLIC_SITE_URL ||
     (process.env.VERCEL_PROJECT_PRODUCTION_URL
@@ -113,6 +123,7 @@ export default async function CheckoutPage({
           imageUrl: product.imageUrl ?? null,
           kind: product.kind,
           freeMonths: product.membershipFreeMonths ?? 0,
+          bundleNames,
         }}
         bump={isMembership ? null : bump}
         campaignId={campaignId}

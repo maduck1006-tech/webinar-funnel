@@ -16,6 +16,7 @@ export type CheckoutClientProps = {
     imageUrl: string | null;
     kind: string;
     freeMonths: number;
+    bundleNames?: string[];
   };
   bump: { name: string; price: number; description: string } | null;
   campaignId: string | null;
@@ -188,6 +189,11 @@ export function CheckoutClient(props: CheckoutClientProps) {
                   {won(product.price)}
                 </span>
               </p>
+              {product.bundleNames && product.bundleNames.length > 0 && (
+                <p className="mt-1 text-[11.5px] leading-relaxed text-white/50">
+                  포함: {product.bundleNames.join(" · ")}
+                </p>
+              )}
             </div>
           </div>
 

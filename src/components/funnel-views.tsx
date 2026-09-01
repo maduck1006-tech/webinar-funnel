@@ -444,12 +444,33 @@ export async function GroupChatView({
 export async function SalesView({
   campaign,
   l,
+  p,
 }: {
   campaign: Campaign;
   l?: string;
+  p?: string;
 }) {
   const leadId = await resolveLeadId(l);
-  const offer = await getActiveOffer(campaign.id, "sales");
+  // ?p= 로 특정 상품 지정(크로스셀 등), 없으면 캠페인의 sales 상품
+  let offer = await getActiveOffer(campaign.id, "sales");
+  if (p) {
+    const [prod] = await db
+      .select()
+      .from(products)
+      .where(eq(products.id, p));
+    if (prod && prod.active) {
+      offer = {
+        productId: prod.id,
+        name: prod.name,
+        price: prod.price,
+        compareAt: prod.compareAtPrice,
+        kind: prod.kind,
+        type: prod.type,
+        priceMode: prod.priceMode,
+        delivery: prod.delivery ?? null,
+      };
+    }
+  }
   const basePath = campaignBasePath(campaign);
   return (
     <FunnelPage

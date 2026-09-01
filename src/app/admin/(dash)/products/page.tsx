@@ -348,6 +348,48 @@ export default async function ProductsPage({
 
             <details className="rounded-lg border p-3">
               <summary className="cursor-pointer text-xs text-zinc-500">
+                번들 · 크로스셀 (선택)
+              </summary>
+              <div className="mt-2">
+                <span className="text-xs font-semibold text-zinc-700">
+                  번들 구성 상품 (체크하면 이 상품 결제 시 함께 지급)
+                </span>
+                <div className="mt-1 max-h-40 space-y-1 overflow-y-auto rounded border p-2">
+                  {list
+                    .filter((x) => x.id !== editing?.id)
+                    .map((x) => (
+                      <label
+                        key={x.id}
+                        className="flex items-center gap-2 text-xs"
+                      >
+                        <input
+                          type="checkbox"
+                          name="bundleProductIds"
+                          value={x.id}
+                          defaultChecked={
+                            editing?.bundleProductIds?.includes(x.id) ?? false
+                          }
+                        />
+                        {x.name}
+                      </label>
+                    ))}
+                </div>
+              </div>
+              <label className="mt-2 block">
+                <span className="text-xs font-semibold text-zinc-700">
+                  다음 추천 상품 (구매자 보관함 상단에 노출)
+                </span>
+                <ProductSelect
+                  name="nextOfferId"
+                  list={list}
+                  excludeId={editing?.id}
+                  selected={editing?.nextOfferId ?? ""}
+                />
+              </label>
+            </details>
+
+            <details className="rounded-lg border p-3">
+              <summary className="cursor-pointer text-xs text-zinc-500">
                 판매 기간 정하기 (선택) — 비워두면 상시 판매
               </summary>
               <div className="mt-2 flex gap-2">
