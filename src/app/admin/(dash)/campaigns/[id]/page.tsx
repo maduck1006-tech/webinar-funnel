@@ -2,7 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { adDailyStats, campaignPages, campaigns, leads, orders } from "@/db/schema";
+import {
+  adDailyStats,
+  campaignPages,
+  campaigns,
+  leads,
+  messageAutomations,
+  orders,
+} from "@/db/schema";
 import { Card, PageHeader, Stat, Tag, won } from "@/components/admin-ui";
 import { campaignBasePath } from "@/lib/campaign";
 import {
@@ -59,6 +66,17 @@ export default async function CampaignHub({
     .from(adDailyStats)
     .where(eq(adDailyStats.campaignId, id))
     .catch(() => [{ spend: 0, clicks: 0 }]);
+
+  const [autoOff] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(messageAutomations)
+    .where(
+      and(
+        eq(messageAutomations.campaignId, id),
+        eq(messageAutomations.enabled, false),
+      ),
+    )
+    .catch(() => [{ n: 0 }]);
 
   const pages = await db
     .select({
@@ -140,6 +158,19 @@ export default async function CampaignHub({
           </div>
         }
       />
+
+      {Number(autoOff?.n ?? 0) > 0 && (
+        <Link
+          href={`/admin/automation?campaign=${id}`}
+          className="mb-4 flex items-center justify-between rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm"
+        >
+          <span className="text-amber-800">
+            이 퍼널의 자동 메시지 {Number(autoOff.n)}개가 <b>꺼져 있어요</b> — 문구
+            검토하고 켜세요
+          </span>
+          <span className="font-semibold text-amber-700">→</span>
+        </Link>
+      )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="신청" value={`${Number(m?.leads ?? 0)}건`} />

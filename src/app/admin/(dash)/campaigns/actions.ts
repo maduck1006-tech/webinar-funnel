@@ -11,8 +11,11 @@ import {
   campaigns,
   events,
   leads,
+  messageAutomations,
+  messageAutomationSteps,
   orders,
 } from "@/db/schema";
+import { getTemplate } from "@/lib/funnel-templates";
 import { bustAbCache, isValidSlug } from "@/lib/campaign";
 import { FUNNEL_PAGE_TYPES } from "@/lib/flow-types";
 import {
@@ -27,10 +30,15 @@ export async function createCampaign(fd: FormData) {
   const name = String(fd.get("name") ?? "").trim();
   const slug = String(fd.get("slug") ?? "").trim().toLowerCase();
   const sourceId = String(fd.get("sourceId") ?? "").trim() || null;
+  const templateKey = String(fd.get("templateKey") ?? "").trim() || null;
+  const template = templateKey ? getTemplate(templateKey) : undefined;
   if (!name || !isValidSlug(slug)) return;
 
   const [dup] = await db.select().from(campaigns).where(eq(campaigns.slug, slug));
   if (dup) return;
+
+  const funnelType = template?.funnelType ?? "evergreen_webinar";
+  const terminalStep = template?.terminalStep ?? "booking";
 
   const [created] = await db
     .insert(campaigns)
@@ -38,9 +46,65 @@ export async function createCampaign(fd: FormData) {
       name,
       slug,
       status: "draft",
-      flow: seedFlow({ funnelType: "evergreen_webinar", terminalStep: "booking" }),
+      funnelType,
+      terminalStep,
+      flow: template
+        ? { steps: template.steps.map((pt) => ({ pageType: pt, enabled: true })) }
+        : seedFlow({ funnelType, terminalStep }),
     })
     .returning();
+
+  // 템플릿: 페이지(기본값) + CRM 자동화(캠페인 전용·꺼짐) 시드
+  if (template && !sourceId) {
+    for (const pt of FUNNEL_PAGE_TYPES) {
+      await db.insert(campaignPages).values({
+        campaignId: created.id,
+        pageType: pt,
+        version: 1,
+        published: true,
+        data: (defaultPages[pt] ?? defaultPages.landing) as object,
+      });
+    }
+    // 전역 자동화 중 이 퍼널에서 끌 것 → 캠페인 전용본 enabled=false
+    for (const gk of template.disableGlobal ?? []) {
+      await db
+        .insert(messageAutomations)
+        .values({
+          campaignId: created.id,
+          key: gk,
+          name: `${gk} (이 퍼널에선 사용 안 함)`,
+          trigger: "signup",
+          enabled: false,
+          stopOn: [],
+        })
+        .onConflictDoNothing();
+    }
+    // 템플릿 전용 자동화
+    for (const a of template.automations) {
+      const [row] = await db
+        .insert(messageAutomations)
+        .values({
+          campaignId: created.id,
+          key: a.key,
+          name: a.name,
+          trigger: a.trigger,
+          enabled: a.enabled ?? false,
+          stopOn: a.stopOn,
+        })
+        .returning({ id: messageAutomations.id });
+      await db.insert(messageAutomationSteps).values(
+        a.steps.map((s, i) => ({
+          automationId: row.id,
+          stepOrder: i + 1,
+          delayMinutes: s.delayMinutes,
+          audience: s.audience,
+          body: s.body,
+        })),
+      );
+    }
+    revalidatePath("/admin/campaigns");
+    redirect(`/admin/campaigns/${created.id}`);
+  }
 
   // 소스 캠페인 설정/페이지/상품 복제
   if (sourceId) {
