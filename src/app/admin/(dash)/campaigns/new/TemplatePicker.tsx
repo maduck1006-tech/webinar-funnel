@@ -27,13 +27,18 @@ export function TemplatePicker({ templates }: { templates: T[] }) {
             onClick={() => setSelected(t.key)}
             className={`rounded-xl border p-3 text-left transition ${
               selected === t.key
-                ? "border-blue-500 bg-blue-50"
+                ? "border-blue-500 ring-1 ring-blue-500"
                 : "border-zinc-200 hover:border-zinc-300"
             }`}
           >
             <div className="flex items-center gap-2">
               <span className="text-lg">{t.icon}</span>
               <span className="text-sm font-bold text-zinc-900">{t.name}</span>
+              {selected === t.key && (
+                <span className="ml-auto text-xs font-bold text-blue-500">
+                  ✓ 선택됨
+                </span>
+              )}
             </div>
             <p className="mt-1 text-[12px] leading-relaxed text-zinc-500">
               {t.tagline}
@@ -50,7 +55,7 @@ export function TemplatePicker({ templates }: { templates: T[] }) {
           onClick={() => setSelected("blank")}
           className={`rounded-xl border p-3 text-left transition ${
             selected === "blank"
-              ? "border-blue-500 bg-blue-50"
+              ? "border-blue-500 ring-1 ring-blue-500"
               : "border-dashed border-zinc-300 hover:border-zinc-400"
           }`}
         >
