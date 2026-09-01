@@ -343,6 +343,9 @@ export const orders = pgTable(
     bumpProductId: uuid("bump_product_id"),
     /** 범프 부분 금액 (원) */
     bumpAmount: integer("bump_amount"),
+    /** 적용된 쿠폰 + 할인액(원). amount 는 이미 차감된 실결제액 */
+    couponId: uuid("coupon_id"),
+    discount: integer("discount").notNull().default(0),
     email: text("email"),
     phone: text("phone"),
     amount: integer("amount").notNull(),
@@ -517,6 +520,57 @@ export const lessonProgress = pgTable(
 );
 
 /**
+ * 할인 쿠폰 (docs/multi-product-funnel-plan.md P4 · 크로스셀/번들과 함께)
+ * code 로 식별. percent(1~100) 또는 fixed(원). 검증은 src/lib/coupons.ts
+ */
+export const coupons = pgTable(
+  "coupons",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    code: text("code").notNull(),
+    name: text("name"),
+    /** 'percent' | 'fixed' */
+    type: text("type").notNull().default("percent"),
+    /** percent: 1~100 · fixed: 원 */
+    value: integer("value").notNull(),
+    active: boolean("active").notNull().default(true),
+    startsAt: timestamp("starts_at", { withTimezone: true }),
+    endsAt: timestamp("ends_at", { withTimezone: true }),
+    /** 전체 사용 한도 (null = 무제한) */
+    maxRedemptions: integer("max_redemptions"),
+    redeemedCount: integer("redeemed_count").notNull().default(0),
+    /** 최소 주문 금액 (null = 없음) */
+    minAmount: integer("min_amount"),
+    /** 적용 대상 상품 id 목록 (null/빈배열 = 전체) */
+    productIds: jsonb("product_ids").$type<string[]>(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex("coupons_code_idx").on(t.code)],
+);
+
+export const couponRedemptions = pgTable(
+  "coupon_redemptions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    couponId: uuid("coupon_id")
+      .notNull()
+      .references(() => coupons.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id").references(() => leads.id),
+    orderId: uuid("order_id").references(() => orders.id),
+    discount: integer("discount").notNull(),
+    redeemedAt: timestamp("redeemed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("coupon_redemptions_coupon_idx").on(t.couponId),
+    index("coupon_redemptions_lead_idx").on(t.leadId),
+  ],
+);
+
+/**
  * 승인 전 주문 컨텍스트. toss successUrl 위변조(금액 조작) 방지용.
  * /checkout 에서 orderId 발급하며 insert → /api/toss/confirm 에서 조회·검증. §3
  */
@@ -534,6 +588,10 @@ export const pendingOrders = pgTable("pending_orders", {
   bumpAmount: integer("bump_amount"),
   /** 'main' | 'upsell' | 'downsell' — 완료 시 orders.orderRole 로 전달 */
   role: text("role").notNull().default("main"),
+  /** 적용된 쿠폰 (confirm 성공 시 redeem) */
+  couponId: uuid("coupon_id"),
+  /** 쿠폰 할인액(원). amount 는 이미 차감된 값 */
+  discount: integer("discount").notNull().default(0),
   /** 'ready' | 'done' | 'fail' */
   status: text("status").notNull().default("ready"),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -924,6 +982,7 @@ export type PageType = (typeof pageType.enumValues)[number];
 export type PendingOrder = typeof pendingOrders.$inferSelect;
 export type Entitlement = typeof entitlements.$inferSelect;
 export type User = typeof users.$inferSelect;
+export type Coupon = typeof coupons.$inferSelect;
 export type Course = typeof courses.$inferSelect;
 export type Event = typeof events.$inferSelect;
 export type EventRegistration = typeof eventRegistrations.$inferSelect;

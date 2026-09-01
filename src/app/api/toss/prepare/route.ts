@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { leads, pendingOrders, products } from "@/db/schema";
 import { generateTossOrderId } from "@/lib/toss";
+import { validateCoupon } from "@/lib/coupons";
 
 export const runtime = "nodejs";
 
@@ -16,6 +17,7 @@ const schema = z.object({
   leadId: z.string().uuid().nullable().optional(),
   withBump: z.boolean().optional(),
   role: z.enum(["main", "upsell", "downsell"]).optional(),
+  couponCode: z.string().max(40).optional(),
 });
 
 export async function POST(req: Request) {
@@ -23,7 +25,7 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
   }
-  const { productId, leadId, withBump, role = "main" } = parsed.data;
+  const { productId, leadId, withBump, role = "main", couponCode } = parsed.data;
 
   const [product] = await db
     .select()
@@ -50,7 +52,26 @@ export async function POST(req: Request) {
     }
   }
 
-  const amount = product.price + bumpAmount;
+  const gross = product.price + bumpAmount;
+
+  // 쿠폰 (본상품 결제에만). 서버에서 재검증.
+  let couponId: string | null = null;
+  let discount = 0;
+  if (couponCode && role === "main") {
+    const c = await validateCoupon({
+      code: couponCode,
+      productId: product.id,
+      amount: gross,
+      leadId: leadId ?? null,
+    });
+    if (c.ok) {
+      couponId = c.coupon.id;
+      discount = c.discount;
+    }
+    // 쿠폰이 무효면 조용히 무시(정가 결제) — 클라가 이미 미리보기로 걸렀음
+  }
+
+  const amount = Math.max(100, gross - discount); // 토스 최소 결제액 대비
 
   let campaignId: string | null = null;
   if (leadId) {
@@ -72,12 +93,15 @@ export async function POST(req: Request) {
     bumpProductId,
     bumpAmount: bumpProductId ? bumpAmount : null,
     role,
+    couponId,
+    discount,
   });
 
   const baseName = product.tossOrderName || product.name;
   return NextResponse.json({
     orderId,
     amount,
+    discount,
     orderName: bumpProductId ? `${baseName} 외 1건` : baseName,
   });
 }

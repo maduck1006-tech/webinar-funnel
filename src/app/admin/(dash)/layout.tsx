@@ -7,6 +7,7 @@ const nav = [
   { href: "/admin/campaigns", label: "캠페인" },
   { href: "/admin/flow", label: "퍼널 흐름도" },
   { href: "/admin/products", label: "상품 관리" },
+  { href: "/admin/coupons", label: "쿠폰" },
   { href: "/admin/crm", label: "CRM 고객" },
   { href: "/admin/journey", label: "여정 지도" },
   { href: "/admin/automation", label: "자동 메시지" },

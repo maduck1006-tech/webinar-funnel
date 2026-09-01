@@ -71,20 +71,41 @@ export async function GET(req: Request) {
 
   // 4. orders insert
   const paidAt = confirmed.approvedAt ? new Date(confirmed.approvedAt) : new Date();
-  await db.insert(orders).values({
-    campaignId: pending.campaignId ?? null,
-    leadId: pending.leadId ?? null,
-    productId: pending.productId ?? null,
-    provider: "toss",
-    tossPaymentKey: paymentKey,
-    orderRole: pending.role ?? "main",
-    bumpProductId: pending.bumpProductId ?? null,
-    bumpAmount: pending.bumpAmount ?? null,
-    amount: confirmed.totalAmount,
-    status: "success",
-    method: confirmed.method,
-    paidAt,
-  }).onConflictDoNothing(); // unique(tossPaymentKey) — 재호출 무시
+  const [insertedOrder] = await db
+    .insert(orders)
+    .values({
+      campaignId: pending.campaignId ?? null,
+      leadId: pending.leadId ?? null,
+      productId: pending.productId ?? null,
+      provider: "toss",
+      tossPaymentKey: paymentKey,
+      orderRole: pending.role ?? "main",
+      bumpProductId: pending.bumpProductId ?? null,
+      bumpAmount: pending.bumpAmount ?? null,
+      couponId: pending.couponId ?? null,
+      discount: pending.discount ?? 0,
+      amount: confirmed.totalAmount,
+      status: "success",
+      method: confirmed.method,
+      paidAt,
+    })
+    .onConflictDoNothing() // unique(tossPaymentKey) — 재호출 무시
+    .returning({ id: orders.id });
+
+  // 4.5. 쿠폰 사용 확정 (신규 주문일 때만 — 재호출 시 insertedOrder 없음)
+  if (insertedOrder?.id && pending.couponId && pending.discount > 0) {
+    try {
+      const { redeemCoupon } = await import("@/lib/coupons");
+      await redeemCoupon({
+        couponId: pending.couponId,
+        leadId: pending.leadId ?? null,
+        orderId: insertedOrder.id,
+        discount: pending.discount,
+      });
+    } catch (e) {
+      reportError("toss.confirm.coupon", e, { orderId });
+    }
+  }
 
   // 5. pending_orders 완료 처리
   await db

@@ -112,9 +112,21 @@ export function CheckoutClient(props: CheckoutClientProps) {
 
   const [step, setStep] = useState<"contact" | "pay">(props.startStep);
   const [lead, setLead] = useState<Lead | null>(props.lead);
-  const [withBump, setWithBump] = useState(false);
+  const [withBump, setWithBumpRaw] = useState(false);
+  const [coupon, setCoupon] = useState<{
+    code: string;
+    discount: number;
+    label: string;
+  } | null>(null);
 
-  const amount = product.price + (withBump && bump ? bump.price : 0);
+  // 범프가 바뀌면 % 쿠폰 할인액이 달라지므로 쿠폰 초기화(재적용 유도)
+  const setWithBump = (v: boolean) => {
+    setWithBumpRaw(v);
+    setCoupon(null);
+  };
+
+  const gross = product.price + (withBump && bump ? bump.price : 0);
+  const amount = Math.max(0, gross - (coupon?.discount ?? 0));
 
   if (!clientKey) {
     return (
@@ -178,6 +190,27 @@ export function CheckoutClient(props: CheckoutClientProps) {
               </p>
             </div>
           </div>
+
+          {(coupon || (withBump && bump)) && (
+            <div className="mt-3 space-y-1 border-t border-white/10 pt-3 text-[13px]">
+              {withBump && bump && (
+                <div className="flex justify-between text-white/60">
+                  <span>{bump.name}</span>
+                  <span>+{won(bump.price)}</span>
+                </div>
+              )}
+              {coupon && (
+                <div className="flex justify-between text-emerald-300">
+                  <span>쿠폰 · {coupon.label}</span>
+                  <span>−{won(coupon.discount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between pt-1 font-bold text-white">
+                <span>결제 금액</span>
+                <span>{won(amount)}</span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -201,6 +234,9 @@ export function CheckoutClient(props: CheckoutClientProps) {
           bump={bump}
           withBump={withBump}
           setWithBump={setWithBump}
+          gross={gross}
+          coupon={coupon}
+          setCoupon={setCoupon}
           amount={amount}
           successUrl={successUrl}
           failUrl={failUrl}
@@ -330,6 +366,8 @@ function Field({
 
 /* ---------- 2단계: 결제 ---------- */
 
+type CouponState = { code: string; discount: number; label: string } | null;
+
 function PayStep({
   clientKey,
   productId,
@@ -340,6 +378,9 @@ function PayStep({
   bump,
   withBump,
   setWithBump,
+  gross,
+  coupon,
+  setCoupon,
   amount,
   successUrl,
   failUrl,
@@ -353,6 +394,9 @@ function PayStep({
   bump: { name: string; price: number; description: string } | null;
   withBump: boolean;
   setWithBump: (v: boolean) => void;
+  gross: number;
+  coupon: CouponState;
+  setCoupon: (c: CouponState) => void;
   amount: number;
   successUrl: string;
   failUrl: string;
@@ -433,14 +477,21 @@ function PayStep({
           leadId: lead?.id ?? null,
           withBump: role === "main" && withBump && !!bump,
           role,
+          couponCode: coupon?.code,
         }),
       });
       const data = (await res.json()) as {
         orderId?: string;
         amount?: number;
+        discount?: number;
         orderName?: string;
         error?: string;
       };
+      // 서버 재검증 결과 할인이 미리보기와 다르면 쿠폰 상태 동기화
+      if (coupon && (data.discount ?? 0) !== coupon.discount) {
+        if (!data.discount) setCoupon(null);
+        else setCoupon({ ...coupon, discount: data.discount });
+      }
       if (!res.ok || !data.orderId) {
         setErr(data.error || "주문 생성에 실패했습니다.");
         setPaying(false);
@@ -464,7 +515,19 @@ function PayStep({
       if (!msg.includes("PAY_PROCESS_CANCELED")) setErr(msg);
       setPaying(false);
     }
-  }, [paying, productId, role, lead, withBump, bump, amount, successUrl, failUrl]);
+  }, [
+    paying,
+    productId,
+    role,
+    lead,
+    withBump,
+    bump,
+    coupon,
+    setCoupon,
+    amount,
+    successUrl,
+    failUrl,
+  ]);
 
   if (isMembership) {
     return (
@@ -534,6 +597,17 @@ function PayStep({
         </div>
       )}
 
+      {/* 프로모션 코드 (본상품 결제에서만) */}
+      {role === "main" && (
+        <CouponField
+          productId={productId}
+          leadId={lead?.id ?? null}
+          gross={gross}
+          coupon={coupon}
+          setCoupon={setCoupon}
+        />
+      )}
+
       {/* 토스 결제수단 위젯 (흰 배경) */}
       <div className="rounded-xl bg-white p-1">
         <div id="toss-payment-method" className="min-h-[220px]" />
@@ -554,6 +628,107 @@ function PayStep({
       >
         {paying ? "결제 진행 중…" : `${won(amount)} 결제하기`}
       </button>
+    </div>
+  );
+}
+
+/* ---------- 프로모션 코드 ---------- */
+
+function CouponField({
+  productId,
+  leadId,
+  gross,
+  coupon,
+  setCoupon,
+}: {
+  productId: string;
+  leadId: string | null;
+  gross: number;
+  coupon: CouponState;
+  setCoupon: (c: CouponState) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function apply() {
+    const c = code.trim().toUpperCase();
+    if (!c || busy) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch("/api/coupon/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: c, productId, amount: gross, leadId }),
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        reason?: string;
+        discount?: number;
+        label?: string;
+      };
+      if (!data.ok || !data.discount) {
+        setErr(data.reason || "사용할 수 없는 쿠폰이에요.");
+      } else {
+        setCoupon({ code: c, discount: data.discount, label: data.label ?? "할인" });
+        setCode("");
+        setErr(null);
+      }
+    } catch {
+      setErr("잠시 후 다시 시도해 주세요.");
+    }
+    setBusy(false);
+  }
+
+  if (coupon) {
+    return (
+      <div className="mt-3 flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2.5 text-[13px]">
+        <span className="font-semibold text-emerald-300">
+          🎟 {coupon.code} · {coupon.label} 적용됨
+        </span>
+        <button
+          onClick={() => setCoupon(null)}
+          className="text-emerald-300/70 underline"
+        >
+          제거
+        </button>
+      </div>
+    );
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="mt-3 text-[12.5px] text-white/45 underline"
+      >
+        프로모션 코드가 있으신가요?
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-3">
+      <div className="flex gap-2">
+        <input
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          onKeyDown={(e) => e.key === "Enter" && apply()}
+          placeholder="코드 입력"
+          autoFocus
+          className="flex-1 rounded-xl border border-white/15 bg-white/5 px-3.5 py-2.5 text-[13px] uppercase tracking-wide text-white placeholder:normal-case placeholder:tracking-normal placeholder:text-white/40 focus:border-[var(--fn-accent)] focus:outline-none"
+        />
+        <button
+          onClick={apply}
+          disabled={busy || !code.trim()}
+          className="shrink-0 rounded-xl border border-white/15 px-4 text-[13px] font-semibold text-white disabled:opacity-40"
+        >
+          {busy ? "…" : "적용"}
+        </button>
+      </div>
+      {err && <p className="mt-1.5 text-[12px] text-red-400">{err}</p>}
     </div>
   );
 }
