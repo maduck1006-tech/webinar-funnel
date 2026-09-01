@@ -3,6 +3,8 @@ export const FUNNEL_PAGE_TYPES = [
   "thankyou",
   "vod",
   "booking",
+  // 종착: 무료 단톡방 입장 안내 (docs/multi-product-funnel-plan.md P0′)
+  "groupchat",
   // P2 구독: 멤버십 전환 판매 페이지 (docs/toss-payments-plan.md §11)
   "membership",
 ] as const;
@@ -16,7 +18,8 @@ export const PAGE_META: Record<
   landing: { title: "랜딩(신청)", step: "2단계", path: "/" },
   thankyou: { title: "땡큐 + 저가상품", step: "3단계", path: "/thankyou" },
   vod: { title: "VOD 시청", step: "4단계", path: "/vod" },
-  booking: { title: "상담 예약", step: "5단계", path: "/booking" },
+  booking: { title: "상담 예약", step: "5단계(종착)", path: "/booking" },
+  groupchat: { title: "단톡방 입장", step: "5단계(종착)", path: "/community" },
   membership: { title: "멤버십 전환", step: "백엔드", path: "/membership" },
 };
 

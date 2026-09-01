@@ -65,6 +65,8 @@ export const pageType = pgEnum("page_type", [
   "thankyou",
   "vod",
   "booking",
+  // 종착 스텝: 무료 단톡방(오픈카톡) 입장 안내 (docs/multi-product-funnel-plan.md P0′)
+  "groupchat",
   // P2 구독: 멤버십 전환 판매 페이지 (docs/toss-payments-plan.md §11)
   "membership",
 ]);
@@ -92,6 +94,14 @@ export const campaigns = pgTable(
     isTemplate: boolean("is_template").notNull().default(false),
     /** 랜딩 A/B 테스트 진행 중 (variant a/b 50:50 분배) */
     abLanding: boolean("ab_landing").notNull().default(false),
+
+    /**
+     * 웨비나형 퍼널의 종착 스텝 (docs/multi-product-funnel-plan.md P0′)
+     * 'booking'(1:1 예약) | 'groupchat'(무료 단톡방) | 'sales'(유료 세일즈)
+     */
+    terminalStep: text("terminal_step").notNull().default("booking"),
+    /** 종착이 groupchat 일 때 안내할 오픈카톡 등 단톡방 초대 링크 */
+    groupChatUrl: text("group_chat_url"),
 
     // 콘텐츠 / 연동
     vodSrc: text("vod_src"),

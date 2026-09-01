@@ -66,10 +66,30 @@ export default async function CampaignSettings({
               name="vodWindowHours"
               defaultValue={String(c.vodWindowHours)}
             />
+            <p className="pt-2 text-xs font-semibold text-zinc-500">
+              종착 단계 (VOD 시청 후)
+            </p>
+            <label className="block">
+              <span className="text-xs text-zinc-500">종착</span>
+              <select
+                name="terminalStep"
+                defaultValue={c.terminalStep}
+                className="mt-1 w-full rounded border px-2 py-1"
+              >
+                <option value="booking">1:1 상담 예약 (되는시간)</option>
+                <option value="groupchat">무료 단톡방 입장</option>
+                <option value="sales">유료 세일즈 페이지</option>
+              </select>
+            </label>
             <F
-              label="되는시간 임베드 URL"
+              label="되는시간 임베드 URL (종착=예약)"
               name="bookingEmbedUrl"
               defaultValue={c.bookingEmbedUrl ?? ""}
+            />
+            <F
+              label="단톡방 초대 링크 (종착=단톡방 · 문자 {단톡방링크} 변수)"
+              name="groupChatUrl"
+              defaultValue={c.groupChatUrl ?? ""}
             />
             <F
               label="워크북 다운로드 URL (문자 {다운로드링크} 변수 · 비우면 시청 링크)"

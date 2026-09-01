@@ -35,7 +35,7 @@ export function fillTemplate(
 
 /**
  * 캠페인·리드 컨텍스트로 문자 템플릿 변수 맵을 만든다.
- * {이름}{링크}{예약링크}{결제링크}{다운로드링크}{상품명}{마감시각}
+ * {이름}{링크}{예약링크}{결제링크}{단톡방링크}{다운로드링크}{상품명}{마감시각}
  */
 export async function buildMessageVars(
   campaignId: string | null,
@@ -44,21 +44,26 @@ export async function buildMessageVars(
 ): Promise<Record<string, string | undefined>> {
   let basePath = "";
   let downloadUrl = "";
+  let groupChatUrl = "";
   if (campaignId) {
     const [c] = await db
       .select({
         slug: campaigns.slug,
         isDefault: campaigns.isDefault,
         downloadUrl: campaigns.downloadUrl,
+        groupChatUrl: campaigns.groupChatUrl,
       })
       .from(campaigns)
       .where(eq(campaigns.id, campaignId))
       .catch(() => []);
     if (c && !c.isDefault) basePath = `/${c.slug}`;
     downloadUrl = c?.downloadUrl ?? "";
+    groupChatUrl = c?.groupChatUrl ?? "";
   }
   const watchUrl = `${SITE}${basePath}/vod?l=${leadId}`;
   const bookingUrl = `${SITE}${basePath}/booking?l=${leadId}`;
+  // 단톡방: 캠페인에 초대 링크가 있으면 그걸, 없으면 안내 페이지로
+  const chatUrl = groupChatUrl || `${SITE}${basePath}/community?l=${leadId}`;
 
   let checkoutUrl = watchUrl;
   if (campaignId) {
@@ -76,6 +81,7 @@ export async function buildMessageVars(
     링크: watchUrl,
     예약링크: bookingUrl,
     결제링크: checkoutUrl,
+    단톡방링크: chatUrl,
     다운로드링크: downloadUrl || watchUrl,
     상품명: productName ?? "자료",
     이름: lead?.name ?? "회원",

@@ -50,6 +50,23 @@ export async function ThankYouView({
   );
 }
 
+/**
+ * 웨비나형 퍼널의 종착 스텝 경로 (basePath + ?l= 포함).
+ * campaign.terminalStep: 'booking' | 'groupchat' | 'sales'
+ */
+function terminalUrl(campaign: Campaign, leadId?: string | null): string {
+  const base = campaignBasePath(campaign);
+  const q = leadId ? `?l=${leadId}` : "";
+  switch (campaign.terminalStep) {
+    case "groupchat":
+      return `${base}/community${q}`;
+    case "sales":
+      return `${base}/sales${q}`;
+    default:
+      return `${base}/booking${q}`;
+  }
+}
+
 /** 4단계 — VOD 시청 (시청기한 게이팅) */
 export async function VodView({
   campaign,
@@ -79,6 +96,8 @@ export async function VodView({
       productName: offer?.name,
       price: offer?.price,
       compareAt: offer?.compareAt ?? undefined,
+      terminalUrl: terminalUrl(campaign, leadId),
+      groupChatUrl: campaign.groupChatUrl ?? undefined,
     };
   }
 
@@ -212,6 +231,36 @@ export async function BookingView({
       ) : (
         <div className="mt-4 grid h-56 place-items-center rounded-xl border border-dashed border-[var(--fn-line)] bg-[var(--fn-bg-2)] text-sm text-[var(--fn-sub)]">
           되는시간(WhatTime) 예약 캘린더가 여기 표시됩니다
+        </div>
+      )}
+    </FunnelPage>
+  );
+}
+
+/** 5단계(종착) — 무료 단톡방 입장 안내 */
+export async function GroupChatView({
+  campaign,
+  l,
+}: {
+  campaign: Campaign;
+  l?: string;
+}) {
+  const leadId = await resolveLeadId(l);
+  const basePath = campaignBasePath(campaign);
+  return (
+    <FunnelPage
+      campaign={campaign}
+      pageType="groupchat"
+      metadata={{
+        leadId: leadId ?? undefined,
+        basePath,
+        groupChatUrl: campaign.groupChatUrl ?? undefined,
+        terminalUrl: terminalUrl(campaign, leadId),
+      }}
+    >
+      {!campaign.groupChatUrl && (
+        <div className="mt-4 grid h-40 place-items-center rounded-xl border border-dashed border-[var(--fn-line)] bg-[var(--fn-bg-2)] text-sm text-[var(--fn-sub)]">
+          캠페인 설정에 단톡방 초대 링크를 입력하면 여기에 입장 버튼이 표시됩니다
         </div>
       )}
     </FunnelPage>

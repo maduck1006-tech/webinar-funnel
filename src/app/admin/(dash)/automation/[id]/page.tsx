@@ -28,7 +28,8 @@ const AUDIENCE_OPTS = [
   ["not_booked", "아직 상담 예약 안 한 사람만"],
 ] as const;
 
-const VARS = "{이름} {링크} {예약링크} {결제링크} {상품명} {마감시각} {다운로드링크}";
+const VARS =
+  "{이름} {링크} {예약링크} {결제링크} {단톡방링크} {상품명} {마감시각} {다운로드링크}";
 
 function humanDelay(min: number) {
   const d = Math.floor(min / 1440);

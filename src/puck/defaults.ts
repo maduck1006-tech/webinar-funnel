@@ -153,7 +153,7 @@ export const defaultPages: Record<string, FunnelData> = {
       { type: "Video", props: { id: "v", src: "", poster: "" } },
       {
         type: "CTAButton",
-        props: { id: "b", label: "1:1 무료 상담 예약하기", sub: "결제 없이, 내 상황에 맞는 적용법 상담", href: "/booking", variant: "primary" },
+        props: { id: "b", label: "다음 단계로 →", sub: "강의를 다 봤다면 여기서 이어집니다", href: "{{terminal}}", variant: "primary" },
       },
       {
         type: "Heading",
@@ -179,6 +179,38 @@ export const defaultPages: Record<string, FunnelData> = {
         props: {
           id: "t",
           text: "30분 무료 화상 상담입니다.\n지금 하는 일이나 준비 중인 아이템에\n강의 내용을 어떻게 적용할지 같이 짚어드려요.\n아래에서 편한 시간을 선택하시면 됩니다.",
+          align: "center",
+          style: "body",
+        },
+      },
+    ],
+  },
+
+  groupchat: {
+    root: root(),
+    content: [
+      {
+        type: "Heading",
+        props: { id: "h", eyebrow: "다음 단계", text: "무료 단톡방에서\n계속 이어집니다", level: 1, align: "center" },
+      },
+      {
+        type: "Text",
+        props: {
+          id: "t",
+          text: "강의를 끝까지 본 분들만 들어오는 단톡방이에요.\n실전 적용 질문, 사례 공유, 추가 자료가 여기서 오갑니다.\n아래 버튼으로 입장 신청하시면 곧 방장이 수락합니다.",
+          align: "center",
+          style: "body",
+        },
+      },
+      {
+        type: "CTAButton",
+        props: { id: "join", label: "단톡방 입장하기", sub: "무료 · 강의 신청자 전용", href: "{{groupchat}}", variant: "primary" },
+      },
+      {
+        type: "Text",
+        props: {
+          id: "t2",
+          text: "입장이 안 되면 문자로 보내드린 링크를 다시 확인해 주세요.",
           align: "center",
           style: "body",
         },

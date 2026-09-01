@@ -18,6 +18,7 @@ export const RESERVED_SLUGS = new Set([
   "thankyou",
   "vod",
   "booking",
+  "community",
   "_next",
   "favicon.ico",
   "robots.txt",

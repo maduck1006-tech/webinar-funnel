@@ -44,6 +44,8 @@ export async function createCampaign(fd: FormData) {
           vodWindowHours: src.vodWindowHours,
           countdownMode: src.countdownMode,
           countdownRushSeconds: src.countdownRushSeconds,
+          terminalStep: src.terminalStep,
+          groupChatUrl: src.groupChatUrl,
         })
         .where(eq(campaigns.id, created.id));
 
@@ -138,6 +140,12 @@ export async function updateCampaign(fd: FormData) {
       bookingEmbedUrl: str("bookingEmbedUrl"),
       downloadUrl: str("downloadUrl"),
       checkoutRedirectUrl: str("checkoutRedirectUrl"),
+      terminalStep: ["booking", "groupchat", "sales"].includes(
+        String(fd.get("terminalStep")),
+      )
+        ? String(fd.get("terminalStep"))
+        : "booking",
+      groupChatUrl: str("groupChatUrl"),
       countdownMode: String(fd.get("countdownMode") ?? "none"),
       countdownRushSeconds: num("countdownRushSeconds"),
       countdownDeadline: fd.get("countdownDeadline")

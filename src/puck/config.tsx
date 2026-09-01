@@ -392,7 +392,8 @@ export const config: Config<FunnelProps, RootProps> = {
         sub: { type: "text" },
         href: {
           type: "text",
-          // "{{checkout}}" 를 넣으면 상품관리의 래피드 결제 URL 로 자동 연결
+          // "{{checkout}}" = 활성 상품 결제 URL · "{{terminal}}" = 캠페인 종착 스텝
+          // "{{groupchat}}" = 캠페인 설정의 단톡방 초대 링크
         },
         variant: {
           type: "radio",
@@ -404,16 +405,28 @@ export const config: Config<FunnelProps, RootProps> = {
       },
       defaultProps: { label: "신청하기", sub: "", href: "#apply", variant: "primary" },
       render: ({ label, sub, href, variant, puck }) => {
-        // 페이지에서 이미 lead 파라미터까지 붙인 최종 결제 URL 을 넘겨줌
+        // 페이지에서 이미 lead 파라미터까지 붙인 최종 URL 을 넘겨줌
         const meta = puck?.metadata as
-          | { checkoutUrl?: string; basePath?: string }
+          | {
+              checkoutUrl?: string;
+              basePath?: string;
+              terminalUrl?: string;
+              groupChatUrl?: string;
+            }
           | undefined;
         const wantsCheckout =
           !href || href === "#" || href === "{{checkout}}" || href === "결제";
+        // {{terminal}} = 캠페인 종착 스텝(예약/단톡방/세일즈), {{groupchat}} = 단톡방 링크
+        const wantsTerminal = href === "{{terminal}}";
+        const wantsGroupChat = href === "{{groupchat}}";
         const isCheckout = wantsCheckout && !!meta?.checkoutUrl;
         const resolved = wantsCheckout
           ? (meta?.checkoutUrl ?? "#")
-          : withBase(href, meta?.basePath);
+          : wantsTerminal
+            ? (meta?.terminalUrl ?? "#")
+            : wantsGroupChat
+              ? (meta?.groupChatUrl ?? "#")
+              : withBase(href, meta?.basePath);
         return (
         <CtaLink
           href={resolved}
