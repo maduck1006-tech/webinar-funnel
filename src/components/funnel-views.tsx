@@ -13,6 +13,11 @@ import {
   checkoutRedirect,
 } from "@/lib/campaign";
 import { getActiveOffer, resolveCheckoutUrl } from "@/lib/funnel-offer";
+import {
+  getRegisteredEvent,
+  replayClosesAt,
+  replayOpensAt,
+} from "@/lib/events";
 import { getEntitlement, grantEntitlement, hasEntitlement } from "@/lib/entitlements";
 import {
   getCourseByProduct,
@@ -41,6 +46,15 @@ export async function ThankYouView({
   const leadId = await resolveLeadId(l);
   const offer = await getActiveOffer(campaign.id, "thankyou");
   const basePath = campaignBasePath(campaign);
+
+  let eventStartsAtIso: string | undefined;
+  let liveUrl: string | undefined;
+  if (campaign.funnelType === "live_webinar_reg" && leadId) {
+    const event = await getRegisteredEvent(leadId);
+    eventStartsAtIso = event?.startsAt.toISOString();
+    liveUrl = event?.externalLiveUrl ?? undefined;
+  }
+
   return (
     <FunnelPage
       campaign={campaign}
@@ -53,6 +67,8 @@ export async function ThankYouView({
         productName: offer?.name,
         price: offer?.price,
         compareAt: offer?.compareAt ?? undefined,
+        eventStartsAtIso,
+        liveUrl,
       }}
     />
   );
@@ -73,6 +89,120 @@ function terminalUrl(campaign: Campaign, leadId?: string | null): string {
     default:
       return `${base}/booking${q}`;
   }
+}
+
+/** live_webinar_reg 전용 VOD 게이팅 — 회차(event) 시작/종료 기준 */
+async function renderLiveReplayGate({
+  campaign,
+  leadId,
+  meta,
+  purchaseValue,
+  paid,
+}: {
+  campaign: Campaign;
+  leadId: string | null;
+  meta: (leadId: string | null, deadlineIso?: string) => Record<string, unknown>;
+  purchaseValue: number | undefined;
+  paid?: string;
+}) {
+  if (!leadId) {
+    return (
+      <Gate title="시청 링크가 필요합니다">
+        문자로 받으신 신청 확인 링크로 접속해 주세요.
+      </Gate>
+    );
+  }
+
+  const event = await getRegisteredEvent(leadId);
+  if (!event) {
+    return (
+      <Gate title="예정된 회차가 없습니다">
+        관리자에게 문의해 주세요. (캠페인에 라이브 일정이 설정돼 있지 않습니다)
+      </Gate>
+    );
+  }
+  if (event.status === "canceled") {
+    return <Gate title="이 회차는 취소되었습니다">다음 안내를 기다려 주세요.</Gate>;
+  }
+
+  const now = new Date();
+  const opensAt = replayOpensAt(event);
+  const closesAt = replayClosesAt(event);
+  const when = event.startsAt.toLocaleString("ko-KR", {
+    month: "long",
+    day: "numeric",
+    weekday: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  if (now < event.startsAt) {
+    return (
+      <Gate title="아직 시작 전이에요">
+        {when}에 라이브로 진행됩니다. 시작 전 문자로 입장 링크를 다시 보내드려요.
+      </Gate>
+    );
+  }
+
+  if (now < opensAt) {
+    return (
+      <Gate title="지금 라이브 진행 중">
+        {event.externalLiveUrl ? (
+          <a
+            href={event.externalLiveUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-block rounded-lg bg-[var(--fn-accent)] px-5 py-2.5 font-bold text-white"
+          >
+            라이브 입장하기 →
+          </a>
+        ) : (
+          "문자로 받으신 라이브 링크로 입장해 주세요."
+        )}
+        <br />
+        <span className="mt-2 block text-xs">
+          방송이 끝나면 이 페이지에서 리플레이가 자동으로 열립니다.
+        </span>
+      </Gate>
+    );
+  }
+
+  if (now >= closesAt) {
+    return (
+      <Gate title="리플레이 기간이 종료되었습니다">
+        라이브 종료로부터 {event.replayWindowHours}시간이 지나 더 이상 시청할 수
+        없습니다.
+      </Gate>
+    );
+  }
+
+  // 리플레이 시청 가능 구간
+  const [lead] = await db.select().from(leads).where(eq(leads.id, leadId));
+  if (lead && !lead.firstWatchedAt) {
+    await db
+      .update(leads)
+      .set({
+        firstWatchedAt: now,
+        status: lead.status === "applied" ? "watching" : lead.status,
+        updatedAt: now,
+      })
+      .where(eq(leads.id, lead.id));
+    after(() =>
+      enrollLead(lead.id, "watch_start", campaign.id).catch(() => {}),
+    );
+  }
+
+  const md = {
+    ...meta(leadId, closesAt.toISOString()),
+    vodSrc: event.replayUrl || campaign.vodSrc || undefined,
+  };
+  return (
+    <FunnelPage campaign={campaign} pageType="vod" metadata={md}>
+      {paid === "1" && (
+        <PaidTracker leadId={leadId ?? undefined} value={purchaseValue} />
+      )}
+    </FunnelPage>
+  );
 }
 
 /** 4단계 — VOD 시청 (시청기한 게이팅) */
@@ -123,6 +253,13 @@ export async function VodView({
   }
 
   const leadId = await resolveLeadId(l);
+
+  // 라이브 웨비나 신청 퍼널: 신청시각+48h 가 아니라 회차(event) 기준으로 게이팅.
+  // 라이브 종료(startsAt+durationMin) 전엔 리플레이 비공개, 종료 후 replayWindowHours 동안 공개.
+  if (campaign.funnelType === "live_webinar_reg") {
+    return renderLiveReplayGate({ campaign, leadId, meta, purchaseValue, paid });
+  }
+
   let gate: "ok" | "no-id" | "not-found" | "expired" = "ok";
   let deadlineIso: string | undefined;
 

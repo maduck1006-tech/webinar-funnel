@@ -413,16 +413,19 @@ export const config: Config<FunnelProps, RootProps> = {
               terminalUrl?: string;
               groupChatUrl?: string;
               downloadUrl?: string;
+              liveUrl?: string;
             }
           | undefined;
         const wantsCheckout =
           !href || href === "#" || href === "{{checkout}}" || href === "결제";
         // {{terminal}} = 캠페인 종착 스텝(예약/단톡방/세일즈)
         // {{groupchat}} = 단톡방 링크 · {{download}} = 구매한 파일 다운로드 링크
+        // {{live}} = 라이브 웨비나 신청 퍼널의 외부 라이브(유튜브 라이브 등) URL
         // checkoutUrl 은 상품이 무료면 /api/claim(체크아웃 스킵)을 가리킴
         const wantsTerminal = href === "{{terminal}}";
         const wantsGroupChat = href === "{{groupchat}}";
         const wantsDownload = href === "{{download}}";
+        const wantsLive = href === "{{live}}";
         const isCheckout = wantsCheckout && !!meta?.checkoutUrl;
         const resolved = wantsCheckout
           ? (meta?.checkoutUrl ?? "#")
@@ -432,7 +435,9 @@ export const config: Config<FunnelProps, RootProps> = {
               ? (meta?.groupChatUrl ?? "#")
               : wantsDownload
                 ? (meta?.downloadUrl ?? "#")
-                : withBase(href, meta?.basePath);
+                : wantsLive
+                  ? (meta?.liveUrl ?? "#")
+                  : withBase(href, meta?.basePath);
         return (
         <CtaLink
           href={resolved}
@@ -482,6 +487,8 @@ export const config: Config<FunnelProps, RootProps> = {
           deadlineIso={
             deadlineIso ||
             (puck?.metadata?.vodDeadlineIso as string | undefined) ||
+            // 라이브 웨비나 신청 퍼널의 땡큐 페이지: 회차 시작시각까지 카운트다운
+            (puck?.metadata?.eventStartsAtIso as string | undefined) ||
             ""
           }
           expiredText={expiredText}

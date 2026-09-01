@@ -6,6 +6,7 @@ import { campaigns, leads } from "@/db/schema";
 import { normalizePhone } from "@/lib/phone";
 import { getDefaultCampaign } from "@/lib/campaign";
 import { enrollLead } from "@/lib/messaging";
+import { registerForEvent } from "@/lib/events";
 import { sendMetaEvent } from "@/lib/meta-capi";
 
 const bodySchema = z.object({
@@ -117,6 +118,21 @@ export async function POST(req: Request) {
       /* 자동화 실패가 신청 자체를 막지 않음 */
     }
   });
+
+  // 라이브 웨비나 신청 퍼널: 다음 회차에 등록 + 그 회차 시각을 anchor 로 자동화 등록
+  // (사전 D-1/H-1 리마인더는 lib/events.ts sendEventPreReminders 가 별도 처리)
+  if (campaign?.funnelType === "live_webinar_reg") {
+    after(async () => {
+      try {
+        const event = await registerForEvent(row.id, campaign.id);
+        if (event) {
+          await enrollLead(row.id, "event_registered", campaign.id, event.startsAt);
+        }
+      } catch {
+        /* 이벤트 등록 실패가 신청 자체를 막지 않음 */
+      }
+    });
+  }
 
   // Meta Conversions API — Lead (브라우저 픽셀과 event_id 로 중복 제거)
   after(async () => {

@@ -38,6 +38,14 @@ export const TRIGGER_META: Record<
     icon: "✋",
     hint: "CRM 고객 상세 화면에서 '이 고객을 여기 넣기' 를 누른 순간부터.",
   },
+  event_registered: {
+    label: "라이브 웨비나 신청했을 때",
+    verb: "라이브 회차에 신청하면",
+    icon: "📡",
+    hint:
+      "신청 시각이 아니라 '그 회차 시작 시각' 부터 시간을 잽니다 — 그래서 여기 스텝은 " +
+      "0(라이브 시작) 이후만 의미 있어요. 시작 전 D-1/1시간전 리마인더는 자동으로 별도 발송됩니다.",
+  },
 };
 
 export const AUDIENCE_META: Record<

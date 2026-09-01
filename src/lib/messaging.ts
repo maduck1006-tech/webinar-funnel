@@ -13,6 +13,7 @@ import {
   type MessageAutomationTrigger,
 } from "@/db/schema";
 import { getActiveOffer, resolveCheckoutUrl } from "@/lib/funnel-offer";
+import { getRegisteredEvent } from "@/lib/events";
 import { sendSms } from "@/lib/solapi";
 
 /** 문자 링크용 절대 도메인. env 미설정 시 Vercel 프로덕션 도메인으로 폴백 */
@@ -35,7 +36,7 @@ export function fillTemplate(
 
 /**
  * 캠페인·리드 컨텍스트로 문자 템플릿 변수 맵을 만든다.
- * {이름}{링크}{예약링크}{결제링크}{단톡방링크}{세일즈링크}{강의실링크}{다운로드링크}{상품명}{마감시각}
+ * {이름}{링크}{예약링크}{결제링크}{단톡방링크}{세일즈링크}{강의실링크}{다운로드링크}{라이브링크}{라이브일시}{상품명}{마감시각}
  */
 export async function buildMessageVars(
   campaignId: string | null,
@@ -81,6 +82,8 @@ export async function buildMessageVars(
     .where(eq(leads.id, leadId))
     .catch(() => []);
 
+  const event = await getRegisteredEvent(leadId).catch(() => null);
+
   return {
     링크: watchUrl,
     예약링크: bookingUrl,
@@ -89,6 +92,16 @@ export async function buildMessageVars(
     세일즈링크: salesUrl,
     강의실링크: `${SITE}${basePath}/course?l=${leadId}`,
     다운로드링크: downloadUrl || downloadPageUrl || watchUrl,
+    라이브링크: event?.externalLiveUrl || watchUrl,
+    라이브일시: event
+      ? event.startsAt.toLocaleString("ko-KR", {
+          month: "long",
+          day: "numeric",
+          weekday: "short",
+          hour: "numeric",
+          minute: "2-digit",
+        })
+      : "",
     상품명: productName ?? "자료",
     이름: lead?.name ?? "회원",
     마감시각: lead?.vodExpiresAt

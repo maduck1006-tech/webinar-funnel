@@ -393,6 +393,58 @@ export const courseLessons = pgTable(
   (t) => [index("course_lessons_module_idx").on(t.moduleId, t.sortOrder)],
 );
 
+/**
+ * 라이브 웨비나 신청 퍼널의 회차 (docs/multi-product-funnel-plan.md P3)
+ * 방송은 외부(유튜브 라이브)에서 진행 — 이 앱은 신청·리마인더·리플레이 전환만 담당.
+ */
+export const events = pgTable(
+  "events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    timezone: text("timezone").notNull().default("Asia/Seoul"),
+    durationMin: integer("duration_min").notNull().default(60),
+    /** 유튜브 라이브 등 외부 시청 URL */
+    externalLiveUrl: text("external_live_url"),
+    /** 종료 후 올릴 리플레이 영상. 없으면 campaign.vodSrc 사용 */
+    replayUrl: text("replay_url"),
+    /** 리플레이 공개(=startsAt+durationMin) 후 시청 가능 기간(시간) */
+    replayWindowHours: integer("replay_window_hours").notNull().default(48),
+    /** 'scheduled' | 'ended' | 'canceled' */
+    status: text("status").notNull().default("scheduled"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("events_campaign_starts_idx").on(t.campaignId, t.startsAt)],
+);
+
+export const eventRegistrations = pgTable(
+  "event_registrations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id),
+    registeredAt: timestamp("registered_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    /** 사전 리마인더(24h/1h 전) 중복발송 방지 플래그 — 크론이 daily 자동화 엔진 밖에서 직접 관리 */
+    remindedD1: boolean("reminded_d1").notNull().default(false),
+    remindedH1: boolean("reminded_h1").notNull().default(false),
+  },
+  (t) => [
+    uniqueIndex("event_registrations_event_lead_idx").on(t.eventId, t.leadId),
+    index("event_registrations_lead_idx").on(t.leadId),
+  ],
+);
+
 export const lessonProgress = pgTable(
   "lesson_progress",
   {
@@ -685,6 +737,10 @@ export const messageAutomationTrigger = pgEnum("message_automation_trigger", [
   "purchase", // 결제 완료 (anchor: order.paidAt)
   "booking", // 상담 예약 확정 (anchor: 예약시각)
   "manual", // 관리자가 CRM 에서 직접 등록 (anchor: now)
+  // 라이브 웨비나 신청 완료 (anchor: event.startsAt — 사전 리마인더는 이 트리거가 아니라
+  // lib/events.ts sendEventPreReminders 가 별도 처리. 여기 스텝은 startsAt 이후(양수 지연)만 사용:
+  // 리플레이 공개·마감임박 등 (docs/multi-product-funnel-plan.md P3)
+  "event_registered",
 ]);
 
 /** 각 스텝을 받을 대상 조건 */
@@ -806,6 +862,8 @@ export type PageType = (typeof pageType.enumValues)[number];
 export type PendingOrder = typeof pendingOrders.$inferSelect;
 export type Entitlement = typeof entitlements.$inferSelect;
 export type Course = typeof courses.$inferSelect;
+export type Event = typeof events.$inferSelect;
+export type EventRegistration = typeof eventRegistrations.$inferSelect;
 export type CourseModule = typeof courseModules.$inferSelect;
 export type CourseLesson = typeof courseLessons.$inferSelect;
 export type Subscription = typeof subscriptions.$inferSelect;

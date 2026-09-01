@@ -9,6 +9,7 @@ import {
   campaignProducts,
   campaignSlugRedirects,
   campaigns,
+  events,
   leads,
   orders,
 } from "@/db/schema";
@@ -382,5 +383,38 @@ export async function setCampaignProduct(fd: FormData) {
         set: { placement },
       });
   }
+  revalidatePath(`/admin/campaigns/${campaignId}/settings`);
+}
+
+/** 라이브 웨비나 신청 퍼널의 회차 생성/수정 (docs/multi-product-funnel-plan.md P3) */
+export async function saveEvent(fd: FormData) {
+  const campaignId = String(fd.get("campaignId"));
+  const id = String(fd.get("id") ?? "").trim() || null;
+  const startsAtStr = String(fd.get("startsAt") ?? "");
+  if (!campaignId || !startsAtStr) return;
+
+  const values = {
+    campaignId,
+    startsAt: new Date(startsAtStr),
+    durationMin: Number(fd.get("durationMin") ?? 60) || 60,
+    externalLiveUrl: String(fd.get("externalLiveUrl") ?? "").trim() || null,
+    replayUrl: String(fd.get("replayUrl") ?? "").trim() || null,
+    replayWindowHours:
+      Number(fd.get("replayWindowHours") ?? 48) || 48,
+    status: String(fd.get("status") ?? "scheduled"),
+  };
+
+  if (id) {
+    await db.update(events).set(values).where(eq(events.id, id));
+  } else {
+    await db.insert(events).values(values);
+  }
+  revalidatePath(`/admin/campaigns/${campaignId}/settings`);
+}
+
+export async function deleteEvent(fd: FormData) {
+  const id = String(fd.get("id"));
+  const campaignId = String(fd.get("campaignId"));
+  await db.delete(events).where(eq(events.id, id));
   revalidatePath(`/admin/campaigns/${campaignId}/settings`);
 }

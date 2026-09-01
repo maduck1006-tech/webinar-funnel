@@ -16,6 +16,7 @@ const TRIGGERS: MessageAutomationTrigger[] = [
   "purchase",
   "booking",
   "manual",
+  "event_registered",
 ];
 
 function rev(id?: string) {

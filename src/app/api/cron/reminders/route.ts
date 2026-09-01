@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runDueAutomationSteps } from "@/lib/messaging";
+import { sendEventPreReminders } from "@/lib/events";
 
 export const runtime = "nodejs";
 
@@ -18,7 +19,13 @@ export async function GET(req: Request) {
 
   try {
     const result = await runDueAutomationSteps();
-    return NextResponse.json({ ok: true, at: new Date().toISOString(), ...result });
+    const events = await sendEventPreReminders().catch(() => ({ d1: 0, h1: 0 }));
+    return NextResponse.json({
+      ok: true,
+      at: new Date().toISOString(),
+      ...result,
+      events,
+    });
   } catch (e) {
     return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });
   }

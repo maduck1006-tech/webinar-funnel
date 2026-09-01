@@ -2,9 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { campaignProducts, campaigns, products } from "@/db/schema";
+import { campaignProducts, campaigns, events, products } from "@/db/schema";
 import { Card, PageHeader, Tag } from "@/components/admin-ui";
-import { setCampaignProduct, updateCampaign } from "../../actions";
+import {
+  deleteEvent,
+  saveEvent,
+  setCampaignProduct,
+  updateCampaign,
+} from "../../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +31,11 @@ export default async function CampaignSettings({
     .from(campaignProducts)
     .where(eq(campaignProducts.campaignId, id));
   const mappedMap = new Map(mapped.map((m) => [m.productId, m.placement]));
+  const campaignEvents = await db
+    .select()
+    .from(events)
+    .where(eq(events.campaignId, id))
+    .orderBy(asc(events.startsAt));
 
   const iso = (d: Date | null) =>
     d ? d.toISOString().slice(0, 16) : undefined;
@@ -240,6 +250,138 @@ export default async function CampaignSettings({
           </ul>
         </Card>
       </div>
+
+      {c.funnelType === "live_webinar_reg" && (
+        <Card className="mt-6">
+          <p className="mb-1 text-sm font-bold">라이브 웨비나 회차</p>
+          <p className="mb-3 text-xs text-zinc-500">
+            방송은 유튜브 라이브 등 외부에서 진행합니다. 가장 임박한{" "}
+            <b>예정</b> 회차 하나에 새 신청자가 자동 등록되고, 종료(시작+진행시간) 뒤
+            replayWindowHours 동안 리플레이가 공개됩니다.
+          </p>
+
+          <ul className="mb-4 divide-y divide-zinc-100 text-sm">
+            {campaignEvents.length === 0 && (
+              <li className="py-3 text-zinc-400">등록된 회차 없음</li>
+            )}
+            {campaignEvents.map((e) => (
+              <li key={e.id} className="py-3">
+                <form
+                  action={saveEvent}
+                  className="grid gap-2 sm:grid-cols-[1fr_90px_1fr_90px_100px_auto]"
+                >
+                  <input type="hidden" name="id" value={e.id} />
+                  <input type="hidden" name="campaignId" value={id} />
+                  <label className="block">
+                    <span className="text-[10px] text-zinc-400">시작</span>
+                    <input
+                      type="datetime-local"
+                      name="startsAt"
+                      defaultValue={iso(e.startsAt)}
+                      className="mt-0.5 w-full rounded border px-2 py-1 text-xs"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[10px] text-zinc-400">진행(분)</span>
+                    <input
+                      name="durationMin"
+                      defaultValue={e.durationMin}
+                      className="mt-0.5 w-full rounded border px-2 py-1 text-xs"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[10px] text-zinc-400">
+                      외부 라이브 URL
+                    </span>
+                    <input
+                      name="externalLiveUrl"
+                      defaultValue={e.externalLiveUrl ?? ""}
+                      className="mt-0.5 w-full rounded border px-2 py-1 text-xs"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[10px] text-zinc-400">
+                      리플레이 기한(h)
+                    </span>
+                    <input
+                      name="replayWindowHours"
+                      defaultValue={e.replayWindowHours}
+                      className="mt-0.5 w-full rounded border px-2 py-1 text-xs"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[10px] text-zinc-400">상태</span>
+                    <select
+                      name="status"
+                      defaultValue={e.status}
+                      className="mt-0.5 w-full rounded border px-1.5 py-1 text-xs"
+                    >
+                      <option value="scheduled">예정</option>
+                      <option value="ended">종료</option>
+                      <option value="canceled">취소</option>
+                    </select>
+                  </label>
+                  <div className="flex items-end gap-1">
+                    <button className="rounded border px-2 py-1 text-xs font-semibold text-blue-600">
+                      저장
+                    </button>
+                  </div>
+                </form>
+                <form action={deleteEvent} className="mt-1 text-right">
+                  <input type="hidden" name="id" value={e.id} />
+                  <input type="hidden" name="campaignId" value={id} />
+                  <button className="text-[11px] text-red-500 hover:underline">
+                    삭제
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+
+          <form
+            action={saveEvent}
+            className="grid gap-2 rounded-lg bg-zinc-50 p-3 sm:grid-cols-[1fr_90px_1fr_90px_auto]"
+          >
+            <input type="hidden" name="campaignId" value={id} />
+            <label className="block">
+              <span className="text-[10px] text-zinc-400">시작 일시 *</span>
+              <input
+                type="datetime-local"
+                name="startsAt"
+                required
+                className="mt-0.5 w-full rounded border px-2 py-1 text-xs"
+              />
+            </label>
+            <label className="block">
+              <span className="text-[10px] text-zinc-400">진행(분)</span>
+              <input
+                name="durationMin"
+                defaultValue={60}
+                className="mt-0.5 w-full rounded border px-2 py-1 text-xs"
+              />
+            </label>
+            <label className="block">
+              <span className="text-[10px] text-zinc-400">외부 라이브 URL</span>
+              <input
+                name="externalLiveUrl"
+                placeholder="유튜브 라이브 링크"
+                className="mt-0.5 w-full rounded border px-2 py-1 text-xs"
+              />
+            </label>
+            <label className="block">
+              <span className="text-[10px] text-zinc-400">리플레이 기한(h)</span>
+              <input
+                name="replayWindowHours"
+                defaultValue={48}
+                className="mt-0.5 w-full rounded border px-2 py-1 text-xs"
+              />
+            </label>
+            <button className="self-end rounded-lg border border-blue-600 px-3 py-1.5 text-xs font-semibold text-blue-600">
+              + 회차 추가
+            </button>
+          </form>
+        </Card>
+      )}
     </>
   );
 }
