@@ -26,15 +26,15 @@ async function main() {
     { key: "reminder_12h_left", label: "DB 입력 +36h", condition: "미시청", offsetHours: 36, template: "마감 12시간 전! {링크}" },
     { key: "reminder_1h_left", label: "DB 입력 +47h", condition: "미시청", offsetHours: 47, template: "마지막 1시간입니다. {링크}" },
     { key: "pre_payment_nudge", label: "결제 직전 유도", condition: "저가 상품 미결제", offsetHours: null, template: "지금 {상품명}을 함께 보세요. {링크}" },
-    { key: "payment_success", label: "래피드 웹훅 SUCCESS", condition: "결제 성공", offsetHours: null, template: "결제 완료! 상담 예약 안내 {링크}" },
-    { key: "payment_cancel_admin", label: "래피드 웹훅 CANCEL", condition: "결제 취소", offsetHours: null, enabled: false, template: "[관리자] 결제 취소 발생" },
+    { key: "payment_success", label: "결제 성공", condition: "결제 성공", offsetHours: null, template: "결제 완료! 상담 예약 안내 {링크}" },
+    { key: "payment_cancel_admin", label: "결제 취소", condition: "결제 취소", offsetHours: null, enabled: false, template: "[관리자] 결제 취소 발생" },
   ]);
 
   const [pA] = await db
     .insert(products)
     .values([
-      { name: "워크북 패키지 A", price: 9500, compareAtPrice: 19000, active: true, latpeedProductId: "prod_1029", placement: "both" },
-      { name: "워크북 패키지 B (프로모션)", price: 19000, compareAtPrice: 29000, active: false, latpeedProductId: "prod_1030", showUntil: new Date("2026-08-31"), placement: "thankyou" },
+      { name: "워크북 패키지 A", price: 9500, compareAtPrice: 19000, active: true, placement: "both" },
+      { name: "워크북 패키지 B (프로모션)", price: 19000, compareAtPrice: 29000, active: false, showUntil: new Date("2026-08-31"), placement: "thankyou" },
     ])
     .returning();
 
@@ -68,9 +68,9 @@ async function main() {
   const choi = inserted[3];
 
   await db.insert(orders).values([
-    { leadId: kim.id, productId: pA.id, latpeedOrderId: "A1029", email: kim.email, phone: kim.phone, amount: 19000, status: "success", method: "CARD", paidAt: ago(h(28)) },
-    { leadId: choi.id, productId: pA.id, latpeedOrderId: "A1030", email: choi.email, phone: choi.phone, amount: 9500, status: "cancel", method: "CARD", paidAt: ago(h(38)) },
-    { latpeedOrderId: "A1031", email: "ghost@example.com", phone: "01099998888", amount: 9500, status: "webhook_missing" },
+    { leadId: kim.id, productId: pA.id, tossPaymentKey: "test_A1029", provider: "toss", email: kim.email, phone: kim.phone, amount: 19000, status: "success", method: "CARD", paidAt: ago(h(28)) },
+    { leadId: choi.id, productId: pA.id, tossPaymentKey: "test_A1030", provider: "toss", email: choi.email, phone: choi.phone, amount: 9500, status: "cancel", method: "CARD", paidAt: ago(h(38)) },
+    { tossPaymentKey: "test_A1031", provider: "toss", email: "ghost@example.com", phone: "01099998888", amount: 9500, status: "webhook_missing" },
   ]);
 
   await db.insert(webhookEvents).values([

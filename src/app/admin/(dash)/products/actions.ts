@@ -14,7 +14,6 @@ function parse(fd: FormData) {
     const v = fd.get(k);
     return v ? new Date(String(v)) : null;
   };
-  const provider = String(fd.get("paymentProvider") ?? "latpeed");
   const uuidOrNull = (k: string) => {
     const v = String(fd.get(k) ?? "").trim();
     return v || null;
@@ -27,11 +26,8 @@ function parse(fd: FormData) {
     compareAtPrice: num("compareAtPrice"),
     showFrom: date("showFrom"),
     showUntil: date("showUntil"),
-    paymentProvider: provider,
-    latpeedCheckoutUrl:
-      provider === "latpeed"
-        ? (String(fd.get("latpeedCheckoutUrl") ?? "").trim() || null)
-        : null,
+    // 결제는 전부 자체 토스 결제
+    paymentProvider: "toss" as const,
     tossOrderName: String(fd.get("tossOrderName") ?? "").trim() || null,
     placement: String(fd.get("placement") ?? "both"),
     // 클릭퍼널스 확장 (토스 상품에서만 의미)

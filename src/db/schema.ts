@@ -198,17 +198,14 @@ export const products = pgTable("products", {
   active: boolean("active").notNull().default(true),
   showFrom: timestamp("show_from", { withTimezone: true }),
   showUntil: timestamp("show_until", { withTimezone: true }),
-  /** 래피드 결제 페이지 URL 또는 상품 ID 매핑 */
+  /** @deprecated 래피드 제거됨. 컬럼은 과거 데이터 위해 유지 */
   latpeedProductId: text("latpeed_product_id"),
+  /** @deprecated 래피드 제거됨 */
   latpeedCheckoutUrl: text("latpeed_checkout_url"),
   /** 노출 위치: 'thankyou' | 'vod_bottom' | 'both' */
   placement: text("placement").notNull().default("both"),
-  /**
-   * 결제 provider: 'latpeed' | 'toss'  (docs/toss-payments-plan.md §4)
-   * latpeed = latpeedCheckoutUrl 링크로 이동 (기존)
-   * toss    = 자체 /checkout 페이지 + 서버승인
-   */
-  paymentProvider: text("payment_provider").notNull().default("latpeed"),
+  /** @deprecated 결제는 전부 자체 토스 결제. 항상 'toss' */
+  paymentProvider: text("payment_provider").notNull().default("toss"),
   /** 상품 종류: 'one_time' | 'membership' (구독)  */
   kind: text("kind").notNull().default("one_time"),
   /** toss 결제창 orderName (없으면 name 사용) */
@@ -247,11 +244,11 @@ export const orders = pgTable(
     campaignId: uuid("campaign_id").references(() => campaigns.id),
     leadId: uuid("lead_id").references(() => leads.id),
     productId: uuid("product_id").references(() => products.id),
-    /** 'latpeed' | 'toss' */
-    provider: text("provider").notNull().default("latpeed"),
-    /** latpeed 주문 ID (provider='latpeed' 일 때) */
+    /** 'toss' (과거: 'latpeed') */
+    provider: text("provider").notNull().default("toss"),
+    /** @deprecated 래피드 주문 ID (과거 데이터) */
     latpeedOrderId: text("latpeed_order_id"),
-    /** toss paymentKey (provider='toss' 일 때) */
+    /** toss paymentKey */
     tossPaymentKey: text("toss_payment_key"),
     /** 구독 회차 결제면 해당 구독 (§11) */
     subscriptionId: uuid("subscription_id"),

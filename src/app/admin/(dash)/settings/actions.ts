@@ -1,6 +1,6 @@
 "use server";
 
-import { normalizePhone } from "@/lib/latpeed";
+import { normalizePhone } from "@/lib/phone";
 import { sendSms } from "@/lib/solapi";
 
 export type TestResult = { ok: boolean; message: string };

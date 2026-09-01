@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     .where(eq(products.id, productId))
     .limit(1);
 
-  if (!product || !product.active || product.paymentProvider !== "toss") {
+  if (!product || !product.active) {
     return NextResponse.json({ error: "상품을 찾을 수 없습니다" }, { status: 404 });
   }
 

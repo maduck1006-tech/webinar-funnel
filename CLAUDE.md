@@ -18,15 +18,15 @@
 - 광고 귀속: middleware applyFirstTouch 가 광고 진입 시 `_fbc`(fb.1.<ts>.<fbclid>) + `_ft`(first-touch utm/fbclid/ref JSON) 90일 쿠키. LeadForm→/api/leads 가 쿠키+헤더(IP/UA) 병합해 leads.fbc/fbp/fbclid/clientIp/clientUa/landingUrl/referrer 저장. utm 은 last-click 우선
 - 광고 지표: /api/cron/meta-insights (일 1회 01:00 UTC) 가 Meta Marketing API insights → ad_daily_stats upsert. env META_ACCESS_TOKEN(ads_read) + META_AD_ACCOUNT_ID(숫자). 캠페인 설정의 metaAdAccountId/metaAdCampaignIds 로 귀속(캠페인 지정 없으면 기본 캠페인에 계정 전체). ?since=&until= 백필. src/lib/meta-insights.ts
 - 광고 성과 리포트: /admin/analytics — 광고비·노출·클릭·CTR·CPC + 리드·DB전환·DB단가 + SLO/본상품 주문·매출·상쇄율·ROAS 일자별 표. SLO 구분 임계값 env META_SLO_MAX(기본 300000). ?campaign=&from=&to=
-- Meta CApI(서버 전환): src/lib/meta-capi.ts sendMetaEvent. 픽셀=campaigns.metaPixelId(또는 env META_DEFAULT_PIXEL_ID), 토큰=env META_CAPI_TOKEN||META_ACCESS_TOKEN. em/ph/fn/external_id SHA-256 해시 + fbc/fbp/IP/UA. event_id 로 브라우저 픽셀과 중복제거: Lead `lead.<id>`(/api/leads after + LeadForm track), Purchase `purchase.lead.<leadId>`(래피드 웹훅 SUCCESS 최초전이 + PaidTracker), Schedule `schedule.<code|leadId>`(되는시간 confirm). 전송로그 webhook_events(provider=meta_capi). env META_CAPI_TEST_CODE 있으면 테스트이벤트(실집계X). track(event,params,eventId) 4번째 인자=fbq eventID
-- 결제: 래피드(Latpeed) 웹훅 /api/latpeed/webhook. 서명 스펙 불명확 → verifyLatpeedSignature 가 HMAC 4포맷+공유토큰 자동시도, 통과 방식은 webhook_events.error 에 "verified: ..." 로 기록
-- 상품 결제 연결: products.latpeedCheckoutUrl(관리자 폼 라벨 "결제 페이지 URL", 상품목록에 "결제 연결" 배지). CTA href 를 "{{checkout}}" 로 두면 funnel-offer.ts 가 활성상품 URL 을 Render metadata.checkoutUrl 로 주입. Price 블록 price/compareAt 0 이면 상품값 사용. 웹훅 없이 CTA 연결만으로 운영 가능(래피드 자체 감사문자)
-- lead 연속성: /api/leads 가 fnl 쿠키 설정, resolveLeadId(src/lib/lead.ts)가 ?l= 없으면 쿠키 폴백. 래피드 결제후 리다이렉트는 /vod 로 설정
+- Meta CApI(서버 전환): src/lib/meta-capi.ts sendMetaEvent. 픽셀=campaigns.metaPixelId(또는 env META_DEFAULT_PIXEL_ID), 토큰=env META_CAPI_TOKEN||META_ACCESS_TOKEN. em/ph/fn/external_id SHA-256 해시 + fbc/fbp/IP/UA. event_id 로 브라우저 픽셀과 중복제거: Lead `lead.<id>`(/api/leads after + LeadForm track), Purchase `purchase.lead.<leadId>`(/api/toss/confirm 최초전이 + PaidTracker), Schedule `schedule.<code|leadId>`(되는시간 confirm). 전송로그 webhook_events(provider=meta_capi). env META_CAPI_TEST_CODE 있으면 테스트이벤트(실집계X). track(event,params,eventId) 4번째 인자=fbq eventID
+- 결제: 자체 토스페이먼츠 결제(래피드 제거됨). 2단계 주문서 /checkout?p=&l= → 연락처(/api/leads 재사용) → 결제위젯. 서버승인 /api/toss/confirm (금액 위변조검증+멱등+lead전이+CApI Purchase+payment_success 문자) → /vod?paid=1. 금액 사전생성 /api/toss/prepare (본상품+오더범프 합산). env NEXT_PUBLIC_TOSS_CLIENT_KEY+TOSS_SECRET_KEY. src/lib/toss.ts. 스키마 pending_orders·billing_keys·subscriptions. docs/toss-payments-plan.md
+- 상품 결제 연결: CTA href 를 "{{checkout}}" 로 두면 funnel-offer.ts resolveCheckoutUrl 이 활성상품의 /checkout?p= URL 을 Render metadata.checkoutUrl 로 주입. Price 블록 price/compareAt 0 이면 상품값 사용. 관리자 상품폼: 토스 주문명 + 오더범프/업셀/다운셀 상품 연결. products.latpeed* 컬럼은 deprecated(유지만)
+- lead 연속성: /api/leads 가 fnl 쿠키 설정, resolveLeadId(src/lib/lead.ts)가 ?l= 없으면 쿠키 폴백. 토스 결제후 리다이렉트는 /vod?paid=1
 - 연동 설정 화면: /admin/settings (솔라피 테스트발송 버튼, 되는시간 가이드, 웹훅 URL, env 체크리스트, 상품 연결). 솔라피 테스트: (dash)/settings/actions.ts sendTestSms
 - 되는시간 임베드: BookingView 가 lead 이름·이메일·전화를 URL 파라미터(?name=&email=&phone=)로 붙여 예약폼 프리필
 - 솔라피 연결됨(.env.local + Vercel). sendSms 에 SOLAPI_DRY_RUN 플래그(테스트는 이걸로 실행 → 실발송 방지)
 - 야간 발송 제한: src/lib/solapi.ts scheduledSendTime() 가 KST 기준 SMS_QUIET_START(기본0=자정)~SMS_QUIET_END(기본8) 에 걸리면 다음 아침 08:00 KST 로 Solapi 예약발송(scheduledDate). 리마인더·nudge 전부 sendSms 경유라 일괄 적용. 단 signup_confirm(신청 직후)은 sendSms(...,{immediate:true}) 로 야간에도 즉시. message_logs.sentAt 은 예약 등록시각
-- /vod?paid=1: PaidTracker 가 광고 픽셀 Purchase 만 발화(서버 DB 기록 없음 - 래피드 자체 추적으로 충분)
+- /vod?paid=1: PaidTracker 가 광고 픽셀 Purchase 발화. 서버 DB 는 /api/toss/confirm 이 orders 에 기록
 - 되는시간 웹훅: /api/whattime/webhook?token=WHATTIME_WEBHOOK_SECRET. schedule_created→lead booked(이메일/전화 매칭), schedule_canceled→revert. webhook_events(provider=whattime) 로그. API키(WHATTIME_API_KEY, GET /reservations)는 미사용
 - CRM: 솔라피 문자, 리마인더 크론 /api/cron/reminders (24h/36h/47h). signup_confirm=신청 즉시(/api/leads after()), pre_payment_nudge 기본 0.5h. campaign-messages.ts sendTriggerOnce(dedup+log+send) 헬퍼. 변수 {다운로드링크}=campaigns.download_url(없으면 시청링크)
 - 여정 지도: /admin/journey (vod-e7 작업, 퍼널+문자 통합 타임라인). CRM 문구 seed: npm run 없음 → tsx scripts/seed-crm-templates.ts
@@ -44,8 +44,8 @@
 - 관리자도 사용자 퍼널과 통일된 다크 테마. globals.css .admin-theme 래퍼가 --fn-* 토큰 + raw 엘리먼트/유틸리티(bg-white·text-zinc-*·border·input 등)를 재매핑, (dash)/layout.tsx 에서 적용. 상품에 imageUrl 컬럼 추가
 - 관리자 공용 UI: src/components/admin-ui.tsx. 사이드바 레이아웃은 src/app/admin/(dash)/layout.tsx (라우트그룹). builder는 (dash) 밖이라 사이드바 없이 Puck 풀스크린
 - 서버 액션: 각 admin 폴더 actions.ts
-- 관리자 인증: Clerk. src/middleware.ts clerkMiddleware 가 /admin·/api/campaigns·/api/crm·/api/upload·/preview 보호(auth.protect). /admin/sign-in 예외. src/app/admin/layout.tsx = ClerkProvider + ADMIN_EMAILS 허용목록. 사이드바 UserButton. 공개: 퍼널·/api/leads·/api/latpeed/webhook·/api/cron/*
+- 관리자 인증: Clerk. src/middleware.ts clerkMiddleware 가 /admin·/api/campaigns·/api/crm·/api/upload·/preview 보호(auth.protect). /admin/sign-in 예외. src/app/admin/layout.tsx = ClerkProvider + ADMIN_EMAILS 허용목록. 사이드바 UserButton. 공개: 퍼널·/api/leads·/api/toss/*·/api/cron/*
 - 미리보기 게이트: src/lib/preview.ts (VERCEL_ENV==='production'에서만 차단). /preview, ?preview=1
-- 테스트: npm run test:webhook / test:cron (dev 서버 필요, LATPEED_WEBHOOK_SECRET·CRON_SECRET 필요)
+- 테스트: npm run test:cron (dev 서버 필요, CRON_SECRET 필요). 토스는 테스트 키로 /checkout E2E
 - VOD 카운트다운: /vod 가 lead.vodExpiresAt를 Render metadata.vodDeadlineIso로 주입, Countdown 블록이 사용
 - 에러 리포팅: src/lib/report.ts + src/instrumentation.ts (Sentry 자리, 현재 구조화 로그만)

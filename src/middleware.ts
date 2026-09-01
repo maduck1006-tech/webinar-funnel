@@ -8,7 +8,7 @@ export const runtime = "nodejs";
  * 1) 관리자 영역 Clerk 인증 (로그인 필요). /admin/sign-in 은 예외.
  * 2) 랜딩 A/B: ab_landing 캠페인 방문 시 variant 쿠키(abv) 1회 지정.
  *
- * 공개: 퍼널 페이지, /api/leads, /api/latpeed/webhook, /api/cron/* (자체 시크릿)
+ * 공개: 퍼널 페이지, /api/leads, /api/toss/*, /api/cron/* (자체 시크릿)
  */
 const isAdmin = createRouteMatcher([
   "/admin((?!/sign-in).*)",

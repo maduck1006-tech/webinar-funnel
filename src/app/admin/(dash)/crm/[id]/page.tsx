@@ -64,7 +64,7 @@ export default async function CrmDetailPage({
     })),
     ...ords.map((o) => ({
       at: o.paidAt ?? o.createdAt,
-      text: `결제 ${o.status} — ${won(o.amount)} (주문 ${o.latpeedOrderId})`,
+      text: `결제 ${o.status} — ${won(o.amount)}${o.orderRole !== "main" ? ` [${o.orderRole}]` : ""}`,
     })),
   ].sort((a, b) => a.at.getTime() - b.at.getTime());
 

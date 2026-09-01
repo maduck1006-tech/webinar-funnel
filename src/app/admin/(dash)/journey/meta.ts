@@ -115,7 +115,7 @@ export const JOURNEY: JourneyAct[] = [
     num: "④",
     title: "결제한 뒤",
     sub: "워크북 결제 완료 → 구매자 VOD + 상담 예약 유도",
-    note: "결제·다운로드 안내 문자는 우리가 보내지 않습니다. 래피드(Latpeed) 결제 시스템이 자체 감사 문자로 처리합니다.",
+    note: "결제 완료 시 payment_success 문자가 자동 발송됩니다. (토스 서버 승인 시점)",
     stops: [],
   },
 ];
@@ -173,7 +173,7 @@ export const BOARD_MSGS: BoardMsg[] = [
 /** 문자가 아닌 안내 카드 (외부 시스템이 처리하는 구간 표시) */
 export const BOARD_NOTES: { text: string; from: string; x: number; y: number; w: number }[] = [
   {
-    text: "결제·다운로드 안내는 래피드(Latpeed) 자동 문자가 처리",
+    text: "결제 완료 시 payment_success 문자 자동 발송",
     from: "p-vod-yes",
     x: 1000,
     y: 440,
@@ -190,7 +190,7 @@ export const VAR_KEY: { name: string; desc: string; pending?: boolean }[] = [
   { name: "{이름}", desc: "신청자 이름 (없으면 \"회원\")" },
   { name: "{링크}", desc: "이 손님의 VOD 시청 링크" },
   { name: "{예약링크}", desc: "1:1 상담 예약 페이지 링크" },
-  { name: "{결제링크}", desc: "저가 상품의 래피드 결제 페이지 링크 (상품에 결제 URL 미설정 시 시청 링크로 대체)" },
+  { name: "{결제링크}", desc: "저가 상품 결제창(/checkout) 링크 (활성 상품 없으면 시청 링크로 대체)" },
   { name: "{상품명}", desc: "연결된 저가 상품 이름" },
   { name: "{다운로드링크}", desc: "워크북 파일 다운로드 링크 (캠페인 설정에서 URL 입력, 없으면 시청 링크로 대체)" },
   { name: "{마감시각}", desc: "이 손님의 시청 마감 일시" },

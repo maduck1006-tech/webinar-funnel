@@ -60,7 +60,7 @@ async function main() {
   const f = await mkLead({ hAgo: 40, watchedHAgo: 5, status: "watching" }); // 결제자 → nudge 없음
   await db.insert(orders).values({
     leadId: f.id,
-    latpeedOrderId: `cron-paid-${Date.now()}`,
+    tossPaymentKey: `cron-paid-${Date.now()}`,
     amount: 9900,
     status: "success",
   });

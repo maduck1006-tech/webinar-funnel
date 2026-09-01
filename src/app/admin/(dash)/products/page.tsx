@@ -82,13 +82,7 @@ export default async function ProductsPage({
                     </Tag>
                   </td>
                   <td className="py-2">
-                    {p.paymentProvider === "toss" ? (
-                      <Tag tone="blue">토스페이먼츠</Tag>
-                    ) : p.latpeedCheckoutUrl ? (
-                      <Tag tone="green">래피드 연결</Tag>
-                    ) : (
-                      <Tag tone="amber">URL 없음</Tag>
-                    )}
+                    <Tag tone="blue">토스 결제</Tag>
                   </td>
                   <td className="py-2 text-xs text-zinc-500">
                     {p.showFrom || p.showUntil
@@ -150,43 +144,10 @@ export default async function ProductsPage({
               정가를 넣으면 <b>취소선 + 할인율</b>이 자동 표시됩니다.
             </p>
 
-            <fieldset className="rounded-lg border p-3">
-              <legend className="px-1 text-xs text-zinc-500">결제 방식</legend>
-              {[
-                { v: "latpeed", t: "래피드 (외부 링크)", d: "기존 래피드 결제 페이지 URL로 이동" },
-                { v: "toss", t: "토스페이먼츠 (자체 결제)", d: "자체 /checkout 페이지에 결제위젯 임베드" },
-              ].map((o) => (
-                <label key={o.v} className="mt-1.5 flex cursor-pointer items-start gap-2">
-                  <input
-                    type="radio"
-                    name="paymentProvider"
-                    value={o.v}
-                    defaultChecked={(editing?.paymentProvider ?? "latpeed") === o.v}
-                    className="mt-0.5"
-                  />
-                  <span>
-                    <span className="text-sm">{o.t}</span>
-                    <span className="block text-[11px] text-zinc-400">{o.d}</span>
-                  </span>
-                </label>
-              ))}
-            </fieldset>
-
-            <label className="block pt-1">
-              <span className="text-xs font-semibold text-zinc-700">
-                래피드 결제 페이지 URL
-              </span>
-              <input
-                name="latpeedCheckoutUrl"
-                type="url"
-                defaultValue={editing?.latpeedCheckoutUrl ?? undefined}
-                placeholder="https://..."
-                className="mt-1 w-full rounded border border-zinc-300 px-2 py-1"
-              />
-              <span className="mt-1 block text-[11px] text-zinc-400">
-                결제 방식이 '래피드'일 때만 사용. CTA 버튼이 여기로 이동합니다.
-              </span>
-            </label>
+            <p className="rounded-lg bg-zinc-50 px-3 py-2 text-[11px] text-zinc-500">
+              결제는 자체 토스 결제창(<code>/checkout</code>)으로 진행됩니다.
+              CTA 버튼(<code>{`{{checkout}}`}</code>)이 여기로 연결됩니다.
+            </p>
 
             <label className="block">
               <span className="text-xs font-semibold text-zinc-700">
@@ -255,8 +216,7 @@ export default async function ProductsPage({
                 주문서 추가 오퍼 (선택) — 오더 범프 · 원클릭 업셀
               </summary>
               <p className="mt-2 text-[11px] text-zinc-400">
-                토스 결제 상품에서만 동작합니다. 연결할 상품도 &apos;토스페이먼츠&apos;
-                결제 방식이어야 합니다.
+                주문서에 붙는 추가 오퍼입니다. 연결할 상품도 활성 상태여야 합니다.
               </p>
 
               <label className="mt-3 block">
@@ -382,9 +342,7 @@ function ProductSelect({
   excludeId?: string;
   selected: string;
 }) {
-  const options = list.filter(
-    (p) => p.id !== excludeId && p.paymentProvider === "toss",
-  );
+  const options = list.filter((p) => p.id !== excludeId);
   return (
     <select
       name={name}

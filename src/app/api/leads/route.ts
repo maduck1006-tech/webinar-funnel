@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { campaigns, leads } from "@/db/schema";
-import { normalizePhone } from "@/lib/latpeed";
+import { normalizePhone } from "@/lib/phone";
 import { getDefaultCampaign } from "@/lib/campaign";
 import { sendTriggerOnce } from "@/lib/campaign-messages";
 import { sendMetaEvent } from "@/lib/meta-capi";

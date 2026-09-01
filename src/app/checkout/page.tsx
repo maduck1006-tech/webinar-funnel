@@ -28,7 +28,7 @@ export default async function CheckoutPage({
     .where(eq(products.id, productId))
     .limit(1);
 
-  if (!product || !product.active || product.paymentProvider !== "toss") {
+  if (!product || !product.active) {
     return notFound();
   }
 

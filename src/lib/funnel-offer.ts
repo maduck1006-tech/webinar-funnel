@@ -8,14 +8,7 @@ export type Offer = {
   name: string;
   price: number;
   compareAt: number | null;
-  /** 'latpeed' | 'toss' — docs/toss-payments-plan.md §4 */
-  provider: string;
   kind: string;
-  /**
-   * latpeed 결제 페이지 URL (provider='latpeed' 일 때만). 없으면 null.
-   * toss 는 자체 /checkout 이라 여기서 URL 을 만들지 않고 resolveCheckoutUrl 이 처리.
-   */
-  checkoutUrl: string | null;
 };
 
 /**
@@ -51,17 +44,14 @@ export async function getActiveOffer(
       name: p.name,
       price: p.price,
       compareAt: p.compareAtPrice,
-      provider: p.paymentProvider,
       kind: p.kind,
-      checkoutUrl:
-        p.paymentProvider === "latpeed" ? (p.latpeedCheckoutUrl ?? null) : null,
     };
   } catch {
     return null;
   }
 }
 
-/** 결제 URL 에 lead 식별자 붙이기 (결제 서비스가 리다이렉트로 전달해줄 경우 대비) */
+/** 결제 URL 에 lead 식별자 붙이기 */
 export function checkoutUrlWithLead(url: string, leadId?: string | null): string {
   if (!leadId) return url;
   try {
@@ -74,22 +64,14 @@ export function checkoutUrlWithLead(url: string, leadId?: string | null): string
 }
 
 /**
- * CTA href 로 넣을 최종 결제 URL 을 provider 에 맞게 생성.
- * - latpeed: 기존 외부 결제 URL + ?l=
- * - toss: 자체 결제 페이지 {basePath}/checkout?p=&l=  (구현은 P1, docs §3)
- * 반환 null 이면 CTA href 를 건드리지 않음(기존 동작).
+ * CTA href 로 넣을 결제 페이지 URL. 결제는 전부 자체 토스 결제(/checkout).
+ * {basePath}/checkout?p=<productId>&l=<leadId>
  */
 export function resolveCheckoutUrl(
-  offer: Pick<Offer, "provider" | "productId" | "checkoutUrl">,
+  offer: Pick<Offer, "productId">,
   opts: { basePath: string; leadId?: string | null },
-): string | null {
-  if (offer.provider === "toss") {
-    const qs = new URLSearchParams({ p: offer.productId });
-    if (opts.leadId) qs.set("l", opts.leadId);
-    return `${opts.basePath}/checkout?${qs.toString()}`;
-  }
-  // latpeed (기본)
-  return offer.checkoutUrl
-    ? checkoutUrlWithLead(offer.checkoutUrl, opts.leadId)
-    : null;
+): string {
+  const qs = new URLSearchParams({ p: offer.productId });
+  if (opts.leadId) qs.set("l", opts.leadId);
+  return `${opts.basePath}/checkout?${qs.toString()}`;
 }

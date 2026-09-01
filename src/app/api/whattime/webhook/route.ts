@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { and, desc, eq, or } from "drizzle-orm";
 import { db } from "@/db";
 import { campaigns, leads, orders, webhookEvents } from "@/db/schema";
-import { normalizePhone } from "@/lib/latpeed";
+import { normalizePhone } from "@/lib/phone";
 import { reportError } from "@/lib/report";
 import { sendMetaEvent } from "@/lib/meta-capi";
 

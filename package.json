@@ -13,7 +13,6 @@
     "db:studio": "drizzle-kit studio",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
     "migrate:campaigns": "tsx --env-file=.env.local scripts/migrate-to-campaigns.ts",
-    "test:webhook": "SOLAPI_DRY_RUN=1 tsx --env-file=.env.local scripts/test-webhook.ts",
     "test:cron": "SOLAPI_DRY_RUN=1 tsx --env-file=.env.local scripts/test-cron.ts",
     "remotion": "remotion studio remotion/index.ts",
     "remotion:render": "remotion render remotion/index.ts Hello out/hello.mp4"

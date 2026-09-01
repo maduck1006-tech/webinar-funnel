@@ -50,7 +50,7 @@ export default async function OrdersPage({
     <>
       <PageHeader
         title="결제 / 주문 관리"
-        desc="래피드 웹훅 수신 내역 · 서명검증 · 웹훅 누락 시 수동 보정"
+        desc="토스 결제 승인 내역 · 상태 수동 보정 · 연동 이벤트 로그"
         actions={<CampaignFilter options={campaignOptions} />}
       />
       {!connected && <p className="mb-4 text-sm text-amber-600">DB 미연결</p>}
@@ -73,7 +73,14 @@ export default async function OrdersPage({
             {ords.length === 0 && <EmptyRow colSpan={7} text="주문 없음" />}
             {ords.map(({ order: o, campaignName }) => (
               <tr key={o.id}>
-                <td className="py-2 font-mono text-xs">{o.latpeedOrderId}</td>
+                <td className="py-2 font-mono text-xs">
+                  {o.tossPaymentKey ?? o.latpeedOrderId ?? "—"}
+                  {o.orderRole !== "main" && (
+                    <span className="ml-1 text-[10px] text-zinc-400">
+                      ({o.orderRole})
+                    </span>
+                  )}
+                </td>
                 <td className="py-2">{o.phone ?? o.email ?? "—"}</td>
                 <td className="py-2 text-xs text-zinc-500">
                   {campaignName ?? "—"}
@@ -119,7 +126,10 @@ export default async function OrdersPage({
       </Card>
 
       <Card className="overflow-x-auto">
-        <p className="mb-3 text-sm font-bold">웹훅 원본 로그</p>
+        <p className="mb-3 text-sm font-bold">연동 이벤트 로그</p>
+        <p className="mb-2 text-xs text-zinc-400">
+          되는시간 예약 웹훅 · Meta 전환 API 전송 기록
+        </p>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b text-left text-xs text-zinc-500">

@@ -38,7 +38,7 @@ export async function ThankYouView({
       metadata={{
         leadId: leadId ?? undefined,
         checkoutUrl: offer
-          ? (resolveCheckoutUrl(offer, { basePath, leadId }) ?? undefined)
+          ? resolveCheckoutUrl(offer, { basePath, leadId })
           : undefined,
         productName: offer?.name,
         price: offer?.price,
@@ -72,7 +72,7 @@ export async function VodView({
       vodSrc: campaign.vodSrc ?? undefined,
       leadId: leadId ?? undefined,
       checkoutUrl: offer
-        ? (resolveCheckoutUrl(offer, { basePath, leadId }) ?? undefined)
+        ? resolveCheckoutUrl(offer, { basePath, leadId })
         : undefined,
       productName: offer?.name,
       price: offer?.price,

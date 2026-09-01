@@ -180,7 +180,7 @@ export default async function CampaignSettings({
                       {on && <span className="text-xs text-white">✓</span>}
                     </button>
                     <span className="flex-1">{p.name}</span>
-                    {!p.latpeedCheckoutUrl && <Tag tone="amber">결제URL 없음</Tag>}
+                    {!p.active && <Tag tone="gray">중지</Tag>}
                   </form>
                   {on && (
                     <form action={setCampaignProduct} className="flex items-center gap-1">

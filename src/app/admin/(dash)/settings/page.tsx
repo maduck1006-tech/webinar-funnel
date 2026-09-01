@@ -22,7 +22,6 @@ export default async function SettingsPage() {
     (process.env.VERCEL_PROJECT_PRODUCTION_URL
       ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
       : "https://도메인미설정");
-  const webhookUrl = `${site}/api/latpeed/webhook`;
 
   const defaultCampaign = await getDefaultCampaign();
   const [thankyouOffer, vodOffer] = defaultCampaign
@@ -65,7 +64,6 @@ export default async function SettingsPage() {
     { key: "BLOB_READ_WRITE_TOKEN", label: "이미지 업로드 (Vercel Blob)" },
     { key: "CRON_SECRET", label: "크론 보호 시크릿" },
     { key: "NEXT_PUBLIC_SITE_URL", label: "사이트 도메인" },
-    { key: "LATPEED_WEBHOOK_SECRET", label: "래피드 웹훅 시크릿 (선택)" },
     { key: "NEXT_PUBLIC_VOD_SRC", label: "VOD 기본 영상 (선택·캠페인별 우선)" },
     { key: "META_ACCESS_TOKEN", label: "Meta 시스템 사용자 토큰 (광고지표+CApI)" },
     { key: "META_AD_ACCOUNT_ID", label: "Meta 광고 계정 ID (숫자)" },
@@ -168,50 +166,56 @@ export default async function SettingsPage() {
           )}
         </Card>
 
-        {/* 래피드 웹훅 */}
+        {/* 토스페이먼츠 결제 */}
         <Card>
-          <p className="text-sm font-bold">래피드(Latpeed) 결제 웹훅</p>
-          <ol className="mt-3 space-y-3 text-sm text-zinc-600">
+          <p className="flex items-center gap-2 text-sm font-bold">
+            토스페이먼츠 결제
+            <Tag
+              tone={
+                envSet("NEXT_PUBLIC_TOSS_CLIENT_KEY") && envSet("TOSS_SECRET_KEY")
+                  ? "green"
+                  : "red"
+              }
+            >
+              {envSet("NEXT_PUBLIC_TOSS_CLIENT_KEY") && envSet("TOSS_SECRET_KEY")
+                ? "연결됨"
+                : "미연결"}
+            </Tag>
+          </p>
+          <p className="mt-1 text-xs text-zinc-500">
+            결제는 전부 자체 결제창(<code>/checkout</code>)에서 진행됩니다. 외부
+            결제 링크·웹훅 없음.
+          </p>
+          <ol className="mt-3 space-y-2 text-sm text-zinc-600">
             <li>
-              1. 래피드 상품/멤버십 관리 → <b>외부 툴 연동</b> 탭에서 아래 URL을
-              웹훅 주소로 등록:
-              <div className="mt-1.5">
-                <CopyField value={webhookUrl} />
-              </div>
+              1.{" "}
+              <a
+                className="text-blue-600 underline"
+                href="https://app.tosspayments.com/signup"
+                target="_blank"
+                rel="noreferrer"
+              >
+                토스페이먼츠
+              </a>{" "}
+              가입 → 전자결제 신청 → 결제 <b>클라이언트 키 / 시크릿 키</b> 발급
             </li>
             <li>
-              2. 웹훅 시크릿을 발급받아 환경변수{" "}
-              <code>LATPEED_WEBHOOK_SECRET</code> 에 설정 (Vercel 프로젝트 설정).
-              현재:{" "}
-              <Tag tone={envSet("LATPEED_WEBHOOK_SECRET") ? "green" : "red"}>
-                {envSet("LATPEED_WEBHOOK_SECRET") ? "설정됨" : "미설정"}
-              </Tag>
-              <p className="mt-1 text-xs text-zinc-400">
-                서명 방식이 확정되지 않아 여러 포맷(HMAC 4종 + 공유토큰)을 자동
-                시도합니다. 첫 결제가 들어오면 주문 관리의 웹훅 로그에{" "}
-                <code>verified: ...</code> 로 어떤 방식이 맞았는지 표시됩니다.
-              </p>
+              2. Vercel 환경변수에 <code>NEXT_PUBLIC_TOSS_CLIENT_KEY</code>,{" "}
+              <code>TOSS_SECRET_KEY</code> 설정 (한 세트로)
             </li>
             <li>
-              3. 결제 완료 후 이동(리다이렉트) URL을 아래로 설정하면, 결제자가
-              바로 강의 시청 페이지로 이동합니다:
-              <div className="mt-1.5">
-                <CopyField value={`${site}/vod?paid=1`} />
-              </div>
-              <p className="mt-1 text-xs text-zinc-400">
-                lead 식별은 브라우저 쿠키로 유지되므로 파라미터가 없어도
-                동작합니다. 접근 권한 자체는 웹훅 수신 시 자동 부여됩니다.
-              </p>
+              3. 결제 완료 시 <CopyField value={`${site}/vod?paid=1`} /> 로 자동
+              이동합니다. 접근 권한은 서버 승인 시점에 부여됩니다.
             </li>
           </ol>
         </Card>
 
         {/* 상품 ↔ 결제 연결 */}
         <Card>
-          <p className="text-sm font-bold">상품 결제 URL 연결</p>
+          <p className="text-sm font-bold">상품 결제 연결</p>
           <p className="mt-1 text-xs text-zinc-400">
             퍼널 빌더의 CTA 버튼 링크를 <code>{"{{checkout}}"}</code> 로 두면 아래
-            상품의 래피드 결제 URL로 자동 연결됩니다.
+            상품의 결제창(<code>/checkout</code>)으로 자동 연결됩니다.
           </p>
           <table className="mt-3 w-full text-sm">
             <tbody className="divide-y">
@@ -294,11 +298,7 @@ function OfferRow({
       <td className="py-2 font-medium">{label}</td>
       <td className="py-2">
         {offer ? (
-          offer.checkoutUrl ? (
-            <Tag tone="green">연결됨 · {offer.name}</Tag>
-          ) : (
-            <Tag tone="amber">상품 있음, 결제 URL 없음 · {offer.name}</Tag>
-          )
+          <Tag tone="green">연결됨 · {offer.name}</Tag>
         ) : (
           <Tag tone="gray">활성 상품 없음</Tag>
         )}
