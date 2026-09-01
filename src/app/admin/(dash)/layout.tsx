@@ -11,6 +11,7 @@ const nav = [
   { href: "/admin/crm", label: "CRM 고객" },
   { href: "/admin/journey", label: "여정 지도" },
   { href: "/admin/automation", label: "자동 메시지" },
+  { href: "/admin/broadcasts", label: "브로드캐스트" },
   { href: "/admin/orders", label: "결제/주문" },
   { href: "/admin/analytics", label: "광고 성과" },
   { href: "/admin/settings", label: "연동 설정" },

@@ -262,6 +262,46 @@ export const phoneOtps = pgTable(
   (t) => [index("phone_otps_phone_idx").on(t.phone, t.createdAt)],
 );
 
+/**
+ * 브로드캐스트 — 세그먼트에 한 번 쏘는 문자 (자동 드립 아님).
+ * 브런슨: 자동화=신규용, 브로드캐스트=리스트를 계속 데우는 것.
+ * (docs/multi-product-funnel-plan.md 보완 1 · 브로드캐스트)
+ */
+export const broadcasts = pgTable("broadcasts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull(),
+  body: text("body").notNull(),
+  /** 대상 조건 (src/lib/broadcasts.ts resolveSegment) */
+  segment: jsonb("segment").$type<Record<string, unknown>>().notNull().default({}),
+  /** null = 즉시 발송, 값 있으면 그 시각에 크론이 발송 */
+  scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+  /** 'draft' | 'scheduled' | 'sending' | 'sent' */
+  status: text("status").notNull().default("draft"),
+  sentCount: integer("sent_count").notNull().default(0),
+  failedCount: integer("failed_count").notNull().default(0),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const broadcastSends = pgTable(
+  "broadcast_sends",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    broadcastId: uuid("broadcast_id")
+      .notNull()
+      .references(() => broadcasts.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id),
+    status: text("status").notNull().default("sent"),
+    error: text("error"),
+    sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("broadcast_sends_idx").on(t.broadcastId, t.leadId)],
+);
+
 /** 관리자가 직접 CRUD 하는 저가 상품 (PRD 4.1 / 6.3) */
 export const products = pgTable("products", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -992,6 +1032,7 @@ export type PendingOrder = typeof pendingOrders.$inferSelect;
 export type Entitlement = typeof entitlements.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Coupon = typeof coupons.$inferSelect;
+export type Broadcast = typeof broadcasts.$inferSelect;
 export type Course = typeof courses.$inferSelect;
 export type Event = typeof events.$inferSelect;
 export type EventRegistration = typeof eventRegistrations.$inferSelect;

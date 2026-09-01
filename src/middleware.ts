@@ -14,6 +14,7 @@ const isAdmin = createRouteMatcher([
   "/admin((?!/sign-in).*)",
   "/api/campaigns(.*)",
   "/api/crm(.*)",
+  "/api/broadcasts(.*)",
   "/api/upload",
   "/preview",
 ]);

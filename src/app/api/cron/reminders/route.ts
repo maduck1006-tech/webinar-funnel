@@ -3,6 +3,7 @@ import { runDueAutomationSteps } from "@/lib/messaging";
 import { sendEventPreReminders } from "@/lib/events";
 import { enrollAbandonedCarts } from "@/lib/cart";
 import { runDueBilling } from "@/lib/billing";
+import { runDueBroadcasts } from "@/lib/broadcasts";
 
 export const runtime = "nodejs";
 
@@ -29,6 +30,7 @@ export async function GET(req: Request) {
       charged: 0,
       failed: 0,
     }));
+    const broadcasts = await runDueBroadcasts().catch(() => 0);
     return NextResponse.json({
       ok: true,
       at: new Date().toISOString(),
@@ -36,6 +38,7 @@ export async function GET(req: Request) {
       events,
       cartsEnrolled: carts,
       billing,
+      broadcasts,
     });
   } catch (e) {
     return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });
