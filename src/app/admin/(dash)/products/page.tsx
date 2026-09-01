@@ -90,6 +90,14 @@ export default async function ProductsPage({
                       : "상시"}
                   </td>
                   <td className="py-2 text-right">
+                    {p.type === "vod_course" && (
+                      <a
+                        href={`/admin/products/${p.id}/course`}
+                        className="mr-2 text-xs text-blue-600 underline"
+                      >
+                        강의 구성
+                      </a>
+                    )}
                     <a
                       href={`/admin/products?edit=${p.id}`}
                       className="mr-2 text-xs text-blue-600 underline"

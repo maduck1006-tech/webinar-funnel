@@ -66,14 +66,14 @@ export async function grantEntitlement(opts: {
     });
 }
 
-/** 리드가 이 상품에 유효한 접근 권한이 있는지 */
-export async function hasEntitlement(
+/** 리드의 이 상품 엔타이틀먼트 행(유효한 것만). 없으면 null */
+export async function getEntitlement(
   leadId: string,
   productId: string,
-): Promise<boolean> {
+): Promise<typeof entitlements.$inferSelect | null> {
   const now = new Date();
   const [row] = await db
-    .select({ id: entitlements.id })
+    .select()
     .from(entitlements)
     .where(
       and(
@@ -84,7 +84,15 @@ export async function hasEntitlement(
       ),
     )
     .limit(1);
-  return !!row;
+  return row ?? null;
+}
+
+/** 리드가 이 상품에 유효한 접근 권한이 있는지 */
+export async function hasEntitlement(
+  leadId: string,
+  productId: string,
+): Promise<boolean> {
+  return (await getEntitlement(leadId, productId)) !== null;
 }
 
 /** 리드가 보유한 모든 활성 엔타이틀먼트 (+ 상품 정보) — /library, CRM 탭 */

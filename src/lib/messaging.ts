@@ -35,7 +35,7 @@ export function fillTemplate(
 
 /**
  * 캠페인·리드 컨텍스트로 문자 템플릿 변수 맵을 만든다.
- * {이름}{링크}{예약링크}{결제링크}{단톡방링크}{세일즈링크}{다운로드링크}{상품명}{마감시각}
+ * {이름}{링크}{예약링크}{결제링크}{단톡방링크}{세일즈링크}{강의실링크}{다운로드링크}{상품명}{마감시각}
  */
 export async function buildMessageVars(
   campaignId: string | null,
@@ -87,6 +87,7 @@ export async function buildMessageVars(
     결제링크: checkoutUrl,
     단톡방링크: chatUrl,
     세일즈링크: salesUrl,
+    강의실링크: `${SITE}${basePath}/course?l=${leadId}`,
     다운로드링크: downloadUrl || downloadPageUrl || watchUrl,
     상품명: productName ?? "자료",
     이름: lead?.name ?? "회원",

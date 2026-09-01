@@ -13,7 +13,13 @@ import {
   checkoutRedirect,
 } from "@/lib/campaign";
 import { getActiveOffer, resolveCheckoutUrl } from "@/lib/funnel-offer";
-import { grantEntitlement, hasEntitlement } from "@/lib/entitlements";
+import { getEntitlement, grantEntitlement, hasEntitlement } from "@/lib/entitlements";
+import {
+  getCourseByProduct,
+  getProgress,
+  lessonUnlocked,
+  youtubeEmbedUrl,
+} from "@/lib/courses";
 import { products } from "@/db/schema";
 
 /** 2단계 — 랜딩(신청) */
@@ -370,6 +376,166 @@ export async function DeliveryView({
       )}
     </FunnelPage>
   );
+}
+
+/** 3단계 — VOD 강의 강의실 (엔타이틀먼트 게이트, 드립 오픈) */
+export async function CourseView({
+  campaign,
+  l,
+  lesson,
+}: {
+  campaign: Campaign;
+  l?: string;
+  lesson?: string;
+}) {
+  const leadId = await resolveLeadId(l);
+  const basePath = campaignBasePath(campaign);
+  const offer = await getActiveOffer(campaign.id, "sales");
+
+  if (!leadId || !offer) {
+    return (
+      <Gate title="강의실 접근이 필요합니다">
+        구매 확인 문자로 받으신 링크로 접속해 주세요.
+      </Gate>
+    );
+  }
+
+  const ent = await getEntitlement(leadId, offer.productId);
+  if (!ent) {
+    return (
+      <Gate title="구매가 필요합니다">
+        아직 구매하지 않은 강의예요.{" "}
+        <a href={`${basePath}/sales?l=${leadId}`} className="underline">
+          세일즈 페이지로 이동
+        </a>
+      </Gate>
+    );
+  }
+
+  const tree = await getCourseByProduct(offer.productId);
+  if (!tree || tree.modules.every((m) => m.lessons.length === 0)) {
+    return (
+      <Gate title="강의 준비 중입니다">
+        상품 관리에서 강의 모듈/레슨을 등록하면 여기에 표시됩니다.
+      </Gate>
+    );
+  }
+
+  const allLessons = tree.modules.flatMap((m) => m.lessons);
+  const unlockedLessons = allLessons.filter((ls) =>
+    lessonUnlocked(ls, ent.grantedAt),
+  );
+  const current =
+    unlockedLessons.find((ls) => ls.id === lesson) ?? unlockedLessons[0];
+  const done = await getProgress(leadId);
+
+  const qs = (lessonId: string) =>
+    `${basePath}/course?l=${leadId}&lesson=${lessonId}`;
+
+  return (
+    <div className="funnel-theme funnel-shell min-h-dvh">
+      <div className="fn-in mx-auto max-w-3xl px-5 py-8">
+        <h1 className="mb-1 text-xl font-bold text-[var(--fn-ink)]">
+          {tree.course.title}
+        </h1>
+        {tree.course.description && (
+          <p className="mb-6 text-sm text-[var(--fn-sub)]">
+            {tree.course.description}
+          </p>
+        )}
+
+        {current ? (
+          <div className="mb-6">
+            <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
+              <iframe
+                key={current.id}
+                src={youtubeEmbedUrl(current.videoRef)}
+                className="h-full w-full"
+                title={current.title}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <p className="font-semibold text-[var(--fn-ink)]">{current.title}</p>
+              <form action={markCompleteAction}>
+                <input type="hidden" name="leadId" value={leadId} />
+                <input type="hidden" name="lessonId" value={current.id} />
+                <input type="hidden" name="redirect" value={qs(current.id)} />
+                <button
+                  className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold ${
+                    done.has(current.id)
+                      ? "border-[var(--fn-accent)] text-[var(--fn-accent)]"
+                      : "border-[var(--fn-line)] text-[var(--fn-sub)]"
+                  }`}
+                >
+                  {done.has(current.id) ? "✓ 완료함" : "완료 표시"}
+                </button>
+              </form>
+            </div>
+          </div>
+        ) : (
+          <div className="mb-6 grid h-56 place-items-center rounded-xl border border-dashed border-[var(--fn-line)] text-sm text-[var(--fn-sub)]">
+            아직 열린 레슨이 없습니다
+          </div>
+        )}
+
+        <div className="space-y-5">
+          {tree.modules.map((m) => (
+            <div key={m.id}>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[var(--fn-sub)]">
+                {m.title}
+              </p>
+              <ul className="space-y-1">
+                {m.lessons.map((ls) => {
+                  const unlocked = lessonUnlocked(ls, ent.grantedAt);
+                  const isCurrent = current?.id === ls.id;
+                  return (
+                    <li key={ls.id}>
+                      {unlocked ? (
+                        <a
+                          href={qs(ls.id)}
+                          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${
+                            isCurrent
+                              ? "bg-[var(--fn-accent)]/10 text-[var(--fn-accent)]"
+                              : "text-[var(--fn-ink)] hover:bg-[var(--fn-bg-2)]"
+                          }`}
+                        >
+                          <span className="w-4 shrink-0">
+                            {done.has(ls.id) ? "✓" : "▶"}
+                          </span>
+                          {ls.title}
+                        </a>
+                      ) : (
+                        <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-[var(--fn-sub)]">
+                          <span className="w-4 shrink-0">🔒</span>
+                          {ls.title}
+                          <span className="ml-auto text-[11px]">
+                            {ls.dripDays}일 뒤 오픈
+                          </span>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+async function markCompleteAction(fd: FormData) {
+  "use server";
+  const { markLessonComplete } = await import("@/lib/courses");
+  const leadId = String(fd.get("leadId") ?? "");
+  const lessonId = String(fd.get("lessonId") ?? "");
+  const redirectTo = String(fd.get("redirect") ?? "/");
+  if (leadId && lessonId) await markLessonComplete(leadId, lessonId);
+  const { redirect } = await import("next/navigation");
+  redirect(redirectTo);
 }
 
 function Gate({

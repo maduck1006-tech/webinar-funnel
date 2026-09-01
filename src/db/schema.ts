@@ -343,6 +343,72 @@ export const entitlements = pgTable(
 );
 
 /**
+ * VOD 강의 (product.type='vod_course' 1:1). 영상은 유튜브 일부공개(unlisted) 임베드.
+ * (docs/multi-product-funnel-plan.md P2)
+ */
+export const courses = pgTable("courses", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => products.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const courseModules = pgTable(
+  "course_modules",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    courseId: uuid("course_id")
+      .notNull()
+      .references(() => courses.id, { onDelete: "cascade" }),
+    sortOrder: integer("sort_order").notNull().default(0),
+    title: text("title").notNull(),
+  },
+  (t) => [index("course_modules_course_idx").on(t.courseId, t.sortOrder)],
+);
+
+export const courseLessons = pgTable(
+  "course_lessons",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    moduleId: uuid("module_id")
+      .notNull()
+      .references(() => courseModules.id, { onDelete: "cascade" }),
+    sortOrder: integer("sort_order").notNull().default(0),
+    title: text("title").notNull(),
+    /** 'youtube' 고정(P2) — 향후 mux/vimeo/blob 확장 여지 */
+    videoProvider: text("video_provider").notNull().default("youtube"),
+    /** 유튜브 영상 ID(11자) 또는 전체 URL */
+    videoRef: text("video_ref").notNull().default(""),
+    durationSec: integer("duration_sec"),
+    /** 비구매자에게도 공개(맛보기) */
+    isPreview: boolean("is_preview").notNull().default(false),
+    /** 엔타이틀먼트 부여일 + N일 후 오픈. 0 = 즉시 */
+    dripDays: integer("drip_days").notNull().default(0),
+  },
+  (t) => [index("course_lessons_module_idx").on(t.moduleId, t.sortOrder)],
+);
+
+export const lessonProgress = pgTable(
+  "lesson_progress",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id),
+    lessonId: uuid("lesson_id")
+      .notNull()
+      .references(() => courseLessons.id, { onDelete: "cascade" }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("lesson_progress_lead_lesson_idx").on(t.leadId, t.lessonId)],
+);
+
+/**
  * 승인 전 주문 컨텍스트. toss successUrl 위변조(금액 조작) 방지용.
  * /checkout 에서 orderId 발급하며 insert → /api/toss/confirm 에서 조회·검증. §3
  */
@@ -739,6 +805,9 @@ export type CampaignPage = typeof campaignPages.$inferSelect;
 export type PageType = (typeof pageType.enumValues)[number];
 export type PendingOrder = typeof pendingOrders.$inferSelect;
 export type Entitlement = typeof entitlements.$inferSelect;
+export type Course = typeof courses.$inferSelect;
+export type CourseModule = typeof courseModules.$inferSelect;
+export type CourseLesson = typeof courseLessons.$inferSelect;
 export type Subscription = typeof subscriptions.$inferSelect;
 export type BillingKey = typeof billingKeys.$inferSelect;
 export type PaymentProvider = "latpeed" | "toss";
