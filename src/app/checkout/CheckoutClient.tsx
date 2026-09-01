@@ -28,6 +28,79 @@ export type CheckoutClientProps = {
 
 const won = (n: number) => n.toLocaleString("ko-KR") + "원";
 
+/** 멤버십 프로모션 히어로 (0원 구독을 직관적으로 — 요기패스X 레퍼런스) */
+function MembershipHero({
+  name,
+  price,
+  compareAt,
+  freeMonths,
+  description,
+}: {
+  name: string;
+  price: number;
+  compareAt: number | null;
+  freeMonths: number;
+  description: string;
+}) {
+  const benefits = description
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 3);
+
+  return (
+    <div
+      className="relative mb-4 overflow-hidden rounded-2xl p-5 text-white"
+      style={{
+        background:
+          "radial-gradient(120% 90% at 15% 0%, color-mix(in srgb, var(--fn-accent) 85%, #fff) 0%, var(--fn-accent) 45%, color-mix(in srgb, var(--fn-accent) 55%, #000) 100%)",
+      }}
+    >
+      {/* 광택 */}
+      <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
+
+      <p className="relative text-[12px] font-bold tracking-wide text-white/85">
+        ⏳ 지금 신청분 한정 · 이 화면에서만
+      </p>
+
+      <div className="relative mt-2">
+        <p className="text-[15px] font-bold text-white/90">{name}</p>
+        {freeMonths > 0 ? (
+          <p className="mt-1 text-[34px] font-extrabold leading-none">
+            첫 {freeMonths}개월{" "}
+            <span className="text-white">0원</span>
+          </p>
+        ) : (
+          <p className="mt-1 text-[34px] font-extrabold leading-none">
+            매달 {won(price)}
+          </p>
+        )}
+        <p className="mt-2 text-[12.5px] text-white/80">
+          {freeMonths > 0
+            ? `${freeMonths}개월 뒤부터 매달 ${won(price)} · 언제든 해지`
+            : "언제든 해지 가능"}
+          {compareAt && compareAt > price && (
+            <span className="ml-1.5 text-white/55 line-through">
+              {won(compareAt)}
+            </span>
+          )}
+        </p>
+      </div>
+
+      {benefits.length > 0 && (
+        <ul className="relative mt-3 space-y-1 border-t border-white/20 pt-3 text-[12.5px] text-white/90">
+          {benefits.map((b, i) => (
+            <li key={i} className="flex items-start gap-1.5">
+              <span>✓</span>
+              {b}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 type Widgets = Awaited<
   ReturnType<Awaited<ReturnType<typeof loadTossPayments>>["widgets"]>
 >;
@@ -35,6 +108,7 @@ type Widgets = Awaited<
 export function CheckoutClient(props: CheckoutClientProps) {
   const { clientKey, product, bump, campaignId, successUrl, failUrl } = props;
   const role = props.role ?? "main";
+  const isMembership = product.kind === "membership";
 
   const [step, setStep] = useState<"contact" | "pay">(props.startStep);
   const [lead, setLead] = useState<Lead | null>(props.lead);
@@ -68,30 +142,44 @@ export function CheckoutClient(props: CheckoutClientProps) {
         </h1>
       </div>
 
-      {/* 주문 요약 */}
-      <div className="mb-4 rounded-xl border border-white/10 bg-white/5 p-4">
-        <div className="flex items-start gap-3">
-          {product.imageUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={product.imageUrl}
-              alt=""
-              className="h-14 w-14 shrink-0 rounded-lg object-cover"
-            />
-          )}
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-white">
-              {product.name}
-            </p>
-            <p className="mt-0.5 text-sm text-white/60">
-              {product.compareAt && product.compareAt > product.price && (
-                <span className="mr-1 line-through">{won(product.compareAt)}</span>
-              )}
-              <span className="font-bold text-white">{won(product.price)}</span>
-            </p>
+      {/* 주문 요약 — 멤버십은 PayStep 안에서 프로모션 카드로 대체 */}
+      {isMembership ? (
+        <MembershipHero
+          name={product.name}
+          price={product.price}
+          compareAt={product.compareAt}
+          freeMonths={product.freeMonths}
+          description={product.description}
+        />
+      ) : (
+        <div className="mb-4 rounded-xl border border-white/10 bg-white/5 p-4">
+          <div className="flex items-start gap-3">
+            {product.imageUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={product.imageUrl}
+                alt=""
+                className="h-14 w-14 shrink-0 rounded-lg object-cover"
+              />
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-white">
+                {product.name}
+              </p>
+              <p className="mt-0.5 text-sm text-white/60">
+                {product.compareAt && product.compareAt > product.price && (
+                  <span className="mr-1 line-through">
+                    {won(product.compareAt)}
+                  </span>
+                )}
+                <span className="font-bold text-white">
+                  {won(product.price)}
+                </span>
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {step === "contact" ? (
         <ContactStep
@@ -107,7 +195,6 @@ export function CheckoutClient(props: CheckoutClientProps) {
           clientKey={clientKey}
           productId={product.id}
           productKind={product.kind}
-          productName={product.name}
           freeMonths={product.freeMonths}
           role={role}
           lead={lead}
@@ -247,7 +334,6 @@ function PayStep({
   clientKey,
   productId,
   productKind,
-  productName,
   freeMonths,
   role,
   lead,
@@ -261,7 +347,6 @@ function PayStep({
   clientKey: string;
   productId: string;
   productKind: string;
-  productName: string;
   freeMonths: number;
   role: "main" | "upsell" | "downsell";
   lead: Lead | null;
@@ -384,31 +469,28 @@ function PayStep({
   if (isMembership) {
     return (
       <div>
-        <div className="mb-4 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/80">
-          <p className="font-semibold text-white">{productName}</p>
-          <p className="mt-1 text-white/60">
-            {freeMonths > 0
-              ? `${freeMonths}개월 무료 후 매달 ${won(amount)} 자동 결제`
-              : `매달 ${won(amount)} 자동 결제`}
-            {" · "}언제든 해지 가능
-          </p>
-        </div>
         {err && (
-          <p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400">
+          <p className="mb-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400">
             {err}
           </p>
         )}
         <button
           onClick={payMembership}
           disabled={paying || !lead?.id}
-          className="mt-2 w-full rounded-xl py-4 text-base font-bold text-white disabled:opacity-50"
+          className="w-full rounded-xl py-4 text-base font-bold text-white disabled:opacity-50"
           style={{ background: "var(--fn-accent)" }}
         >
-          {paying ? "진행 중…" : "카드 등록하고 시작하기"}
+          {paying
+            ? "진행 중…"
+            : freeMonths > 0
+              ? "0원으로 시작하기"
+              : "카드 등록하고 시작하기"}
         </button>
         <p className="mt-2 text-center text-[11px] text-white/40">
-          지금은 카드만 등록합니다.{" "}
-          {freeMonths > 0 ? `첫 결제는 ${freeMonths}개월 뒤입니다.` : ""}
+          지금은 카드만 등록합니다.
+          {freeMonths > 0
+            ? ` 첫 결제는 ${freeMonths}개월 뒤이고, 그 전에 해지하면 요금이 청구되지 않아요.`
+            : " 결제는 매달 자동 진행됩니다."}
         </p>
       </div>
     );
