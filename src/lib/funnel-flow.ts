@@ -44,6 +44,62 @@ function presetFor(
 
 const KNOWN = new Set<string>([...FUNNEL_PAGE_TYPES, ...Object.keys(STEP_META)]);
 
+/** 퍼널상 자연스러운 단계 순서 (add 시 삽입 위치 계산·정렬용) */
+export const STEP_ORDER = [
+  "landing",
+  "sales",
+  "thankyou",
+  "vod",
+  "course",
+  "delivery",
+  "upsell",
+  "downsell",
+  "booking",
+  "groupchat",
+  "membership",
+];
+const orderIdx = (pt: string) => {
+  const i = STEP_ORDER.indexOf(pt);
+  return i === -1 ? STEP_ORDER.length : i;
+};
+
+/** 단계를 STEP_ORDER 기준 제자리에 삽입/활성화한 새 steps 배열 */
+export function insertStepOrdered(
+  steps: FlowStep[],
+  pageType: string,
+): FlowStep[] {
+  const existing = steps.findIndex((s) => s.pageType === pageType);
+  if (existing !== -1) {
+    return steps.map((s, i) =>
+      i === existing ? { ...s, enabled: true } : s,
+    );
+  }
+  const at = steps.findIndex(
+    (s) => s.enabled && orderIdx(s.pageType) > orderIdx(pageType),
+  );
+  const entry = { pageType, enabled: true };
+  if (at === -1) return [...steps, entry];
+  return [...steps.slice(0, at), entry, ...steps.slice(at)];
+}
+
+/**
+ * "A 만들면 B 보여주기" — 프리셋 순서상 아직 안 켠 다음 단계 1개.
+ * 프리셋을 다 갖췄으면 null (추가 단계는 addable 목록에서).
+ */
+export function suggestNextStep(
+  campaign: Pick<Campaign, "funnelType" | "terminalStep" | "flow">,
+): string | null {
+  const on = new Set(
+    resolveFlowSteps(campaign)
+      .filter((s) => s.enabled)
+      .map((s) => s.pageType),
+  );
+  for (const pt of presetFor(campaign)) {
+    if (!on.has(pt)) return pt;
+  }
+  return null;
+}
+
 /**
  * 이 캠페인의 실제 단계 목록 (표시 순서 + enabled).
  * campaign.flow 가 있으면 그대로, 없으면 funnel_type 프리셋.

@@ -15,7 +15,11 @@ import {
 } from "@/db/schema";
 import { bustAbCache, isValidSlug } from "@/lib/campaign";
 import { FUNNEL_PAGE_TYPES } from "@/lib/flow-types";
-import { resolveFlowSteps, seedFlow } from "@/lib/funnel-flow";
+import {
+  insertStepOrdered,
+  resolveFlowSteps,
+  seedFlow,
+} from "@/lib/funnel-flow";
 import { defaultPages } from "@/puck/defaults";
 
 /** 템플릿/기존 캠페인에서 복제해 새 캠페인 생성 */
@@ -446,12 +450,11 @@ export async function setFlowStep(fd: FormData) {
   const [c] = await db.select().from(campaigns).where(eq(campaigns.id, campaignId));
   if (!c) return;
 
-  const steps = resolveFlowSteps(c).map((s) => ({ ...s }));
+  let steps = resolveFlowSteps(c).map((s) => ({ ...s }));
   const idx = steps.findIndex((s) => s.pageType === pageType);
 
   if (op === "add") {
-    if (idx === -1) steps.push({ pageType, enabled: true });
-    else steps[idx].enabled = true;
+    steps = insertStepOrdered(steps, pageType); // 제자리에 삽입
   } else if (op === "remove") {
     if (idx !== -1) steps[idx].enabled = false;
   } else if (op === "up" && idx > 0) {

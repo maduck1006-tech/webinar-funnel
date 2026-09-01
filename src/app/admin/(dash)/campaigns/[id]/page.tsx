@@ -10,6 +10,7 @@ import {
   flowSummary,
   resolveFlowSteps,
   STEP_META,
+  suggestNextStep,
 } from "@/lib/funnel-flow";
 import {
   endAbTest,
@@ -286,6 +287,17 @@ export default async function CampaignHub({
         const disabled = ADDABLE_STEPS.filter(
           (pt) => !steps.some((s) => s.pageType === pt && s.enabled),
         );
+        const suggested = suggestNextStep(campaign);
+        const extras = disabled.filter((pt) => pt !== suggested);
+
+        const addForm = (pt: string, cls: string, label: string) => (
+          <form action={setFlowStep}>
+            <input type="hidden" name="campaignId" value={id} />
+            <input type="hidden" name="pageType" value={pt} />
+            <input type="hidden" name="op" value="add" />
+            <button className={cls}>{label}</button>
+          </form>
+        );
 
         const stepRow = (pageType: string, i: number) => {
           const meta = STEP_META[pageType];
@@ -368,24 +380,45 @@ export default async function CampaignHub({
               {enabled.map((s, i) => stepRow(s.pageType, i))}
             </ul>
 
-            {disabled.length > 0 && (
-              <>
-                <p className="mb-2 mt-5 text-xs font-semibold text-zinc-500">
-                  추가할 수 있는 단계
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {disabled.map((pt) => (
-                    <form key={pt} action={setFlowStep}>
-                      <input type="hidden" name="campaignId" value={id} />
-                      <input type="hidden" name="pageType" value={pt} />
-                      <input type="hidden" name="op" value="add" />
-                      <button className="rounded-lg border border-dashed px-3 py-1.5 text-xs text-zinc-600 hover:border-solid hover:bg-zinc-50">
-                        + {STEP_META[pt].title}
-                      </button>
-                    </form>
+            {suggested ? (
+              <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+                <div>
+                  <p className="text-xs font-semibold text-blue-700">
+                    다음 단계로 이걸 추가하세요
+                  </p>
+                  <p className="text-sm font-bold text-blue-900">
+                    {STEP_META[suggested]?.title ?? suggested}
+                  </p>
+                </div>
+                {addForm(
+                  suggested,
+                  "shrink-0 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white",
+                  "+ 추가",
+                )}
+              </div>
+            ) : (
+              <p className="mt-4 rounded-xl bg-emerald-50 px-4 py-2.5 text-[13px] text-emerald-700">
+                ✓ 이 퍼널에 필요한 단계가 다 있어요.
+              </p>
+            )}
+
+            {extras.length > 0 && (
+              <details className="mt-3">
+                <summary className="cursor-pointer text-xs text-zinc-500">
+                  다른 단계도 추가 ({extras.length})
+                </summary>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {extras.map((pt) => (
+                    <div key={pt}>
+                      {addForm(
+                        pt,
+                        "rounded-lg border border-dashed px-3 py-1.5 text-xs text-zinc-600 hover:border-solid hover:bg-zinc-50",
+                        `+ ${STEP_META[pt].title}`,
+                      )}
+                    </div>
                   ))}
                 </div>
-              </>
+              </details>
             )}
           </Card>
         );
