@@ -742,6 +742,8 @@ export const messageAutomationTrigger = pgEnum("message_automation_trigger", [
   "purchase", // 결제 완료 (anchor: order.paidAt)
   "booking", // 상담 예약 확정 (anchor: 예약시각)
   "manual", // 관리자가 CRM 에서 직접 등록 (anchor: now)
+  "cart_abandon", // 결제창까지 갔다가 이탈 (anchor: pending_order.createdAt) — cron 이 enroll
+
   // 라이브 웨비나 신청 완료 (anchor: event.startsAt — 사전 리마인더는 이 트리거가 아니라
   // lib/events.ts sendEventPreReminders 가 별도 처리. 여기 스텝은 startsAt 이후(양수 지연)만 사용:
   // 리플레이 공개·마감임박 등 (docs/multi-product-funnel-plan.md P3)
@@ -755,6 +757,10 @@ export const messageAudience = pgEnum("message_audience", [
   "not_purchased", // 아직 결제 안 함
   "not_booked", // 아직 상담 예약 안 함
 ]);
+/**
+ * message_audience 에 값 추가 시 src/lib/messaging.ts audienceMatches 도 갱신 필요.
+ * 현재 지원: all / not_watched / not_purchased / not_booked
+ */
 
 export const messageAutomations = pgTable(
   "message_automations",

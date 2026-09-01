@@ -16,6 +16,7 @@ const TRIGGERS: MessageAutomationTrigger[] = [
   "purchase",
   "booking",
   "manual",
+  "cart_abandon",
   "event_registered",
 ];
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { runDueAutomationSteps } from "@/lib/messaging";
 import { sendEventPreReminders } from "@/lib/events";
+import { enrollAbandonedCarts } from "@/lib/cart";
 
 export const runtime = "nodejs";
 
@@ -18,6 +19,8 @@ export async function GET(req: Request) {
   }
 
   try {
+    // 이탈 카트 등록을 먼저 → 이번 실행의 runDueAutomationSteps 에서 delay0 스텝 발송
+    const carts = await enrollAbandonedCarts().catch(() => 0);
     const result = await runDueAutomationSteps();
     const events = await sendEventPreReminders().catch(() => ({ d1: 0, h1: 0 }));
     return NextResponse.json({
@@ -25,6 +28,7 @@ export async function GET(req: Request) {
       at: new Date().toISOString(),
       ...result,
       events,
+      cartsEnrolled: carts,
     });
   } catch (e) {
     return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });

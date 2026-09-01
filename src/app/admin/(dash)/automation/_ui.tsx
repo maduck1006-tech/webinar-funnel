@@ -38,6 +38,12 @@ export const TRIGGER_META: Record<
     icon: "✋",
     hint: "CRM 고객 상세 화면에서 '이 고객을 여기 넣기' 를 누른 순간부터.",
   },
+  cart_abandon: {
+    label: "결제하다 이탈했을 때",
+    verb: "결제창까지 갔다가 안 사고 나가면",
+    icon: "🛒",
+    hint: "결제창을 열고 30분 넘게 결제를 안 하면, 그 시점부터 시간을 잽니다.",
+  },
   event_registered: {
     label: "라이브 웨비나 신청했을 때",
     verb: "라이브 회차에 신청하면",
