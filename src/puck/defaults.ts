@@ -186,6 +186,70 @@ export const defaultPages: Record<string, FunnelData> = {
     ],
   },
 
+  sales: {
+    root: root({
+      topbarText: "지금 특가로 만나보세요",
+      topbarCtaLabel: "구매하기",
+      topbarCtaHref: "{{checkout}}",
+    }),
+    content: [
+      {
+        type: "Hero",
+        props: {
+          id: "hero",
+          image: "",
+          eyebrow: "전자책",
+          title: "제목을 입력하세요",
+          subtitle: "이 상품이 무엇을 해결해주는지 한 줄로 설명하세요.",
+          height: "tall",
+        },
+      },
+      {
+        type: "Bullets",
+        props: {
+          id: "list",
+          title: "이런 분께 필요합니다",
+          items: [
+            { text: "포인트 1" },
+            { text: "포인트 2" },
+            { text: "포인트 3" },
+          ],
+        },
+      },
+      {
+        type: "Price",
+        props: { id: "p", badge: "특가", compareAt: 0, price: 0, note: "" },
+      },
+      {
+        type: "CTAButton",
+        props: { id: "c", label: "구매하기", sub: "결제 즉시 다운로드", href: "{{checkout}}", variant: "primary" },
+      },
+    ],
+  },
+
+  delivery: {
+    root: root(),
+    content: [
+      {
+        type: "Heading",
+        props: { id: "h", eyebrow: "구매 완료", text: "다운로드 준비됐어요", level: 1, align: "center" },
+      },
+      {
+        type: "Text",
+        props: {
+          id: "t",
+          text: "아래 버튼을 누르면 바로 다운로드됩니다.\n문자로도 링크를 보내드렸어요.",
+          align: "center",
+          style: "body",
+        },
+      },
+      {
+        type: "CTAButton",
+        props: { id: "d", label: "지금 다운로드", sub: "", href: "{{download}}", variant: "primary" },
+      },
+    ],
+  },
+
   groupchat: {
     root: root(),
     content: [

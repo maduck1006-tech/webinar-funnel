@@ -412,13 +412,17 @@ export const config: Config<FunnelProps, RootProps> = {
               basePath?: string;
               terminalUrl?: string;
               groupChatUrl?: string;
+              downloadUrl?: string;
             }
           | undefined;
         const wantsCheckout =
           !href || href === "#" || href === "{{checkout}}" || href === "결제";
-        // {{terminal}} = 캠페인 종착 스텝(예약/단톡방/세일즈), {{groupchat}} = 단톡방 링크
+        // {{terminal}} = 캠페인 종착 스텝(예약/단톡방/세일즈)
+        // {{groupchat}} = 단톡방 링크 · {{download}} = 구매한 파일 다운로드 링크
+        // checkoutUrl 은 상품이 무료면 /api/claim(체크아웃 스킵)을 가리킴
         const wantsTerminal = href === "{{terminal}}";
         const wantsGroupChat = href === "{{groupchat}}";
+        const wantsDownload = href === "{{download}}";
         const isCheckout = wantsCheckout && !!meta?.checkoutUrl;
         const resolved = wantsCheckout
           ? (meta?.checkoutUrl ?? "#")
@@ -426,7 +430,9 @@ export const config: Config<FunnelProps, RootProps> = {
             ? (meta?.terminalUrl ?? "#")
             : wantsGroupChat
               ? (meta?.groupChatUrl ?? "#")
-              : withBase(href, meta?.basePath);
+              : wantsDownload
+                ? (meta?.downloadUrl ?? "#")
+                : withBase(href, meta?.basePath);
         return (
         <CtaLink
           href={resolved}

@@ -226,9 +226,10 @@ export default async function CampaignSettings({
                         defaultValue={mappedMap.get(p.id)}
                         className="rounded border px-1 py-0.5 text-xs"
                       >
-                        <option value="both">양쪽</option>
+                        <option value="both">전체(땡큐+VOD)</option>
                         <option value="thankyou">땡큐만</option>
                         <option value="vod_bottom">VOD만</option>
+                        <option value="sales">세일즈 페이지 (전자책/강의/상담)</option>
                       </select>
                       <button className="rounded border px-2 text-xs">적용</button>
                     </form>

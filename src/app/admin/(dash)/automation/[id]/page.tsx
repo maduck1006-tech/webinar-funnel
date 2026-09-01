@@ -38,6 +38,7 @@ const VARS: { name: string; desc: string }[] = [
   { name: "{예약링크}", desc: "상담 예약 페이지" },
   { name: "{결제링크}", desc: "결제 페이지" },
   { name: "{단톡방링크}", desc: "무료 단톡방 초대" },
+  { name: "{세일즈링크}", desc: "전자책/강의/상담 세일즈 페이지" },
   { name: "{상품명}", desc: "연결된 상품 이름" },
   { name: "{마감시각}", desc: "시청 마감 시각" },
   { name: "{다운로드링크}", desc: "자료 다운로드 링크" },

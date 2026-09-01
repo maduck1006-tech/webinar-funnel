@@ -35,7 +35,7 @@ export function fillTemplate(
 
 /**
  * 캠페인·리드 컨텍스트로 문자 템플릿 변수 맵을 만든다.
- * {이름}{링크}{예약링크}{결제링크}{단톡방링크}{다운로드링크}{상품명}{마감시각}
+ * {이름}{링크}{예약링크}{결제링크}{단톡방링크}{세일즈링크}{다운로드링크}{상품명}{마감시각}
  */
 export async function buildMessageVars(
   campaignId: string | null,
@@ -66,9 +66,13 @@ export async function buildMessageVars(
   const chatUrl = groupChatUrl || `${SITE}${basePath}/community?l=${leadId}`;
 
   let checkoutUrl = watchUrl;
+  const salesUrl = `${SITE}${basePath}/sales?l=${leadId}`;
+  let downloadPageUrl = "";
   if (campaignId) {
     const offer = await getActiveOffer(campaignId, "vod_bottom");
     if (offer) checkoutUrl = SITE + resolveCheckoutUrl(offer, { basePath, leadId });
+    const salesOffer = await getActiveOffer(campaignId, "sales");
+    if (salesOffer) downloadPageUrl = `${SITE}${basePath}/download?l=${leadId}`;
   }
 
   const [lead] = await db
@@ -82,7 +86,8 @@ export async function buildMessageVars(
     예약링크: bookingUrl,
     결제링크: checkoutUrl,
     단톡방링크: chatUrl,
-    다운로드링크: downloadUrl || watchUrl,
+    세일즈링크: salesUrl,
+    다운로드링크: downloadUrl || downloadPageUrl || watchUrl,
     상품명: productName ?? "자료",
     이름: lead?.name ?? "회원",
     마감시각: lead?.vodExpiresAt

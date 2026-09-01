@@ -67,6 +67,9 @@ export const pageType = pgEnum("page_type", [
   "booking",
   // 종착 스텝: 무료 단톡방(오픈카톡) 입장 안내 (docs/multi-product-funnel-plan.md P0′)
   "groupchat",
+  // 유료 상품(전자책/강의/상담) 세일즈레터 + 다운로드 전달 (docs/multi-product-funnel-plan.md P1)
+  "sales",
+  "delivery",
   // P2 구독: 멤버십 전환 판매 페이지 (docs/toss-payments-plan.md §11)
   "membership",
 ]);

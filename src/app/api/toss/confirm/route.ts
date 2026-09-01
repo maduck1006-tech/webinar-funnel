@@ -224,13 +224,34 @@ async function basePathFor(campaignId: string | null) {
   return c && !c.isDefault ? `/${c.slug}` : "";
 }
 
+/**
+ * 결제 후 이동. 캠페인에 checkoutRedirectUrl 이 설정돼 있으면 그리로
+ * (전자책 캠페인은 /{slug}/download 로 설정) — 없으면 기존처럼 /vod?paid=1.
+ */
 async function redirectToVod(pending: {
   campaignId: string | null;
   leadId: string | null;
 }) {
-  const basePath = await basePathFor(pending.campaignId);
-  const vodUrl = `${basePath}/vod?paid=1${pending.leadId ? `&l=${pending.leadId}` : ""}`;
-  return NextResponse.redirect(new URL(vodUrl, getOrigin()), { status: 302 });
+  let basePath = "";
+  let override: string | null = null;
+  if (pending.campaignId) {
+    const [c] = await db
+      .select({
+        slug: campaigns.slug,
+        isDefault: campaigns.isDefault,
+        checkoutRedirectUrl: campaigns.checkoutRedirectUrl,
+      })
+      .from(campaigns)
+      .where(eq(campaigns.id, pending.campaignId));
+    if (c) {
+      basePath = c.isDefault ? "" : `/${c.slug}`;
+      override = c.checkoutRedirectUrl;
+    }
+  }
+  const dest = override || `${basePath}/vod?paid=1`;
+  const url = new URL(dest, getOrigin());
+  if (pending.leadId) url.searchParams.set("l", pending.leadId);
+  return NextResponse.redirect(url, { status: 302 });
 }
 
 /**

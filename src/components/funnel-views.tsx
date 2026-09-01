@@ -13,6 +13,8 @@ import {
   checkoutRedirect,
 } from "@/lib/campaign";
 import { getActiveOffer, resolveCheckoutUrl } from "@/lib/funnel-offer";
+import { grantEntitlement, hasEntitlement } from "@/lib/entitlements";
+import { products } from "@/db/schema";
 
 /** 2단계 — 랜딩(신청) */
 export async function LandingView({ campaign }: { campaign: Campaign }) {
@@ -261,6 +263,109 @@ export async function GroupChatView({
       {!campaign.groupChatUrl && (
         <div className="mt-4 grid h-40 place-items-center rounded-xl border border-dashed border-[var(--fn-line)] bg-[var(--fn-bg-2)] text-sm text-[var(--fn-sub)]">
           캠페인 설정에 단톡방 초대 링크를 입력하면 여기에 입장 버튼이 표시됩니다
+        </div>
+      )}
+    </FunnelPage>
+  );
+}
+
+/** 1단계 — 유료 상품(전자책/강의/상담) 세일즈페이지 */
+export async function SalesView({
+  campaign,
+  l,
+}: {
+  campaign: Campaign;
+  l?: string;
+}) {
+  const leadId = await resolveLeadId(l);
+  const offer = await getActiveOffer(campaign.id, "sales");
+  const basePath = campaignBasePath(campaign);
+  return (
+    <FunnelPage
+      campaign={campaign}
+      pageType="sales"
+      metadata={{
+        leadId: leadId ?? undefined,
+        basePath,
+        checkoutUrl: offer
+          ? resolveCheckoutUrl(offer, { basePath, leadId })
+          : undefined,
+        productName: offer?.name,
+        price: offer?.price,
+        compareAt: offer?.compareAt ?? undefined,
+      }}
+    />
+  );
+}
+
+/** 3단계 — 전자책 등 디지털 상품 다운로드 전달 (엔타이틀먼트 게이트) */
+export async function DeliveryView({
+  campaign,
+  l,
+  p,
+}: {
+  campaign: Campaign;
+  l?: string;
+  p?: string;
+}) {
+  const leadId = await resolveLeadId(l);
+  const basePath = campaignBasePath(campaign);
+
+  // 상품 미지정이면 이 캠페인의 세일즈 상품으로 폴백
+  const offer = p ? null : await getActiveOffer(campaign.id, "sales");
+  const productId = p || offer?.productId;
+
+  if (!leadId || !productId) {
+    return (
+      <Gate title="다운로드 링크가 필요합니다">
+        구매 확인 문자로 받으신 링크로 접속해 주세요.
+      </Gate>
+    );
+  }
+
+  const [product] = await db
+    .select()
+    .from(products)
+    .where(eq(products.id, productId));
+  if (!product) {
+    return <Gate title="상품을 찾을 수 없습니다">유효하지 않은 링크입니다.</Gate>;
+  }
+
+  let ok = await hasEntitlement(leadId, productId);
+  // 무료 상품인데 아직 엔타이틀먼트가 없으면(=랜딩폼으로 바로 진입) 즉시 부여
+  if (!ok && product.priceMode === "free") {
+    await grantEntitlement({ leadId, productId, product });
+    ok = true;
+  }
+
+  if (!ok) {
+    return (
+      <Gate title="구매가 필요합니다">
+        아직 구매하지 않은 상품이에요.{" "}
+        <a href={`${basePath}/sales?l=${leadId}`} className="underline">
+          세일즈 페이지로 이동
+        </a>
+      </Gate>
+    );
+  }
+
+  const assetUrl =
+    (product.delivery as { assetUrl?: string } | null)?.assetUrl ?? "";
+
+  return (
+    <FunnelPage
+      campaign={campaign}
+      pageType="delivery"
+      metadata={{
+        leadId,
+        basePath,
+        downloadUrl: assetUrl || undefined,
+        productName: product.name,
+      }}
+    >
+      {!assetUrl && (
+        <div className="mt-4 grid h-40 place-items-center rounded-xl border border-dashed border-[var(--fn-line)] bg-[var(--fn-bg-2)] text-sm text-[var(--fn-sub)]">
+          상품 관리에서 전자책 파일 URL 을 입력하면 여기에 다운로드 버튼이 표시됩니다
         </div>
       )}
     </FunnelPage>

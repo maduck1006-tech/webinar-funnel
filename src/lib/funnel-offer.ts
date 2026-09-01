@@ -9,16 +9,20 @@ export type Offer = {
   price: number;
   compareAt: number | null;
   kind: string;
+  type: string;
+  priceMode: string;
+  delivery: Record<string, unknown> | null;
 };
 
 /**
- * 캠페인의 현재 노출 저가 상품 1개.
+ * 캠페인의 현재 노출 상품 1개.
  * - campaign_products 매핑 + placement 일치 (또는 'both')
  * - products.active = true, 노출기간(showFrom/showUntil) 이내
+ * placement 'sales' = 세일즈페이지 메인 상품 (docs/multi-product-funnel-plan.md §4-2)
  */
 export async function getActiveOffer(
   campaignId: string,
-  placement: "thankyou" | "vod_bottom",
+  placement: "thankyou" | "vod_bottom" | "sales",
 ): Promise<Offer | null> {
   try {
     const now = new Date();
@@ -45,6 +49,9 @@ export async function getActiveOffer(
       price: p.price,
       compareAt: p.compareAtPrice,
       kind: p.kind,
+      type: p.type,
+      priceMode: p.priceMode,
+      delivery: p.delivery ?? null,
     };
   } catch {
     return null;
@@ -64,14 +71,16 @@ export function checkoutUrlWithLead(url: string, leadId?: string | null): string
 }
 
 /**
- * CTA href 로 넣을 결제 페이지 URL. 결제는 전부 자체 토스 결제(/checkout).
- * {basePath}/checkout?p=<productId>&l=<leadId>
+ * CTA href 로 넣을 결제(또는 무료 수령) URL.
+ * - 유료: {basePath}/checkout?p=<productId>&l=<leadId> (토스 결제창)
+ * - 무료(price_mode='free'): {basePath}/api/claim?p=&l= (체크아웃 스킵, 즉시 엔타이틀먼트 부여)
  */
 export function resolveCheckoutUrl(
-  offer: Pick<Offer, "productId">,
+  offer: Pick<Offer, "productId"> & { priceMode?: string },
   opts: { basePath: string; leadId?: string | null },
 ): string {
   const qs = new URLSearchParams({ p: offer.productId });
   if (opts.leadId) qs.set("l", opts.leadId);
-  return `${opts.basePath}/checkout?${qs.toString()}`;
+  const path = offer.priceMode === "free" ? "/api/claim" : "/checkout";
+  return `${opts.basePath}${path}?${qs.toString()}`;
 }
