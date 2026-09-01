@@ -6,6 +6,7 @@ import { campaigns, leads } from "@/db/schema";
 import { normalizePhone } from "@/lib/phone";
 import { getDefaultCampaign } from "@/lib/campaign";
 import { sendTriggerOnce } from "@/lib/campaign-messages";
+import { enrollLeadInSequences } from "@/lib/sequences";
 import { sendMetaEvent } from "@/lib/meta-capi";
 
 const bodySchema = z.object({
@@ -109,7 +110,7 @@ export async function POST(req: Request) {
     })
     .returning({ id: leads.id });
 
-  // 신청 즉시 확인 문자 (응답 후 백그라운드 발송)
+  // 신청 즉시 확인 문자 + Follow-up 시퀀스 등록 (응답 후 백그라운드)
   after(async () => {
     try {
       await sendTriggerOnce({
@@ -120,6 +121,11 @@ export async function POST(req: Request) {
       });
     } catch {
       /* 발송 실패가 신청 자체를 막지 않음 */
+    }
+    try {
+      await enrollLeadInSequences(row.id, "signup", campaign?.id ?? null);
+    } catch {
+      /* 시퀀스 등록 실패가 신청을 막지 않음 */
     }
   });
 

@@ -69,7 +69,8 @@ export async function resolveTrigger(
   return { enabled: true, template: null, offsetHours: null };
 }
 
-function fill(
+/** 템플릿의 {변수}를 치환 */
+export function fillTemplate(
   template: string,
   vars: Record<string, string | undefined>,
 ): string {
@@ -77,15 +78,14 @@ function fill(
 }
 
 /**
- * 캠페인 인지 문자 본문 생성.
- * - 캠페인 basePath 를 붙인 링크 사용
- * - 사용자 템플릿이 있으면 변수 치환, 없으면 코드 기본(renderMessage)
+ * 캠페인·리드 컨텍스트로 문자 템플릿 변수 맵을 만든다.
+ * ({이름}{링크}{예약링크}{결제링크}{다운로드링크}{상품명}{마감시각})
  */
-export async function renderCampaignMessage(
+export async function buildMessageVars(
   campaignId: string | null,
-  trigger: Trigger,
-  vars: { leadId: string; productName?: string },
-): Promise<string> {
+  leadId: string,
+  productName?: string,
+): Promise<Record<string, string | undefined>> {
   let basePath = "";
   let downloadUrl = "";
   if (campaignId) {
@@ -101,52 +101,62 @@ export async function renderCampaignMessage(
     if (c && !c.isDefault) basePath = `/${c.slug}`;
     downloadUrl = c?.downloadUrl ?? "";
   }
-  const watchUrl = `${SITE}${basePath}/vod?l=${vars.leadId}`;
-  const bookingUrl = `${SITE}${basePath}/booking?l=${vars.leadId}`;
+  const watchUrl = `${SITE}${basePath}/vod?l=${leadId}`;
+  const bookingUrl = `${SITE}${basePath}/booking?l=${leadId}`;
 
-  // 결제링크: 활성 저가상품(vod_bottom)의 자체 토스 결제 페이지 + lead 식별자.
-  // 활성 상품이 없으면 시청링크로 폴백(문자에 깨진 링크 방지).
   let checkoutUrl = watchUrl;
   if (campaignId) {
     const offer = await getActiveOffer(campaignId, "vod_bottom");
     if (offer) {
-      checkoutUrl =
-        SITE +
-        resolveCheckoutUrl(offer, { basePath, leadId: vars.leadId });
+      checkoutUrl = SITE + resolveCheckoutUrl(offer, { basePath, leadId });
     }
   }
 
+  const [lead] = await db
+    .select({ name: leads.name, vodExpiresAt: leads.vodExpiresAt })
+    .from(leads)
+    .where(eq(leads.id, leadId))
+    .catch(() => []);
+
+  return {
+    링크: watchUrl,
+    예약링크: bookingUrl,
+    결제링크: checkoutUrl,
+    다운로드링크: downloadUrl || watchUrl,
+    상품명: productName ?? "자료",
+    이름: lead?.name ?? "회원",
+    마감시각: lead?.vodExpiresAt
+      ? lead.vodExpiresAt.toLocaleString("ko-KR", {
+          month: "long",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        })
+      : "",
+    leadId,
+  };
+}
+
+/**
+ * 캠페인 인지 문자 본문 생성.
+ * - 캠페인 basePath 를 붙인 링크 사용
+ * - 사용자 템플릿이 있으면 변수 치환, 없으면 코드 기본(renderMessage)
+ */
+export async function renderCampaignMessage(
+  campaignId: string | null,
+  trigger: Trigger,
+  vars: { leadId: string; productName?: string },
+): Promise<string> {
+  const mvars = await buildMessageVars(campaignId, vars.leadId, vars.productName);
   const resolved = await resolveTrigger(campaignId, trigger);
   if (resolved.template) {
-    const [lead] = await db
-      .select({ name: leads.name, vodExpiresAt: leads.vodExpiresAt })
-      .from(leads)
-      .where(eq(leads.id, vars.leadId))
-      .catch(() => []);
-    return fill(resolved.template, {
-      링크: watchUrl,
-      예약링크: bookingUrl,
-      결제링크: checkoutUrl,
-      다운로드링크: downloadUrl || watchUrl,
-      상품명: vars.productName ?? "자료",
-      이름: lead?.name ?? "회원",
-      마감시각: lead?.vodExpiresAt
-        ? lead.vodExpiresAt.toLocaleString("ko-KR", {
-            month: "long",
-            day: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-          })
-        : "",
-      leadId: vars.leadId,
-    });
+    return fillTemplate(resolved.template, mvars);
   }
-
   // 코드 기본 렌더 (basePath 미반영이라 링크만 치환)
   const base = renderMessage(trigger, vars);
   return base
-    .replaceAll(`${SITE}/vod?l=${vars.leadId}`, watchUrl)
-    .replaceAll(`${SITE}/booking?l=${vars.leadId}`, bookingUrl);
+    .replaceAll(`${SITE}/vod?l=${vars.leadId}`, mvars.링크!)
+    .replaceAll(`${SITE}/booking?l=${vars.leadId}`, mvars.예약링크!);
 }
 
 /**

@@ -539,10 +539,107 @@ export const automationTriggers = pgTable("automation_triggers", {
     .defaultNow(),
 });
 
+/* ------------------------------------------------------------------ *
+ * Follow-up 시퀀스 (러셀식 Soap Opera / Seinfeld).
+ * automation_triggers(고정 트리거)는 그대로 두고, 그 위에 얹는 유연한 시퀀스.
+ * ------------------------------------------------------------------ */
+
+/** 리드를 시퀀스에 자동 등록하는 이벤트 */
+export const sequenceEnrollEvent = pgEnum("sequence_enroll_event", [
+  "signup", // 무료 신청(리드 생성)
+  "purchase", // 결제 완료
+  "booking", // 상담 예약 완료
+  "manual", // 관리자가 직접 등록
+]);
+
+/** 각 스텝을 받을 대상 조건 */
+export const sequenceAudience = pgEnum("sequence_audience", [
+  "all", // 전원
+  "not_purchased", // 아직 결제 안 한 사람만
+  "not_booked", // 아직 상담 예약 안 한 사람만
+  "not_watched", // 아직 강의 시청 안 한 사람만
+]);
+
+export const messageSequences = pgTable("message_sequences", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  /** null = 전역(모든 캠페인) */
+  campaignId: uuid("campaign_id").references(() => campaigns.id),
+  name: text("name").notNull(),
+  enrollEvent: sequenceEnrollEvent("enroll_event").notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const sequenceSteps = pgTable(
+  "sequence_steps",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    sequenceId: uuid("sequence_id")
+      .notNull()
+      .references(() => messageSequences.id, { onDelete: "cascade" }),
+    stepOrder: integer("step_order").notNull(),
+    /** 등록 시점 기준 이 시간(시간 단위) 뒤에 발송 */
+    delayHours: integer("delay_hours").notNull().default(0),
+    audience: sequenceAudience("audience").notNull().default("all"),
+    /** 솔라피 문자 본문. 변수: {이름}{링크}{예약링크}{결제링크}{상품명}{마감시각}{다운로드링크} */
+    template: text("template").notNull().default(""),
+    enabled: boolean("enabled").notNull().default(true),
+  },
+  (t) => [index("sequence_steps_seq_idx").on(t.sequenceId, t.stepOrder)],
+);
+
+export const sequenceEnrollments = pgTable(
+  "sequence_enrollments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    sequenceId: uuid("sequence_id")
+      .notNull()
+      .references(() => messageSequences.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id),
+    enrolledAt: timestamp("enrolled_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    /** 'active' | 'done' | 'stopped' */
+    status: text("status").notNull().default("active"),
+  },
+  (t) => [uniqueIndex("sequence_enrollments_idx").on(t.sequenceId, t.leadId)],
+);
+
+/** 스텝별 발송 기록 (진행 상태 추적 = 이 테이블) */
+export const sequenceSends = pgTable(
+  "sequence_sends",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    enrollmentId: uuid("enrollment_id")
+      .notNull()
+      .references(() => sequenceEnrollments.id, { onDelete: "cascade" }),
+    stepId: uuid("step_id").notNull(),
+    /** 'sent' | 'failed' | 'skipped'(대상 조건 불일치) */
+    status: text("status").notNull().default("sent"),
+    error: text("error"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex("sequence_sends_idx").on(t.enrollmentId, t.stepId)],
+);
+
 export type Lead = typeof leads.$inferSelect;
 export type Product = typeof products.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type AutomationTrigger = typeof automationTriggers.$inferSelect;
+export type MessageSequence = typeof messageSequences.$inferSelect;
+export type SequenceStep = typeof sequenceSteps.$inferSelect;
+export type SequenceEnrollEvent = (typeof sequenceEnrollEvent.enumValues)[number];
+export type SequenceAudience = (typeof sequenceAudience.enumValues)[number];
 export type Campaign = typeof campaigns.$inferSelect;
 export type CampaignPage = typeof campaignPages.$inferSelect;
 export type PageType = (typeof pageType.enumValues)[number];

@@ -5,6 +5,7 @@ import { campaigns, leads, orders, webhookEvents } from "@/db/schema";
 import { normalizePhone } from "@/lib/phone";
 import { reportError } from "@/lib/report";
 import { sendMetaEvent } from "@/lib/meta-capi";
+import { enrollLeadInSequences } from "@/lib/sequences";
 
 export const runtime = "nodejs";
 
@@ -140,6 +141,16 @@ export async function POST(req: Request) {
           });
         } catch {
           /* CApI 실패가 예약 처리를 막지 않음 */
+        }
+
+        try {
+          await enrollLeadInSequences(
+            lead.id,
+            "booking",
+            lead.campaignId ?? null,
+          );
+        } catch {
+          /* 시퀀스 등록 실패 무시 */
         }
       }
     } else if (canceled && lead.status === "booked") {

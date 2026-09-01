@@ -11,6 +11,7 @@ import {
 import { confirmTossPayment } from "@/lib/toss";
 import { sendMetaEvent } from "@/lib/meta-capi";
 import { sendTriggerOnce } from "@/lib/campaign-messages";
+import { enrollLeadInSequences } from "@/lib/sequences";
 import { reportError } from "@/lib/report";
 
 export const runtime = "nodejs";
@@ -184,6 +185,15 @@ export async function GET(req: Request) {
       });
     } catch {
       /* 문자 실패가 결제 완료 흐름을 막지 않음 */
+    }
+  }
+
+  // Follow-up 시퀀스 (본상품 결제일 때만)
+  if (role === "main") {
+    try {
+      await enrollLeadInSequences(lead.id, "purchase", lead.campaignId ?? null);
+    } catch {
+      /* 시퀀스 등록 실패 무시 */
     }
   }
 
