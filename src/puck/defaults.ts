@@ -198,7 +198,7 @@ export const defaultPages: Record<string, FunnelData> = {
         props: {
           id: "hero",
           image: "",
-          eyebrow: "전자책",
+          eyebrow: "이 페이지 한정",
           title: "제목을 입력하세요",
           subtitle: "이 상품이 무엇을 해결해주는지 한 줄로 설명하세요.",
           height: "tall",
@@ -217,12 +217,57 @@ export const defaultPages: Record<string, FunnelData> = {
         },
       },
       {
-        type: "Price",
-        props: { id: "p", badge: "특가", compareAt: 0, price: 0, note: "" },
+        type: "ValueStack",
+        props: {
+          id: "stack",
+          title: "이 안에 들어있는 것",
+          items: [
+            { label: "본 상품", value: 0 },
+            { label: "보너스 1", value: 0 },
+            { label: "보너스 2", value: 0 },
+          ],
+          totalLabel: "전체 가치",
+          price: 0,
+          priceLabel: "오늘 당신의 가격",
+        },
       },
       {
         type: "CTAButton",
-        props: { id: "c", label: "구매하기", sub: "결제 즉시 다운로드", href: "{{checkout}}", variant: "primary" },
+        props: { id: "c1", label: "지금 구매하기", sub: "결제 즉시 이용 가능", href: "{{checkout}}", variant: "primary" },
+      },
+      {
+        type: "Testimonials",
+        props: {
+          id: "tm",
+          title: "먼저 해본 분들",
+          items: [
+            { quote: "후기를 넣으세요.", name: "김OO", role: "", image: "" },
+          ],
+        },
+      },
+      {
+        type: "Guarantee",
+        props: {
+          id: "g",
+          badge: "환불 보장",
+          title: "효과 없으면 100% 환불",
+          body: "14일 이내에 메일 한 통이면 전액 환불해드립니다.\n이유도 묻지 않습니다.",
+        },
+      },
+      {
+        type: "FAQ",
+        props: {
+          id: "faq",
+          title: "자주 묻는 질문",
+          items: [
+            { q: "결제하면 바로 이용할 수 있나요?", a: "네, 결제 즉시 링크가 열리고 문자로도 전송됩니다." },
+            { q: "환불되나요?", a: "14일 이내 전액 환불됩니다." },
+          ],
+        },
+      },
+      {
+        type: "CTAButton",
+        props: { id: "c2", label: "지금 구매하기", sub: "이 가격은 이 페이지에서만", href: "{{checkout}}", variant: "primary" },
       },
     ],
   },

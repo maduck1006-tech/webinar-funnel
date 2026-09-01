@@ -38,6 +38,19 @@ export type FunnelProps = {
   Countdown: { deadlineIso: string; expiredText: string; label: string };
   LeadForm: { headline: string; submitLabel: string; nextPath: string; note: string; sticky: boolean };
   Price: { compareAt: number; price: number; note: string; badge: string };
+  ValueStack: {
+    title: string;
+    items: { label: string; value: number }[];
+    price: number;
+    totalLabel: string;
+    priceLabel: string;
+  };
+  Guarantee: { title: string; body: string; badge: string };
+  Testimonials: {
+    title: string;
+    items: { quote: string; name: string; role: string; image: string }[];
+  };
+  FAQ: { title: string; items: { q: string; a: string }[] };
 };
 
 const align = {
@@ -589,6 +602,227 @@ export const config: Config<FunnelProps, RootProps> = {
           </div>
         );
       },
+    },
+
+    /* ── 세일즈 페이지 전환 블록 (클릭퍼널스 Stack 구조) ── */
+
+    ValueStack: {
+      fields: {
+        title: { type: "text" },
+        items: {
+          type: "array",
+          arrayFields: {
+            label: { type: "text" },
+            value: { type: "number" },
+          },
+          defaultItemProps: { label: "구성 항목", value: 0 },
+          getItemSummary: (i) =>
+            `${i.label || "항목"} — ${(i.value || 0).toLocaleString()}원`,
+        },
+        totalLabel: { type: "text" },
+        price: { type: "number", label: "실제 판매가 (0이면 상품값 사용)" },
+        priceLabel: { type: "text" },
+      },
+      defaultProps: {
+        title: "이 안에 들어있는 것",
+        items: [
+          { label: "본 강의 (5개 모듈)", value: 300000 },
+          { label: "실전 워크북 PDF", value: 50000 },
+          { label: "1:1 피드백 1회", value: 150000 },
+        ],
+        totalLabel: "전체 가치",
+        price: 0,
+        priceLabel: "오늘 당신의 가격",
+      },
+      render: ({ title, items, totalLabel, price, priceLabel, puck }) => {
+        const meta = puck?.metadata as { price?: number } | undefined;
+        const list = items ?? [];
+        const total = list.reduce((s, i) => s + (Number(i.value) || 0), 0);
+        const p = price || meta?.price || 0;
+        return (
+          <div className="my-6 overflow-hidden rounded-2xl border border-[var(--fn-line)] bg-[var(--fn-bg-2)]">
+            {title && (
+              <p className="border-b border-[var(--fn-line)] px-5 py-3 text-center text-sm font-extrabold text-[var(--fn-ink)]">
+                {title}
+              </p>
+            )}
+            <ul className="divide-y divide-[var(--fn-line)]">
+              {list.map((it, i) => (
+                <li
+                  key={i}
+                  className="flex items-center justify-between gap-3 px-5 py-3 text-[13.5px]"
+                >
+                  <span className="flex items-start gap-2 text-[var(--fn-ink)]">
+                    <span className="text-[var(--fn-accent)]">✓</span>
+                    {it.label}
+                  </span>
+                  <span className="shrink-0 text-[var(--fn-sub)]">
+                    {(Number(it.value) || 0).toLocaleString()}원
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex items-center justify-between px-5 py-3 text-sm">
+              <span className="font-bold text-[var(--fn-ink)]">{totalLabel}</span>
+              <span className="font-bold text-[var(--fn-sub)] line-through">
+                {total.toLocaleString()}원
+              </span>
+            </div>
+            <div className="bg-[var(--fn-accent)] px-5 py-4 text-center text-white">
+              <p className="text-[11px] font-bold uppercase tracking-wider opacity-90">
+                {priceLabel}
+              </p>
+              <p className="mt-0.5 text-[26px] font-extrabold">
+                {p > 0 ? `${p.toLocaleString()}원` : "가격 미설정"}
+              </p>
+              {p > 0 && total > p && (
+                <p className="text-[12px] font-semibold opacity-90">
+                  {(total - p).toLocaleString()}원 아끼는 셈
+                </p>
+              )}
+            </div>
+          </div>
+        );
+      },
+    },
+
+    Guarantee: {
+      fields: {
+        badge: { type: "text" },
+        title: { type: "text" },
+        body: { type: "textarea" },
+      },
+      defaultProps: {
+        badge: "환불 보장",
+        title: "효과 없으면 100% 환불",
+        body:
+          "강의를 다 듣고도 도움이 안 됐다면,\n14일 이내에 메일 한 통이면 전액 환불해드립니다.\n이유도 묻지 않습니다.",
+      },
+      render: ({ badge, title, body }) => (
+        <div className="my-6 rounded-2xl border-2 border-dashed border-[var(--fn-accent)] bg-[var(--fn-bg-2)] p-5 text-center">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--fn-accent)] px-3 py-1 text-[11px] font-bold text-white">
+            🛡 {badge}
+          </span>
+          <p className="mt-3 text-lg font-extrabold text-[var(--fn-ink)]">
+            {title}
+          </p>
+          <p className="mt-1.5 whitespace-pre-line text-[13px] leading-relaxed text-[var(--fn-sub)]">
+            {body}
+          </p>
+        </div>
+      ),
+    },
+
+    Testimonials: {
+      fields: {
+        title: { type: "text" },
+        items: {
+          type: "array",
+          arrayFields: {
+            quote: { type: "textarea" },
+            name: { type: "text" },
+            role: { type: "text" },
+            image: imageField,
+          },
+          defaultItemProps: { quote: "후기 내용", name: "김OO", role: "", image: "" },
+          getItemSummary: (i) => i.name || "후기",
+        },
+      },
+      defaultProps: {
+        title: "먼저 해본 분들",
+        items: [
+          { quote: "반신반의하고 시작했는데 3주 만에 첫 계약을 했어요.", name: "박OO", role: "N잡러", image: "" },
+          { quote: "혼자 몇 달 헤매던 게 이 강의 하나로 정리됐습니다.", name: "이OO", role: "프리랜서", image: "" },
+        ],
+      },
+      render: ({ title, items }) => (
+        <div className="my-6">
+          {title && (
+            <p className="mb-3 text-lg font-extrabold text-[var(--fn-ink)]">
+              {title}
+            </p>
+          )}
+          <div className="space-y-3">
+            {(items ?? []).map((it, i) => (
+              <figure
+                key={i}
+                className="rounded-2xl border border-[var(--fn-line)] bg-[var(--fn-bg-2)] p-4"
+              >
+                <blockquote className="whitespace-pre-line text-[13.5px] leading-relaxed text-[var(--fn-ink)]">
+                  &ldquo;{it.quote}&rdquo;
+                </blockquote>
+                <figcaption className="mt-3 flex items-center gap-2.5">
+                  {it.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={it.image}
+                      alt=""
+                      className="h-8 w-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="grid h-8 w-8 place-items-center rounded-full bg-[var(--fn-accent)] text-xs font-bold text-white">
+                      {(it.name || "?").slice(0, 1)}
+                    </span>
+                  )}
+                  <span className="text-[12px] text-[var(--fn-sub)]">
+                    <b className="text-[var(--fn-ink)]">{it.name}</b>
+                    {it.role && ` · ${it.role}`}
+                  </span>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </div>
+      ),
+    },
+
+    FAQ: {
+      fields: {
+        title: { type: "text" },
+        items: {
+          type: "array",
+          arrayFields: {
+            q: { type: "text" },
+            a: { type: "textarea" },
+          },
+          defaultItemProps: { q: "질문", a: "답변" },
+          getItemSummary: (i) => i.q || "질문",
+        },
+      },
+      defaultProps: {
+        title: "자주 묻는 질문",
+        items: [
+          { q: "결제하면 바로 볼 수 있나요?", a: "네, 결제 즉시 강의실 링크가 열리고 문자로도 전송됩니다." },
+          { q: "환불되나요?", a: "14일 이내 전액 환불됩니다. 이유는 묻지 않습니다." },
+        ],
+      },
+      render: ({ title, items }) => (
+        <div className="my-6">
+          {title && (
+            <p className="mb-3 text-lg font-extrabold text-[var(--fn-ink)]">
+              {title}
+            </p>
+          )}
+          <div className="space-y-2">
+            {(items ?? []).map((it, i) => (
+              <details
+                key={i}
+                className="group rounded-xl border border-[var(--fn-line)] bg-[var(--fn-bg-2)] px-4 py-3"
+              >
+                <summary className="flex cursor-pointer list-none items-center justify-between text-[13.5px] font-semibold text-[var(--fn-ink)]">
+                  {it.q}
+                  <span className="ml-2 text-[var(--fn-sub)] transition group-open:rotate-45">
+                    +
+                  </span>
+                </summary>
+                <p className="mt-2 whitespace-pre-line text-[13px] leading-relaxed text-[var(--fn-sub)]">
+                  {it.a}
+                </p>
+              </details>
+            ))}
+          </div>
+        </div>
+      ),
     },
   },
 };
