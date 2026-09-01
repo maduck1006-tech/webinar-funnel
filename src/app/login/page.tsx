@@ -1,7 +1,15 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+
+/** 01012345678 → 010-1234-5678 (입력 중 표시용) */
+function formatPhone(raw: string): string {
+  const d = raw.replace(/\D/g, "").slice(0, 11);
+  if (d.length < 4) return d;
+  if (d.length < 8) return `${d.slice(0, 3)}-${d.slice(3)}`;
+  return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+}
 
 function LoginForm() {
   const router = useRouter();
@@ -10,130 +18,173 @@ function LoginForm() {
 
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
-  const [sent, setSent] = useState(false);
+  const [stage, setStage] = useState<"phone" | "code">("phone");
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0);
+
+  const codeRef = useRef<HTMLInputElement>(null);
+  const digits = phone.replace(/\D/g, "");
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setInterval(() => setCooldown((c) => c - 1), 1000);
+    return () => clearInterval(t);
+  }, [cooldown]);
 
   async function sendCode() {
-    if (busy) return;
+    if (busy || digits.length < 10) return;
     setBusy(true);
     setErr(null);
     try {
       const res = await fetch("/api/auth/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone: digits }),
       });
       const data = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !data.ok) {
         setErr(data.error || "발송에 실패했어요. 잠시 후 다시 시도해 주세요.");
       } else {
-        setSent(true);
-        setMsg("입력한 번호로 인증번호가 발송되었어요.");
+        setStage("code");
+        setCooldown(60);
+        setTimeout(() => codeRef.current?.focus(), 50);
       }
     } catch {
-      setErr("네트워크 오류입니다.");
+      setErr("연결 상태를 확인하고 다시 시도해 주세요.");
     }
     setBusy(false);
   }
 
   async function verify() {
-    if (busy) return;
+    if (busy || code.length < 6) return;
     setBusy(true);
     setErr(null);
     try {
       const res = await fetch("/api/auth/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, code }),
+        body: JSON.stringify({ phone: digits, code }),
       });
       const data = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !data.ok) {
-        setErr(data.error || "인증에 실패했어요.");
+        setErr(data.error || "인증번호를 다시 확인해 주세요.");
+        setCode("");
       } else {
         router.replace(next);
       }
     } catch {
-      setErr("네트워크 오류입니다.");
+      setErr("연결 상태를 확인하고 다시 시도해 주세요.");
     }
     setBusy(false);
   }
 
   return (
-    <div className="funnel-theme funnel-shell grid min-h-dvh place-items-center px-5">
-      <div className="w-full max-w-[420px] rounded-2xl border border-[var(--fn-line)] bg-[var(--fn-bg-2)] p-7">
-        <h1 className="text-2xl font-extrabold text-[var(--fn-ink)]">환영해요</h1>
-        <p className="mt-2 text-sm text-[var(--fn-sub)]">
-          단 10초, 인증 한 번으로 내 강의·자료를 다시 열 수 있어요.
-        </p>
+    <div className="funnel-theme funnel-shell grid min-h-dvh place-items-center px-5 py-10">
+      <div className="w-full max-w-[400px]">
+        <div className="mb-6">
+          <h1 className="text-[22px] font-extrabold text-[var(--fn-ink)]">
+            {stage === "phone" ? "내 콘텐츠 보관함" : "인증번호를 넣어주세요"}
+          </h1>
+          <p className="mt-1.5 text-[13.5px] leading-relaxed text-[var(--fn-sub)]">
+            {stage === "phone" ? (
+              <>
+                결제하셨던 번호를 넣으면 문자로 숫자 6자리가 갑니다.
+                <br />
+                비밀번호도, 가입도 없어요.
+              </>
+            ) : (
+              <>
+                <span className="font-semibold text-[var(--fn-ink)]">
+                  {formatPhone(phone)}
+                </span>{" "}
+                로 보낸 6자리를 넣어주세요.
+              </>
+            )}
+          </p>
+        </div>
 
-        <div className="my-5 h-px bg-[var(--fn-line)]" />
-
-        <label className="block">
-          <span className="text-[13px] font-semibold text-[var(--fn-ink)]">
-            휴대폰 번호 <span className="text-[var(--fn-accent)]">*</span>
-          </span>
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="휴대폰 번호를 입력해 주세요"
-            type="tel"
-            inputMode="numeric"
-            autoComplete="tel"
-            disabled={sent}
-            className="mt-1.5 w-full rounded-xl border border-[var(--fn-line)] bg-[var(--fn-bg)] px-4 py-3 text-sm text-[var(--fn-ink)] placeholder:text-[var(--fn-sub)] focus:border-[var(--fn-accent)] focus:outline-none disabled:opacity-60"
-          />
-        </label>
-
-        {sent && (
-          <>
-            <input
-              value={code}
-              onChange={(e) =>
-                setCode(e.target.value.replace(/\D/g, "").slice(0, 6))
-              }
-              placeholder="인증번호를 입력해 주세요"
-              inputMode="numeric"
-              autoFocus
-              className="mt-2 w-full rounded-xl border border-[var(--fn-line)] bg-[var(--fn-bg)] px-4 py-3 text-sm tracking-[0.3em] text-[var(--fn-ink)] placeholder:tracking-normal placeholder:text-[var(--fn-sub)] focus:border-[var(--fn-accent)] focus:outline-none"
-            />
-            {msg && (
-              <p className="mt-2 rounded-lg bg-[var(--fn-bg)] px-3 py-2 text-xs text-[var(--fn-sub)]">
-                {msg}{" "}
+        <div className="rounded-2xl border border-[var(--fn-line)] bg-[var(--fn-bg-2)] p-5">
+          {stage === "phone" ? (
+            <>
+              <label className="mb-1.5 block text-[12px] font-semibold text-[var(--fn-sub)]">
+                휴대폰 번호
+              </label>
+              <input
+                value={formatPhone(phone)}
+                onChange={(e) => setPhone(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && sendCode()}
+                placeholder="010-0000-0000"
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel"
+                autoFocus
+                className="w-full rounded-xl border border-[var(--fn-line)] bg-[var(--fn-bg)] px-4 py-3.5 text-[15px] tracking-wide text-[var(--fn-ink)] placeholder:text-[var(--fn-sub)] focus:border-[var(--fn-accent)] focus:outline-none"
+              />
+            </>
+          ) : (
+            <>
+              <label className="mb-1.5 block text-[12px] font-semibold text-[var(--fn-sub)]">
+                인증번호 6자리
+              </label>
+              <input
+                ref={codeRef}
+                value={code}
+                onChange={(e) =>
+                  setCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                }
+                onKeyDown={(e) => e.key === "Enter" && verify()}
+                placeholder="——————"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                className="w-full rounded-xl border border-[var(--fn-line)] bg-[var(--fn-bg)] px-4 py-3.5 text-center text-[20px] font-bold tracking-[0.4em] text-[var(--fn-ink)] placeholder:tracking-[0.2em] placeholder:text-[var(--fn-line)] focus:border-[var(--fn-accent)] focus:outline-none"
+              />
+              <div className="mt-2 flex items-center justify-between text-[12px]">
                 <button
                   onClick={() => {
-                    setSent(false);
+                    setStage("phone");
                     setCode("");
-                    setMsg(null);
+                    setErr(null);
                   }}
-                  className="ml-1 underline"
+                  className="text-[var(--fn-sub)] underline"
                 >
-                  번호 수정
+                  번호 바꾸기
                 </button>
-              </p>
-            )}
-          </>
-        )}
+                <button
+                  onClick={sendCode}
+                  disabled={cooldown > 0 || busy}
+                  className="text-[var(--fn-accent)] underline disabled:text-[var(--fn-sub)] disabled:no-underline"
+                >
+                  {cooldown > 0 ? `재전송 ${cooldown}초` : "인증번호 재전송"}
+                </button>
+              </div>
+            </>
+          )}
 
-        {err && <p className="mt-2 text-xs text-red-400">{err}</p>}
+          {err && (
+            <p className="mt-2.5 text-[12.5px] text-red-400">{err}</p>
+          )}
 
-        <button
-          onClick={sent ? verify : sendCode}
-          disabled={
-            busy ||
-            (!sent && phone.replace(/\D/g, "").length < 10) ||
-            (sent && code.length < 6)
-          }
-          className="mt-4 w-full rounded-xl py-3.5 text-sm font-bold text-white disabled:opacity-50"
-          style={{ background: "var(--fn-accent)" }}
-        >
-          {busy
-            ? "확인 중…"
-            : sent
-              ? "인증하고 시작하기"
-              : "인증번호 받기"}
-        </button>
+          <button
+            onClick={stage === "phone" ? sendCode : verify}
+            disabled={
+              busy ||
+              (stage === "phone" ? digits.length < 10 : code.length < 6)
+            }
+            className="mt-3.5 w-full rounded-xl py-3.5 text-[15px] font-bold text-white transition disabled:opacity-40"
+            style={{ background: "var(--fn-accent)" }}
+          >
+            {busy
+              ? "잠시만요…"
+              : stage === "phone"
+                ? "인증번호 받기"
+                : "보관함 열기"}
+          </button>
+        </div>
+
+        <p className="mt-4 text-center text-[11px] leading-relaxed text-[var(--fn-sub)]">
+          입력하신 번호는 본인 확인과 콘텐츠 제공에만 사용됩니다.
+        </p>
       </div>
     </div>
   );

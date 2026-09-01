@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { after } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
@@ -602,6 +603,12 @@ export async function CourseView({
   return (
     <div className="funnel-theme funnel-shell min-h-dvh">
       <div className="fn-in mx-auto max-w-3xl px-5 py-8">
+        <Link
+          href="/library"
+          className="mb-3 inline-block text-[12px] text-[var(--fn-sub)] underline"
+        >
+          ← 내 보관함 (다른 기기에서도 보기)
+        </Link>
         <h1 className="mb-1 text-xl font-bold text-[var(--fn-ink)]">
           {tree.course.title}
         </h1>

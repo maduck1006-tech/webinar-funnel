@@ -15,6 +15,9 @@ export type LibraryItem = {
   title: string;
   subtitle: string;
   href: string;
+  imageUrl?: string | null;
+  /** 결제 실패 등 사용자 조치가 필요한 항목 */
+  urgent?: boolean;
 };
 
 function basePath(slug: string, isDefault: boolean) {
@@ -56,6 +59,7 @@ export async function getLibrary(userId: string): Promise<LibraryItem[]> {
       productName: products.name,
       productType: products.type,
       productId: products.id,
+      productImage: products.imageUrl,
     })
     .from(entitlements)
     .innerJoin(products, eq(products.id, entitlements.productId))
@@ -79,14 +83,16 @@ export async function getLibrary(userId: string): Promise<LibraryItem[]> {
         title: e.productName,
         subtitle: `VOD 강의 · ${expNote}`,
         href: `${bp}/course?l=${e.leadId}`,
+        imageUrl: e.productImage,
       });
     } else if (e.productType === "coaching") {
       items.push({
         key: e.id,
         kind: "coaching",
         title: e.productName,
-        subtitle: "1:1 상담권",
+        subtitle: "1:1 상담권 · 예약하기",
         href: `${bp}/booking?l=${e.leadId}`,
+        imageUrl: e.productImage,
       });
     } else if (e.kind !== "membership") {
       items.push({
@@ -95,6 +101,7 @@ export async function getLibrary(userId: string): Promise<LibraryItem[]> {
         title: e.productName,
         subtitle: `다운로드 자료 · ${expNote}`,
         href: `${bp}/download?l=${e.leadId}&p=${e.productId}`,
+        imageUrl: e.productImage,
       });
     }
   }
@@ -126,9 +133,10 @@ export async function getLibrary(userId: string): Promise<LibraryItem[]> {
       title: s.productName,
       subtitle:
         s.status === "past_due"
-          ? "결제 실패 — 카드를 확인해 주세요"
-          : `멤버십 · ${fmt(s.currentPeriodEnd)} 갱신`,
+          ? "결제에 실패했어요 — 카드를 다시 등록해 주세요"
+          : `멤버십 이용 중 · ${fmt(s.currentPeriodEnd)} 갱신`,
       href: `${bp}/course?l=${s.leadId}`,
+      urgent: s.status === "past_due",
     });
   }
 
