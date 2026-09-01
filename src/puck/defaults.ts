@@ -250,6 +250,28 @@ export const defaultPages: Record<string, FunnelData> = {
     ],
   },
 
+  membership: {
+    root: root(),
+    content: [
+      {
+        type: "Heading",
+        props: { id: "h", eyebrow: "멤버십", text: "매달 새 강의와\n1:1 피드백을 받아보세요", level: 1, align: "center" },
+      },
+      {
+        type: "Text",
+        props: { id: "t", text: "첫 달 무료. 언제든 해지할 수 있어요.", align: "center", style: "body" },
+      },
+      {
+        type: "Price",
+        props: { id: "p", badge: "월 구독", compareAt: 0, price: 0, note: "첫 달 무료 후 자동 결제" },
+      },
+      {
+        type: "CTAButton",
+        props: { id: "c", label: "멤버십 시작하기", sub: "첫 달 무료", href: "{{checkout}}", variant: "primary" },
+      },
+    ],
+  },
+
   groupchat: {
     root: root(),
     content: [

@@ -68,7 +68,7 @@ export async function createCampaign(fd: FormData) {
           pageType: pt,
           version: 1,
           published: true,
-          data: (pub?.data ?? defaultPages[pt]) as object,
+          data: (pub?.data ?? defaultPages[pt] ?? defaultPages.landing) as object,
         });
       }
 
@@ -92,7 +92,7 @@ export async function createCampaign(fd: FormData) {
         pageType: pt,
         version: 1,
         published: true,
-        data: defaultPages[pt] as object,
+        data: (defaultPages[pt] ?? defaultPages.landing) as object,
       });
     }
   }
