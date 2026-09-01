@@ -192,6 +192,8 @@ export const leads = pgTable(
     landingUrl: text("landing_url"),
     referrer: text("referrer"),
     firstWatchedAt: timestamp("first_watched_at", { withTimezone: true }),
+    /** 엔드유저 로그인(휴대폰 OTP) 후 연결되는 계정 (docs/multi-product-funnel-plan.md 로그인) */
+    userId: uuid("user_id"),
     /** DB 입력 시점 + 48h. 시청 만료 판정에 사용 */
     vodExpiresAt: timestamp("vod_expires_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -207,6 +209,55 @@ export const leads = pgTable(
     index("leads_status_idx").on(t.status),
     index("leads_campaign_idx").on(t.campaignId),
   ],
+);
+
+/* ------------------------------------------------------------------ *
+ * 엔드유저 계정 — 휴대폰 OTP 로그인 (docs/multi-product-funnel-plan.md)
+ * users.phone(정규화 01012345678) 로 기존 leads 매칭 → /library
+ * ------------------------------------------------------------------ */
+export const users = pgTable(
+  "users",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    phone: text("phone").notNull(),
+    name: text("name"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("users_phone_idx").on(t.phone)],
+);
+
+export const userSessions = pgTable(
+  "user_sessions",
+  {
+    token: text("token").primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("user_sessions_user_idx").on(t.userId)],
+);
+
+/** 발송한 인증번호 (해시 저장). 검증 성공/만료 시 삭제 */
+export const phoneOtps = pgTable(
+  "phone_otps",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    phone: text("phone").notNull(),
+    codeHash: text("code_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("phone_otps_phone_idx").on(t.phone, t.createdAt)],
 );
 
 /** 관리자가 직접 CRUD 하는 저가 상품 (PRD 4.1 / 6.3) */
@@ -872,6 +923,7 @@ export type CampaignPage = typeof campaignPages.$inferSelect;
 export type PageType = (typeof pageType.enumValues)[number];
 export type PendingOrder = typeof pendingOrders.$inferSelect;
 export type Entitlement = typeof entitlements.$inferSelect;
+export type User = typeof users.$inferSelect;
 export type Course = typeof courses.$inferSelect;
 export type Event = typeof events.$inferSelect;
 export type EventRegistration = typeof eventRegistrations.$inferSelect;

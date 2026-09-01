@@ -110,6 +110,22 @@ export async function POST(req: Request) {
     })
     .returning({ id: leads.id });
 
+  // 이미 로그인 계정이 있는 번호면 이 리드도 그 계정에 연결
+  after(async () => {
+    try {
+      const { users } = await import("@/db/schema");
+      const [u] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.phone, phone));
+      if (u) {
+        await db.update(leads).set({ userId: u.id }).where(eq(leads.id, row.id));
+      }
+    } catch {
+      /* noop */
+    }
+  });
+
   // 신청 자동화 등록 (delay 0 = 확인 문자 즉시 발송). 응답 후 백그라운드.
   after(async () => {
     try {

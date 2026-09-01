@@ -22,6 +22,8 @@ export const RESERVED_SLUGS = new Set([
   "sales",
   "download",
   "course",
+  "login",
+  "library",
   "_next",
   "favicon.ico",
   "robots.txt",
