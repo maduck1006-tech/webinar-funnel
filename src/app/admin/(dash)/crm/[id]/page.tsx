@@ -5,12 +5,12 @@ import { db } from "@/db";
 import {
   campaigns,
   leads,
+  messageAutomationEnrollments,
+  messageAutomations,
+  messageAutomationSteps,
   messageLogs,
-  messageSequences,
+  messageSends,
   orders,
-  sequenceEnrollments,
-  sequenceSends,
-  sequenceSteps,
 } from "@/db/schema";
 import { and, isNull, or } from "drizzle-orm";
 import {
@@ -63,7 +63,7 @@ export default async function CrmDetailPage({
   }
   if (!lead) notFound();
 
-  // 문자 시퀀스: 이 고객의 등록 현황 + 발송 + 등록 가능한 시퀀스
+  // 자동 메시지: 이 고객의 등록 현황 + 발송 + 등록 가능한 자동화
   type EnrRow = {
     enrId: string;
     name: string;
@@ -76,63 +76,59 @@ export default async function CrmDetailPage({
   try {
     enrollments = await db
       .select({
-        enrId: sequenceEnrollments.id,
-        name: messageSequences.name,
-        status: sequenceEnrollments.status,
-        enrolledAt: sequenceEnrollments.enrolledAt,
+        enrId: messageAutomationEnrollments.id,
+        name: messageAutomations.name,
+        status: messageAutomationEnrollments.status,
+        enrolledAt: messageAutomationEnrollments.anchorAt,
       })
-      .from(sequenceEnrollments)
+      .from(messageAutomationEnrollments)
       .innerJoin(
-        messageSequences,
-        eq(messageSequences.id, sequenceEnrollments.sequenceId),
+        messageAutomations,
+        eq(messageAutomations.id, messageAutomationEnrollments.automationId),
       )
-      .where(eq(sequenceEnrollments.leadId, id))
-      .orderBy(desc(sequenceEnrollments.enrolledAt));
+      .where(eq(messageAutomationEnrollments.leadId, id))
+      .orderBy(desc(messageAutomationEnrollments.anchorAt));
 
-    if (enrollments.length > 0) {
-      const enrIds = enrollments.map((e) => e.enrId);
-      const sends = await db
-        .select({
-          at: sequenceSends.createdAt,
-          status: sequenceSends.status,
-          stepOrder: sequenceSteps.stepOrder,
-          seqName: messageSequences.name,
-        })
-        .from(sequenceSends)
-        .innerJoin(
-          sequenceEnrollments,
-          eq(sequenceEnrollments.id, sequenceSends.enrollmentId),
-        )
-        .innerJoin(
-          messageSequences,
-          eq(messageSequences.id, sequenceEnrollments.sequenceId),
-        )
-        .leftJoin(sequenceSteps, eq(sequenceSteps.id, sequenceSends.stepId))
-        .where(eq(sequenceEnrollments.leadId, id));
-      seqSends = sends.map((s) => ({
-        at: s.at,
-        text: `시퀀스 「${s.seqName}」 문자${s.stepOrder ?? "?"} — ${
-          s.status === "sent"
-            ? "발송"
-            : s.status === "skipped"
-              ? "대상 아님(건너뜀)"
-              : "실패"
-        }`,
-      }));
-    }
+    const sends = await db
+      .select({
+        at: messageSends.createdAt,
+        status: messageSends.status,
+        stepOrder: messageAutomationSteps.stepOrder,
+        seqName: messageAutomations.name,
+      })
+      .from(messageSends)
+      .innerJoin(
+        messageAutomationSteps,
+        eq(messageAutomationSteps.id, messageSends.stepId),
+      )
+      .innerJoin(
+        messageAutomations,
+        eq(messageAutomations.id, messageAutomationSteps.automationId),
+      )
+      .where(eq(messageSends.leadId, id));
+    seqSends = sends.map((s) => ({
+      at: s.at,
+      text: `「${s.seqName}」 문자${s.stepOrder ?? "?"} — ${
+        s.status === "sent"
+          ? "발송"
+          : s.status === "skipped"
+            ? "대상 아님(건너뜀)"
+            : "실패"
+      }`,
+    }));
 
     availableSeqs = await db
-      .select({ id: messageSequences.id, name: messageSequences.name })
-      .from(messageSequences)
+      .select({ id: messageAutomations.id, name: messageAutomations.name })
+      .from(messageAutomations)
       .where(
         and(
-          eq(messageSequences.enabled, true),
+          eq(messageAutomations.enabled, true),
           lead.campaignId
             ? or(
-                eq(messageSequences.campaignId, lead.campaignId),
-                isNull(messageSequences.campaignId),
+                eq(messageAutomations.campaignId, lead.campaignId),
+                isNull(messageAutomations.campaignId),
               )
-            : isNull(messageSequences.campaignId),
+            : isNull(messageAutomations.campaignId),
         ),
       );
   } catch {

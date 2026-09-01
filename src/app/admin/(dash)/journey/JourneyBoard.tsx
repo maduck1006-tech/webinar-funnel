@@ -23,6 +23,8 @@ export type ResolvedStop = {
   source: "campaign" | "global" | "default";
   missing: boolean;
   sent: number;
+  /** 새 자동 메시지 편집 링크용 */
+  automationId: string | null;
 };
 
 const PAGE_H = 96;
@@ -391,14 +393,11 @@ export function JourneyBoard({
                 </p>
                 {openRes && (
                   <MessageEditor
-                    stop={openStop}
-                    campaignId={campaignId}
-                    enabled={openRes.enabled}
                     template={openRes.template}
                     offsetHours={openRes.offsetHours}
-                    source={openRes.source}
-                    missing={openRes.missing}
+                    enabled={openRes.enabled}
                     sent={openRes.sent}
+                    automationId={openRes.automationId}
                   />
                 )}
               </div>

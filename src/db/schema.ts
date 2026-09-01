@@ -540,106 +540,133 @@ export const automationTriggers = pgTable("automation_triggers", {
 });
 
 /* ------------------------------------------------------------------ *
- * Follow-up 시퀀스 (러셀식 Soap Opera / Seinfeld).
- * automation_triggers(고정 트리거)는 그대로 두고, 그 위에 얹는 유연한 시퀀스.
+ * 자동 메시지 (통합) — docs/messaging-unification-plan.md
+ * "고정 트리거"와 "시퀀스"를 하나로. 모든 CRM 문자 =
+ *   {시작 이벤트(trigger)} + {N분 뒤(delay)} + {대상 조건(audience)} + {본문}
  * ------------------------------------------------------------------ */
 
-/** 리드를 시퀀스에 자동 등록하는 이벤트 */
-export const sequenceEnrollEvent = pgEnum("sequence_enroll_event", [
-  "signup", // 무료 신청(리드 생성)
-  "purchase", // 결제 완료
-  "booking", // 상담 예약 완료
-  "manual", // 관리자가 직접 등록
+/** 자동 메시지를 시작시키는 이벤트 (지연 계산의 기준 시각 = anchor) */
+export const messageAutomationTrigger = pgEnum("message_automation_trigger", [
+  "signup", // 무료 신청 (anchor: leads.createdAt)
+  "watch_start", // 강의 시청 시작 (anchor: leads.firstWatchedAt)
+  "purchase", // 결제 완료 (anchor: order.paidAt)
+  "booking", // 상담 예약 확정 (anchor: 예약시각)
+  "manual", // 관리자가 CRM 에서 직접 등록 (anchor: now)
 ]);
 
 /** 각 스텝을 받을 대상 조건 */
-export const sequenceAudience = pgEnum("sequence_audience", [
-  "all", // 전원
-  "not_purchased", // 아직 결제 안 한 사람만
-  "not_booked", // 아직 상담 예약 안 한 사람만
-  "not_watched", // 아직 강의 시청 안 한 사람만
+export const messageAudience = pgEnum("message_audience", [
+  "all",
+  "not_watched", // 아직 강의 시청 안 함
+  "not_purchased", // 아직 결제 안 함
+  "not_booked", // 아직 상담 예약 안 함
 ]);
 
-export const messageSequences = pgTable("message_sequences", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  /** null = 전역(모든 캠페인) */
-  campaignId: uuid("campaign_id").references(() => campaigns.id),
-  name: text("name").notNull(),
-  enrollEvent: sequenceEnrollEvent("enroll_event").notNull(),
-  enabled: boolean("enabled").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
-
-export const sequenceSteps = pgTable(
-  "sequence_steps",
+export const messageAutomations = pgTable(
+  "message_automations",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    sequenceId: uuid("sequence_id")
-      .notNull()
-      .references(() => messageSequences.id, { onDelete: "cascade" }),
-    stepOrder: integer("step_order").notNull(),
-    /** 등록 시점 기준 이 시간(시간 단위) 뒤에 발송 */
-    delayHours: integer("delay_hours").notNull().default(0),
-    audience: sequenceAudience("audience").notNull().default("all"),
-    /** 솔라피 문자 본문. 변수: {이름}{링크}{예약링크}{결제링크}{상품명}{마감시각}{다운로드링크} */
-    template: text("template").notNull().default(""),
+    /** null = 전역 기본(모든 캠페인 상속) | uuid = 캠페인 전용 */
+    campaignId: uuid("campaign_id").references(() => campaigns.id),
+    /** null = 사용자 생성 | 'signup_confirm' 등 = 시스템 기본 식별자 */
+    key: text("key"),
+    name: text("name").notNull(),
+    trigger: messageAutomationTrigger("trigger").notNull(),
     enabled: boolean("enabled").notNull().default(true),
+    /** 이 이벤트들이 발생하면 이 자동화의 active enrollment 를 stopped 로. 예: ["purchase","booking"] */
+    stopOn: jsonb("stop_on").$type<string[]>().notNull().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
-  (t) => [index("sequence_steps_seq_idx").on(t.sequenceId, t.stepOrder)],
+  (t) => [
+    index("message_automations_lookup_idx").on(t.campaignId, t.trigger),
+    index("message_automations_key_idx").on(t.campaignId, t.key),
+  ],
 );
 
-export const sequenceEnrollments = pgTable(
-  "sequence_enrollments",
+export const messageAutomationSteps = pgTable(
+  "message_automation_steps",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    sequenceId: uuid("sequence_id")
+    automationId: uuid("automation_id")
       .notNull()
-      .references(() => messageSequences.id, { onDelete: "cascade" }),
+      .references(() => messageAutomations.id, { onDelete: "cascade" }),
+    stepOrder: integer("step_order").notNull(),
+    /** trigger(anchor) 시점 기준 이 분(minute) 뒤에 발송. 0 = 즉시 */
+    delayMinutes: integer("delay_minutes").notNull().default(0),
+    audience: messageAudience("audience").notNull().default("all"),
+    /** 솔라피 문자 본문. 변수: {이름}{링크}{예약링크}{결제링크}{상품명}{마감시각}{다운로드링크} */
+    body: text("body").notNull().default(""),
+    enabled: boolean("enabled").notNull().default(true),
+  },
+  (t) => [
+    index("message_automation_steps_idx").on(t.automationId, t.stepOrder),
+  ],
+);
+
+export const messageAutomationEnrollments = pgTable(
+  "message_automation_enrollments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    automationId: uuid("automation_id")
+      .notNull()
+      .references(() => messageAutomations.id, { onDelete: "cascade" }),
     leadId: uuid("lead_id")
       .notNull()
       .references(() => leads.id),
-    enrolledAt: timestamp("enrolled_at", { withTimezone: true })
+    /** 지연 계산 기준 시각 (= trigger 발생 시각) */
+    anchorAt: timestamp("anchor_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
     /** 'active' | 'done' | 'stopped' */
     status: text("status").notNull().default("active"),
   },
-  (t) => [uniqueIndex("sequence_enrollments_idx").on(t.sequenceId, t.leadId)],
+  (t) => [
+    uniqueIndex("message_automation_enrollments_idx").on(
+      t.automationId,
+      t.leadId,
+    ),
+    index("message_automation_enrollments_status_idx").on(t.status),
+  ],
 );
 
-/** 스텝별 발송 기록 (진행 상태 추적 = 이 테이블) */
-export const sequenceSends = pgTable(
-  "sequence_sends",
+/** 문자 발송 기록 (message_logs 대체 · 진행 상태 추적) */
+export const messageSends = pgTable(
+  "message_sends",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    enrollmentId: uuid("enrollment_id")
+    leadId: uuid("lead_id")
       .notNull()
-      .references(() => sequenceEnrollments.id, { onDelete: "cascade" }),
-    stepId: uuid("step_id").notNull(),
+      .references(() => leads.id),
+    stepId: uuid("step_id")
+      .notNull()
+      .references(() => messageAutomationSteps.id, { onDelete: "cascade" }),
     /** 'sent' | 'failed' | 'skipped'(대상 조건 불일치) */
     status: text("status").notNull().default("sent"),
+    channel: text("channel").notNull().default("sms"),
+    providerMessageId: text("provider_message_id"),
     error: text("error"),
     sentAt: timestamp("sent_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
-  (t) => [uniqueIndex("sequence_sends_idx").on(t.enrollmentId, t.stepId)],
+  (t) => [uniqueIndex("message_sends_idx").on(t.leadId, t.stepId)],
 );
 
 export type Lead = typeof leads.$inferSelect;
 export type Product = typeof products.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type AutomationTrigger = typeof automationTriggers.$inferSelect;
-export type MessageSequence = typeof messageSequences.$inferSelect;
-export type SequenceStep = typeof sequenceSteps.$inferSelect;
-export type SequenceEnrollEvent = (typeof sequenceEnrollEvent.enumValues)[number];
-export type SequenceAudience = (typeof sequenceAudience.enumValues)[number];
+export type MessageAutomation = typeof messageAutomations.$inferSelect;
+export type MessageAutomationStep = typeof messageAutomationSteps.$inferSelect;
+export type MessageAutomationTrigger =
+  (typeof messageAutomationTrigger.enumValues)[number];
+export type MessageAudience = (typeof messageAudience.enumValues)[number];
 export type Campaign = typeof campaigns.$inferSelect;
 export type CampaignPage = typeof campaignPages.$inferSelect;
 export type PageType = (typeof pageType.enumValues)[number];

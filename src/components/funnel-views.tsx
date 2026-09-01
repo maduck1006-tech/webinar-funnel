@@ -1,6 +1,8 @@
+import { after } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { leads, type Campaign } from "@/db/schema";
+import { enrollLead } from "@/lib/messaging";
 import { FunnelPage } from "@/puck/FunnelPage";
 import { PaidTracker } from "@/components/PaidTracker";
 import { previewEnabled } from "@/lib/preview";
@@ -123,6 +125,10 @@ export async function VodView({
               updatedAt: now,
             })
             .where(eq(leads.id, lead.id));
+          // 시청 시작 자동화(결제 유도 등) 등록 — 응답 후 백그라운드
+          after(() =>
+            enrollLead(lead.id, "watch_start", campaign.id).catch(() => {}),
+          );
         }
       }
     } catch {

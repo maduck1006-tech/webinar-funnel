@@ -12,7 +12,7 @@
 - 마이그레이션: npm run migrate:campaigns (재실행 안전). 기존 funnel_pages → main 캠페인, _template 캠페인 생성
 - 관리자: /admin/campaigns(목록), /[id](허브), /[id]/settings(영상·캘린더·카운트다운·픽셀·상품매핑), /new(복제). 빌더 /admin/builder/[campaignId]/[pageType]. API /api/campaigns/[id]/pages/[type]
 - 대시보드·CRM·주문에 캠페인 필터(?campaign=id). src/components/CampaignFilter.tsx, listCampaigns()
-- 문자: src/lib/campaign-messages.ts resolveTrigger(campaignId,trigger) = campaign_messages 오버라이드 → automation_triggers 전역. renderCampaignMessage 가 basePath 붙인 링크 + 템플릿 변수치환({이름}{링크}{예약링크}{상품명}{마감시각}). 크론·웹훅이 사용. /admin/automation?campaign= 에서 캠페인별 편집(전역 기본값 vs 캠페인 전용)
+- 문자(통합 '자동 메시지'): src/lib/messaging.ts. message_automations(campaign_id NULL=전역기본 | key=시스템기본 signup_confirm 등) + message_automation_steps(delay_minutes·audience·body) + message_automation_enrollments(anchor_at·status) + message_sends(=구 message_logs, unique(lead_id,step_id)). enrollLead(leadId,trigger,campaignId) 이 등록+delay0 즉시발송, runDueAutomationSteps() 이 크론, stopOn 이벤트로 stopAutomations. trigger: signup(/api/leads)·watch_start(funnel-views)·purchase/booking(웹훅)·manual. /admin/automation 한 곳에서 관리(전역기본+캠페인 '이 캠페인만 수정' 오버라이드). 구 automation_triggers/campaign_messages/message_logs 는 deprecated(마이그레이션 소스). docs/messaging-unification-plan.md
 - 추적: campaigns.metaPixelId/ga4MeasurementId → src/components/CampaignTracking.tsx (FunnelPage 에서 렌더). src/lib/track.ts track(event) = fbq+gtag. LeadForm 제출=lead, CTAButton 결제클릭=checkout_start, /vod?paid=1 =purchase(PaidTracker). 결제후 리다이렉트 기본값 /{slug}/vod?paid=1
 - 웹훅 상품매칭: lead 캠페인의 campaign_products 우선
 - 광고 귀속: middleware applyFirstTouch 가 광고 진입 시 `_fbc`(fb.1.<ts>.<fbclid>) + `_ft`(first-touch utm/fbclid/ref JSON) 90일 쿠키. LeadForm→/api/leads 가 쿠키+헤더(IP/UA) 병합해 leads.fbc/fbp/fbclid/clientIp/clientUa/landingUrl/referrer 저장. utm 은 last-click 우선
@@ -28,8 +28,8 @@
 - 야간 발송 제한: src/lib/solapi.ts scheduledSendTime() 가 KST 기준 SMS_QUIET_START(기본0=자정)~SMS_QUIET_END(기본8) 에 걸리면 다음 아침 08:00 KST 로 Solapi 예약발송(scheduledDate). 리마인더·nudge 전부 sendSms 경유라 일괄 적용. 단 signup_confirm(신청 직후)은 sendSms(...,{immediate:true}) 로 야간에도 즉시. message_logs.sentAt 은 예약 등록시각
 - /vod?paid=1: PaidTracker 가 광고 픽셀 Purchase 발화. 서버 DB 는 /api/toss/confirm 이 orders 에 기록
 - 되는시간 웹훅: /api/whattime/webhook?token=WHATTIME_WEBHOOK_SECRET. schedule_created→lead booked(이메일/전화 매칭), schedule_canceled→revert. webhook_events(provider=whattime) 로그. API키(WHATTIME_API_KEY, GET /reservations)는 미사용
-- CRM: 솔라피 문자, 리마인더 크론 /api/cron/reminders (24h/36h/47h). signup_confirm=신청 즉시(/api/leads after()), pre_payment_nudge 기본 0.5h. campaign-messages.ts sendTriggerOnce(dedup+log+send) 헬퍼. 변수 {다운로드링크}=campaigns.download_url(없으면 시청링크)
-- 여정 지도: /admin/journey (vod-e7 작업, 퍼널+문자 통합 타임라인). CRM 문구 seed: npm run 없음 → tsx scripts/seed-crm-templates.ts
+- CRM 크론: /api/cron/reminders 가 runDueAutomationSteps() 실행 (모든 문자 일원화). 외부 크론(cron-job.org) 15분 + Vercel 일1회. signup_confirm=신청 즉시(/api/leads after()), pre_payment_nudge 기본 0.5h. campaign-messages.ts sendTriggerOnce(dedup+log+send) 헬퍼. 변수 {다운로드링크}=campaigns.download_url(없으면 시청링크)
+- 여정 지도: /admin/journey (퍼널+문자 타임라인, 문자는 읽기전용 → '자동 메시지'로 링크)
 - 스키마: src/db/schema.ts / 마이그레이션: npm run db:push
 - 랜딩 A/B: campaigns.ab_landing + campaign_pages.variant('a'|'b') + leads.landing_variant. middleware 가 랜딩 진입 시 abv 쿠키 50:50 지정(sticky), FunnelPage variant prop. 시작/종료 src/app/admin/(dash)/campaigns/actions.ts startAbTest/endAbTest. 캠페인 허브에서 A vs B 전환율 + 채택
 - 인증(Clerk), Mux VOD는 P2

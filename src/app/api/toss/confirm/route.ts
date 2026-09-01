@@ -10,8 +10,7 @@ import {
 } from "@/db/schema";
 import { confirmTossPayment } from "@/lib/toss";
 import { sendMetaEvent } from "@/lib/meta-capi";
-import { sendTriggerOnce } from "@/lib/campaign-messages";
-import { enrollLeadInSequences } from "@/lib/sequences";
+import { enrollLead, stopAutomations } from "@/lib/messaging";
 import { reportError } from "@/lib/report";
 
 export const runtime = "nodejs";
@@ -165,35 +164,13 @@ export async function GET(req: Request) {
     }
   }
 
-  // 8. 결제완료 문자 (payment_success, dedup)
-  if (lead.phone) {
-    let productName: string | undefined;
-    if (pending.productId) {
-      const [p] = await db
-        .select({ name: products.name })
-        .from(products)
-        .where(eq(products.id, pending.productId));
-      productName = p?.name;
-    }
-    try {
-      await sendTriggerOnce({
-        leadId: lead.id,
-        phone: lead.phone,
-        campaignId: lead.campaignId ?? null,
-        trigger: "payment_success",
-        productName,
-      });
-    } catch {
-      /* 문자 실패가 결제 완료 흐름을 막지 않음 */
-    }
-  }
-
-  // Follow-up 시퀀스 (본상품 결제일 때만)
+  // 8. 결제 자동화 (본상품 결제일 때만): 완료 안내 문자 + 마감 리마인더 중단
   if (role === "main") {
     try {
-      await enrollLeadInSequences(lead.id, "purchase", lead.campaignId ?? null);
+      await enrollLead(lead.id, "purchase", lead.campaignId ?? null);
+      await stopAutomations(lead.id, "purchase");
     } catch {
-      /* 시퀀스 등록 실패 무시 */
+      /* 자동화 실패가 결제 완료 흐름을 막지 않음 */
     }
   }
 

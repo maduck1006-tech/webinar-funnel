@@ -5,7 +5,7 @@ import { campaigns, leads, orders, webhookEvents } from "@/db/schema";
 import { normalizePhone } from "@/lib/phone";
 import { reportError } from "@/lib/report";
 import { sendMetaEvent } from "@/lib/meta-capi";
-import { enrollLeadInSequences } from "@/lib/sequences";
+import { enrollLead, stopAutomations } from "@/lib/messaging";
 
 export const runtime = "nodejs";
 
@@ -144,13 +144,10 @@ export async function POST(req: Request) {
         }
 
         try {
-          await enrollLeadInSequences(
-            lead.id,
-            "booking",
-            lead.campaignId ?? null,
-          );
+          await enrollLead(lead.id, "booking", lead.campaignId ?? null);
+          await stopAutomations(lead.id, "booking");
         } catch {
-          /* 시퀀스 등록 실패 무시 */
+          /* 자동화 실패 무시 */
         }
       }
     } else if (canceled && lead.status === "booked") {
