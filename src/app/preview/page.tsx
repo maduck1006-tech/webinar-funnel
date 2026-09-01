@@ -1,7 +1,5 @@
-import { notFound } from "next/navigation";
 import { db } from "@/db";
 import { leads } from "@/db/schema";
-import { previewEnabled } from "@/lib/preview";
 import {
   campaignBasePath,
   getDefaultCampaign,
@@ -12,13 +10,12 @@ import { PreviewCanvas } from "./PreviewCanvas";
 
 export const dynamic = "force-dynamic";
 
-// 개발용 전체 화면 오버뷰 (Figma 처럼 한눈에). 프로덕션에서는 비활성.
+// 전체 화면 오버뷰 (Figma 처럼 한눈에). Clerk 인증으로 관리자만 접근.
 export default async function PreviewPage({
   searchParams,
 }: {
   searchParams: Promise<{ campaign?: string }>;
 }) {
-  if (!previewEnabled()) notFound();
   const { campaign: slug } = await searchParams;
 
   const [campaignOptions, chosen] = await Promise.all([
