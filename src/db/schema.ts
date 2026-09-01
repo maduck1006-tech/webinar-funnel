@@ -291,6 +291,8 @@ export const pendingOrders = pgTable("pending_orders", {
   bumpProductId: uuid("bump_product_id"),
   /** 범프 부분 금액 */
   bumpAmount: integer("bump_amount"),
+  /** 'main' | 'upsell' | 'downsell' — 완료 시 orders.orderRole 로 전달 */
+  role: text("role").notNull().default("main"),
   /** 'ready' | 'done' | 'fail' */
   status: text("status").notNull().default("ready"),
   createdAt: timestamp("created_at", { withTimezone: true })

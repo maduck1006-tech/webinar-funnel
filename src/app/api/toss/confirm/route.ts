@@ -76,7 +76,7 @@ export async function GET(req: Request) {
     productId: pending.productId ?? null,
     provider: "toss",
     tossPaymentKey: paymentKey,
-    orderRole: "main",
+    orderRole: pending.role ?? "main",
     bumpProductId: pending.bumpProductId ?? null,
     bumpAmount: pending.bumpAmount ?? null,
     amount: confirmed.totalAmount,
@@ -93,7 +93,7 @@ export async function GET(req: Request) {
 
   // 이후 처리는 lead 있을 때만
   if (!pending.leadId) {
-    return redirectToVod(pending);
+    return redirectAfterPurchase(pending);
   }
 
   const [lead] = await db
@@ -105,17 +105,18 @@ export async function GET(req: Request) {
   if (!lead) return redirectToVod(pending);
 
   const alreadyPurchased = ["purchased", "booked", "consulted"].includes(lead.status);
+  const role = pending.role ?? "main";
 
-  // 6. lead.status → purchased
-  if (!alreadyPurchased) {
+  // 6. lead.status → purchased (본상품 결제일 때만)
+  if (role === "main" && !alreadyPurchased) {
     await db
       .update(leads)
       .set({ status: "purchased", updatedAt: new Date() })
       .where(eq(leads.id, lead.id));
   }
 
-  // 7. Meta CApI Purchase
-  if (!alreadyPurchased) {
+  // 7. Meta CApI Purchase — 역할별 event_id (업셀은 브라우저 픽셀 없음)
+  {
     let pixelId: string | null | undefined;
     if (lead.campaignId) {
       const [c] = await db
@@ -137,7 +138,10 @@ export async function GET(req: Request) {
       await sendMetaEvent({
         pixelId,
         eventName: "Purchase",
-        eventId: `purchase.lead.${lead.id}`,
+        eventId:
+          role === "main"
+            ? `purchase.lead.${lead.id}`
+            : `purchase.${role}.${paymentKey}`,
         eventSourceUrl: lead.landingUrl ?? undefined,
         user: {
           email: lead.email,
@@ -183,7 +187,7 @@ export async function GET(req: Request) {
     }
   }
 
-  return redirectToVod(pending);
+  return redirectAfterPurchase(pending);
 }
 
 function getOrigin() {
@@ -202,18 +206,54 @@ function redirectFail(code: string, message: string, _reqUrl: URL) {
   return NextResponse.redirect(failUrl, { status: 302 });
 }
 
+async function basePathFor(campaignId: string | null) {
+  if (!campaignId) return "";
+  const [c] = await db
+    .select({ slug: campaigns.slug, isDefault: campaigns.isDefault })
+    .from(campaigns)
+    .where(eq(campaigns.id, campaignId));
+  return c && !c.isDefault ? `/${c.slug}` : "";
+}
+
 async function redirectToVod(pending: {
   campaignId: string | null;
   leadId: string | null;
 }) {
-  let basePath = "";
-  if (pending.campaignId) {
-    const [c] = await db
-      .select({ slug: campaigns.slug, isDefault: campaigns.isDefault })
-      .from(campaigns)
-      .where(eq(campaigns.id, pending.campaignId));
-    if (c && !c.isDefault) basePath = `/${c.slug}`;
-  }
+  const basePath = await basePathFor(pending.campaignId);
   const vodUrl = `${basePath}/vod?paid=1${pending.leadId ? `&l=${pending.leadId}` : ""}`;
   return NextResponse.redirect(new URL(vodUrl, getOrigin()), { status: 302 });
+}
+
+/**
+ * 결제 완료 후 이동. 본상품(role=main)이고 원클릭 업셀(upsellProductId)이 걸려 있으면
+ * 업셀 페이지로, 아니면 VOD 로. 업셀/다운셀 결제는 바로 VOD 로.
+ */
+async function redirectAfterPurchase(pending: {
+  campaignId: string | null;
+  leadId: string | null;
+  productId: string | null;
+  role: string;
+}) {
+  if (pending.role === "main" && pending.productId) {
+    const [p] = await db
+      .select({ upsellProductId: products.upsellProductId })
+      .from(products)
+      .where(eq(products.id, pending.productId));
+    if (p?.upsellProductId) {
+      const [up] = await db
+        .select({ id: products.id, active: products.active })
+        .from(products)
+        .where(eq(products.id, p.upsellProductId));
+      if (up?.active) {
+        const basePath = await basePathFor(pending.campaignId);
+        const qs = new URLSearchParams({ p: up.id });
+        if (pending.leadId) qs.set("l", pending.leadId);
+        return NextResponse.redirect(
+          new URL(`${basePath}/checkout/upsell?${qs.toString()}`, getOrigin()),
+          { status: 302 },
+        );
+      }
+    }
+  }
+  return redirectToVod(pending);
 }

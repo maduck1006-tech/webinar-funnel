@@ -18,6 +18,7 @@ export type CheckoutClientProps = {
   bump: { name: string; price: number; description: string } | null;
   campaignId: string | null;
   lead: Lead | null;
+  role?: "main" | "upsell" | "downsell";
   startStep: "contact" | "pay";
   successUrl: string;
   failUrl: string;
@@ -31,6 +32,7 @@ type Widgets = Awaited<
 
 export function CheckoutClient(props: CheckoutClientProps) {
   const { clientKey, product, bump, campaignId, successUrl, failUrl } = props;
+  const role = props.role ?? "main";
 
   const [step, setStep] = useState<"contact" | "pay">(props.startStep);
   const [lead, setLead] = useState<Lead | null>(props.lead);
@@ -53,9 +55,15 @@ export function CheckoutClient(props: CheckoutClientProps) {
     <Shell>
       <div className="mb-5">
         <p className="text-xs font-semibold tracking-wide text-[var(--fn-accent)]">
-          {step === "contact" ? "1 / 2 · 정보 입력" : "2 / 2 · 결제"}
+          {role !== "main"
+            ? "추가 주문"
+            : step === "contact"
+              ? "1 / 2 · 정보 입력"
+              : "2 / 2 · 결제"}
         </p>
-        <h1 className="mt-1 text-lg font-bold text-white">주문서</h1>
+        <h1 className="mt-1 text-lg font-bold text-white">
+          {role !== "main" ? "결제 정보 입력" : "주문서"}
+        </h1>
       </div>
 
       {/* 주문 요약 */}
@@ -96,6 +104,7 @@ export function CheckoutClient(props: CheckoutClientProps) {
         <PayStep
           clientKey={clientKey}
           productId={product.id}
+          role={role}
           lead={lead}
           bump={bump}
           withBump={withBump}
@@ -232,6 +241,7 @@ function Field({
 function PayStep({
   clientKey,
   productId,
+  role,
   lead,
   bump,
   withBump,
@@ -242,6 +252,7 @@ function PayStep({
 }: {
   clientKey: string;
   productId: string;
+  role: "main" | "upsell" | "downsell";
   lead: Lead | null;
   bump: { name: string; price: number; description: string } | null;
   withBump: boolean;
@@ -300,7 +311,8 @@ function PayStep({
         body: JSON.stringify({
           productId,
           leadId: lead?.id ?? null,
-          withBump: withBump && !!bump,
+          withBump: role === "main" && withBump && !!bump,
+          role,
         }),
       });
       const data = (await res.json()) as {
@@ -332,7 +344,7 @@ function PayStep({
       if (!msg.includes("PAY_PROCESS_CANCELED")) setErr(msg);
       setPaying(false);
     }
-  }, [paying, productId, lead, withBump, bump, amount, successUrl, failUrl]);
+  }, [paying, productId, role, lead, withBump, bump, amount, successUrl, failUrl]);
 
   return (
     <div>

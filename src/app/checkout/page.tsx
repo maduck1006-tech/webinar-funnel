@@ -15,10 +15,17 @@ export const dynamic = "force-dynamic";
 export default async function CheckoutPage({
   searchParams,
 }: {
-  searchParams: Promise<{ p?: string; l?: string; c?: string }>;
+  searchParams: Promise<{
+    p?: string;
+    l?: string;
+    c?: string;
+    role?: string;
+  }>;
 }) {
-  const { p: productId, l: lParam, c: campaignParam } = await searchParams;
+  const { p: productId, l: lParam, c: campaignParam, role } = await searchParams;
   if (!productId) return notFound();
+  const orderRole =
+    role === "upsell" || role === "downsell" ? role : "main";
 
   const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ?? null;
 
@@ -32,9 +39,9 @@ export default async function CheckoutPage({
     return notFound();
   }
 
-  // 오더 범프 상품
+  // 오더 범프 상품 (본상품 결제에서만)
   let bump: { name: string; price: number; description: string } | null = null;
-  if (product.bumpProductId) {
+  if (orderRole === "main" && product.bumpProductId) {
     const [bp] = await db
       .select()
       .from(products)
@@ -112,7 +119,8 @@ export default async function CheckoutPage({
               }
             : null
         }
-        startStep={hasContact ? "pay" : "contact"}
+        role={orderRole}
+        startStep={hasContact || orderRole !== "main" ? "pay" : "contact"}
         successUrl={`${origin}/api/toss/confirm`}
         failUrl={`${origin}/checkout/fail`}
       />

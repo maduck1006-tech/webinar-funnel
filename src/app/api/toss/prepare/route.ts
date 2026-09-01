@@ -15,6 +15,7 @@ const schema = z.object({
   productId: z.string().uuid(),
   leadId: z.string().uuid().nullable().optional(),
   withBump: z.boolean().optional(),
+  role: z.enum(["main", "upsell", "downsell"]).optional(),
 });
 
 export async function POST(req: Request) {
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
   }
-  const { productId, leadId, withBump } = parsed.data;
+  const { productId, leadId, withBump, role = "main" } = parsed.data;
 
   const [product] = await db
     .select()
@@ -34,9 +35,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "상품을 찾을 수 없습니다" }, { status: 404 });
   }
 
+  // 업셀·다운셀엔 오더 범프 없음
   let bumpAmount = 0;
   let bumpProductId: string | null = null;
-  if (withBump && product.bumpProductId) {
+  if (role === "main" && withBump && product.bumpProductId) {
     const [bp] = await db
       .select()
       .from(products)
@@ -69,6 +71,7 @@ export async function POST(req: Request) {
     amount,
     bumpProductId,
     bumpAmount: bumpProductId ? bumpAmount : null,
+    role,
   });
 
   const baseName = product.tossOrderName || product.name;
