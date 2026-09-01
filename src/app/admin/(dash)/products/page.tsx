@@ -126,6 +126,39 @@ export default async function ProductsPage({
               defaultValue={editing?.imageUrl ?? ""}
             />
             <Field name="name" label="상품명" defaultValue={editing?.name} />
+
+            <div className="flex gap-2">
+              <label className="block flex-1">
+                <span className="text-xs font-semibold text-zinc-700">
+                  상품 타입
+                </span>
+                <select
+                  name="type"
+                  defaultValue={editing?.type ?? "workbook"}
+                  className="mt-1 w-full rounded border border-zinc-300 px-2 py-1"
+                >
+                  <option value="workbook">워크북/자료</option>
+                  <option value="ebook">전자책</option>
+                  <option value="vod_course">VOD 강의</option>
+                  <option value="coaching">1:1 코칭</option>
+                  <option value="membership">멤버십</option>
+                </select>
+              </label>
+              <label className="block flex-1">
+                <span className="text-xs font-semibold text-zinc-700">
+                  가격 모드
+                </span>
+                <select
+                  name="priceMode"
+                  defaultValue={editing?.priceMode ?? "paid"}
+                  className="mt-1 w-full rounded border border-zinc-300 px-2 py-1"
+                >
+                  <option value="paid">유료</option>
+                  <option value="free">무료 (체크아웃 스킵)</option>
+                </select>
+              </label>
+            </div>
+
             <div className="flex gap-2">
               <Field
                 name="price"
@@ -138,6 +171,22 @@ export default async function ProductsPage({
                 label="정가 (선택)"
                 className="block flex-1"
                 defaultValue={editing?.compareAtPrice?.toString()}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Field
+                name="accessDays"
+                label="열람/수강 기한 (일 · 비우면 무제한)"
+                className="block flex-1"
+                defaultValue={editing?.accessDays?.toString()}
+              />
+              <Field
+                name="deliveryAssetUrl"
+                label="전자책 파일 URL (type=전자책)"
+                className="block flex-1"
+                defaultValue={
+                  (editing?.delivery?.assetUrl as string | undefined) ?? ""
+                }
               />
             </div>
             <p className="text-[11px] text-zinc-400">

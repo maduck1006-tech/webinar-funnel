@@ -30,6 +30,14 @@ function parse(fd: FormData) {
     paymentProvider: "toss" as const,
     tossOrderName: String(fd.get("tossOrderName") ?? "").trim() || null,
     placement: String(fd.get("placement") ?? "both"),
+    // 상품 타입 / 전달 (docs/multi-product-funnel-plan.md §4-2)
+    type: String(fd.get("type") ?? "workbook"),
+    priceMode: String(fd.get("priceMode") ?? "paid"),
+    accessDays: num("accessDays"),
+    delivery: (() => {
+      const assetUrl = String(fd.get("deliveryAssetUrl") ?? "").trim();
+      return assetUrl ? { assetUrl } : null;
+    })(),
     // 클릭퍼널스 확장 (토스 상품에서만 의미)
     bumpProductId: uuidOrNull("bumpProductId"),
     bumpDescription: String(fd.get("bumpDescription") ?? "").trim() || null,

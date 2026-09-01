@@ -56,6 +56,20 @@ export default async function CampaignSettings({
               defaultValue={c.slug}
               mono
             />
+            <label className="block">
+              <span className="text-xs text-zinc-500">퍼널 종류</span>
+              <select
+                name="funnelType"
+                defaultValue={c.funnelType}
+                className="mt-1 w-full rounded border px-2 py-1"
+              >
+                <option value="evergreen_webinar">에버그린 무료강의</option>
+                <option value="live_webinar_reg">라이브 웨비나 신청</option>
+                <option value="vod_course">VOD 강의 판매</option>
+                <option value="ebook">전자책 판매</option>
+                <option value="paid_consult">유료 상담</option>
+              </select>
+            </label>
             <F
               label="VOD 영상 링크 (YouTube · Vimeo · MP4)"
               name="vodSrc"

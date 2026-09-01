@@ -96,6 +96,11 @@ export const campaigns = pgTable(
     abLanding: boolean("ab_landing").notNull().default(false),
 
     /**
+     * 퍼널 종류 (docs/multi-product-funnel-plan.md §1)
+     * 'evergreen_webinar' | 'live_webinar_reg' | 'vod_course' | 'ebook' | 'paid_consult'
+     */
+    funnelType: text("funnel_type").notNull().default("evergreen_webinar"),
+    /**
      * 웨비나형 퍼널의 종착 스텝 (docs/multi-product-funnel-plan.md P0′)
      * 'booking'(1:1 예약) | 'groupchat'(무료 단톡방) | 'sales'(유료 세일즈)
      */
@@ -218,6 +223,17 @@ export const products = pgTable("products", {
   paymentProvider: text("payment_provider").notNull().default("toss"),
   /** 상품 종류: 'one_time' | 'membership' (구독)  */
   kind: text("kind").notNull().default("one_time"),
+  /**
+   * 상품 타입 — "결제 후 무엇을 주는가" (docs/multi-product-funnel-plan.md §4-2)
+   * 'workbook' | 'vod_course' | 'ebook' | 'coaching' | 'membership'
+   */
+  type: text("type").notNull().default("workbook"),
+  /** 전달 설정. ebook: {assetUrl,previewUrl?} · coaching: {bookingEmbedUrl,sessions} */
+  delivery: jsonb("delivery").$type<Record<string, unknown>>(),
+  /** 열람/수강 기한(일). null = 무제한 */
+  accessDays: integer("access_days"),
+  /** 가격 모드: 'paid' | 'free' | 'pwyw' (무료면 체크아웃 스킵) */
+  priceMode: text("price_mode").notNull().default("paid"),
   /** toss 결제창 orderName (없으면 name 사용) */
   tossOrderName: text("toss_order_name"),
   /** 멤버십 무료 개월 수 (0 = 없음, 멤버십 기본 1). §11.7 */
@@ -282,6 +298,44 @@ export const orders = pgTable(
     // NULLS DISTINCT (PG 기본) → provider 별로 한쪽만 채워도 유니크 충돌 없음
     uniqueIndex("orders_latpeed_order_id_idx").on(t.latpeedOrderId),
     uniqueIndex("orders_toss_payment_key_idx").on(t.tossPaymentKey),
+  ],
+);
+
+/**
+ * 엔타이틀먼트 — "이 리드가 이 상품에 접근 권한 있음"의 단일 원장.
+ * (docs/multi-product-funnel-plan.md §4-3)
+ * 부여: /api/toss/confirm 결제확정 · 무료 opt-in · 관리자 수동.
+ * 게이트: 강의실/다운로드/유료상담 뷰가 hasEntitlement 로 확인.
+ */
+export const entitlements = pgTable(
+  "entitlements",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id),
+    /** 매직링크 인증 도입 후 채움 (현재는 lead 기준) */
+    userId: uuid("user_id"),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id),
+    /** 무료옵트인/수동부여면 null */
+    sourceOrderId: uuid("source_order_id").references(() => orders.id),
+    /** 'course' | 'ebook' | 'coaching' | 'membership' */
+    kind: text("kind").notNull(),
+    /** 'active' | 'revoked' | 'expired' */
+    status: text("status").notNull().default("active"),
+    grantedAt: timestamp("granted_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    /** product.access_days 로 계산. null = 평생 */
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    meta: jsonb("meta").$type<Record<string, unknown>>(),
+  },
+  (t) => [
+    uniqueIndex("entitlements_lead_product_idx").on(t.leadId, t.productId),
+    index("entitlements_lead_idx").on(t.leadId),
+    index("entitlements_product_status_idx").on(t.productId, t.status),
   ],
 );
 
@@ -681,6 +735,7 @@ export type Campaign = typeof campaigns.$inferSelect;
 export type CampaignPage = typeof campaignPages.$inferSelect;
 export type PageType = (typeof pageType.enumValues)[number];
 export type PendingOrder = typeof pendingOrders.$inferSelect;
+export type Entitlement = typeof entitlements.$inferSelect;
 export type Subscription = typeof subscriptions.$inferSelect;
 export type BillingKey = typeof billingKeys.$inferSelect;
 export type PaymentProvider = "latpeed" | "toss";

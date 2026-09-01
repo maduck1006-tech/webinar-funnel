@@ -44,6 +44,7 @@ export async function createCampaign(fd: FormData) {
           vodWindowHours: src.vodWindowHours,
           countdownMode: src.countdownMode,
           countdownRushSeconds: src.countdownRushSeconds,
+          funnelType: src.funnelType,
           terminalStep: src.terminalStep,
           groupChatUrl: src.groupChatUrl,
         })
@@ -140,6 +141,15 @@ export async function updateCampaign(fd: FormData) {
       bookingEmbedUrl: str("bookingEmbedUrl"),
       downloadUrl: str("downloadUrl"),
       checkoutRedirectUrl: str("checkoutRedirectUrl"),
+      funnelType: [
+        "evergreen_webinar",
+        "live_webinar_reg",
+        "vod_course",
+        "ebook",
+        "paid_consult",
+      ].includes(String(fd.get("funnelType")))
+        ? String(fd.get("funnelType"))
+        : "evergreen_webinar",
       terminalStep: ["booking", "groupchat", "sales"].includes(
         String(fd.get("terminalStep")),
       )

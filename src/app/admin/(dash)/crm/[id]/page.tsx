@@ -22,6 +22,7 @@ import {
   statusTone,
   won,
 } from "@/components/admin-ui";
+import { listEntitlements } from "@/lib/entitlements";
 import { ManualActions } from "./ManualActions";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,7 @@ export default async function CrmDetailPage({
   let campaignName: string | null = null;
   let msgs: (typeof messageLogs.$inferSelect)[] = [];
   let ords: (typeof orders.$inferSelect)[] = [];
+  let ents: Awaited<ReturnType<typeof listEntitlements>> = [];
   try {
     [lead] = await db.select().from(leads).where(eq(leads.id, id));
     if (lead) {
@@ -57,6 +59,7 @@ export default async function CrmDetailPage({
         .from(orders)
         .where(eq(orders.leadId, id))
         .orderBy(desc(orders.createdAt));
+      ents = await listEntitlements(id).catch(() => []);
     }
   } catch {
     notFound();
@@ -204,6 +207,33 @@ export default async function CrmDetailPage({
               currentStatus={lead.status}
               sequences={availableSeqs}
             />
+          </Card>
+
+          <Card>
+            <p className="mb-2 text-sm font-bold">보유 상품 (엔타이틀먼트)</p>
+            {ents.length === 0 ? (
+              <p className="text-xs text-zinc-500">보유한 강의/전자책/상담권 없음</p>
+            ) : (
+              <ul className="space-y-1.5 text-xs">
+                {ents.map((e) => (
+                  <li key={e.id} className="flex items-center gap-1.5">
+                    <Tag tone={e.status === "active" ? "green" : "gray"}>
+                      {e.status === "active"
+                        ? "활성"
+                        : e.status === "expired"
+                          ? "만료"
+                          : "회수"}
+                    </Tag>
+                    <span>{e.productName}</span>
+                    <span className="text-zinc-400">
+                      {e.expiresAt
+                        ? `~${fmtDate(e.expiresAt)}`
+                        : "무제한"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </Card>
 
           <Card>

@@ -10,6 +10,7 @@ import {
 } from "@/db/schema";
 import { confirmTossPayment } from "@/lib/toss";
 import { sendMetaEvent } from "@/lib/meta-capi";
+import { grantEntitlement } from "@/lib/entitlements";
 import { enrollLead, stopAutomations } from "@/lib/messaging";
 import { reportError } from "@/lib/report";
 
@@ -113,6 +114,27 @@ export async function GET(req: Request) {
       .update(leads)
       .set({ status: "purchased", updatedAt: new Date() })
       .where(eq(leads.id, lead.id));
+  }
+
+  // 6.5. 엔타이틀먼트 부여 (본상품 + 오더범프). 강의/전자책/상담 접근권한.
+  try {
+    if (pending.productId) {
+      await grantEntitlement({
+        leadId: lead.id,
+        productId: pending.productId,
+        sourceOrderId: null,
+      });
+    }
+    if (pending.bumpProductId) {
+      await grantEntitlement({
+        leadId: lead.id,
+        productId: pending.bumpProductId,
+        sourceOrderId: null,
+      });
+    }
+  } catch (e) {
+    reportError("toss.confirm.entitlement", e, { orderId });
+    /* 부여 실패가 결제 완료 흐름을 막지 않음 — 관리자 수동 부여 가능 */
   }
 
   // 7. Meta CApI Purchase — 역할별 event_id (업셀은 브라우저 픽셀 없음)
