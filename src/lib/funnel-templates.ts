@@ -7,8 +7,32 @@
  *  - steps.delayMinutes: 양수(anchor 이후)만. day 드립 = day*1440.
  */
 
+import type { FunnelData } from "@/puck/defaults";
+
 const D = 24 * 60;
 const H = 60;
+
+const root = { props: { theme: "dark", topbarText: "", topbarCtaLabel: "", topbarCtaHref: "#apply", topbarDeadlineIso: "", topbarRushSeconds: 0 } };
+/** 템플릿용 랜딩(신청) 페이지 헬퍼 — Hero + 불릿 + LeadForm */
+function optinPage(o: {
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  bullets: string[];
+  submitLabel: string;
+  note: string;
+  topbar: string;
+}): FunnelData {
+  return {
+    root: { props: { ...root.props, topbarText: o.topbar, topbarCtaLabel: "지금 신청" } },
+    content: [
+      { type: "Hero", props: { id: "hero", image: "", eyebrow: o.eyebrow, title: o.title, subtitle: o.subtitle, height: "tall" } },
+      { type: "Bullets", props: { id: "list", title: "신청하면", items: o.bullets.map((t) => ({ text: t })) } },
+      { type: "Heading", props: { id: "h", eyebrow: "", text: "지금 신청하세요", level: 2, align: "center" } },
+      { type: "LeadForm", props: { id: "form", headline: "", submitLabel: o.submitLabel, note: o.note, nextPath: "{{next}}", sticky: true } },
+    ],
+  } as FunnelData;
+}
 
 export type TemplateAutomation = {
   key: string;
@@ -51,6 +75,8 @@ export type FunnelTemplate = {
   automations: TemplateAutomation[];
   /** 전역 자동화 중 이 퍼널에서 끌 것 (campaign 전용본 enabled=false 로 생성) */
   disableGlobal?: string[];
+  /** 템플릿 맞춤 페이지 카피 (없으면 defaultPages 사용) */
+  pageOverrides?: Partial<Record<string, FunnelData>>;
   crmNote: string;
 };
 
@@ -101,6 +127,17 @@ export const FUNNEL_TEMPLATES: FunnelTemplate[] = [
       },
     ],
     disableGlobal: ["soap_opera", "watch_deadline"],
+    pageOverrides: {
+      landing: optinPage({
+        topbar: "무료 1:1 상담 신청",
+        eyebrow: "무료 · 30분 화상 상담",
+        title: "지금 상황에 맞는\n다음 한 걸음, 같이 짚어드려요",
+        subtitle: "혼자 고민하지 마세요.\n30분이면 방향이 잡힙니다.",
+        bullets: ["신청 후 편한 시간 선택 (10초)", "통화 전 3분 영상으로 미리 준비", "부담 없이, 파는 자리 아닙니다"],
+        submitLabel: "무료 상담 신청하기",
+        note: "신청 후 바로 예약 페이지로 이동합니다",
+      }),
+    },
     automations: [
       {
         key: "consult_intake",
@@ -177,6 +214,26 @@ export const FUNNEL_TEMPLATES: FunnelTemplate[] = [
       },
     ],
     disableGlobal: ["soap_opera", "watch_deadline"],
+    pageOverrides: {
+      landing: optinPage({
+        topbar: "5일 무료 챌린지",
+        eyebrow: "무료 · 5일 챌린지",
+        title: "5일이면 바뀝니다.\n혼자 말고 같이 하세요",
+        subtitle: "매일 미션 하나.\n단톡방에서 인증하고 끝까지.",
+        bullets: ["매일 아침 미션 도착 (5일)", "단톡방에서 같이 인증", "완주하면 다음 단계 특가"],
+        submitLabel: "챌린지 신청하기 (무료)",
+        note: "신청 후 단톡방 입장 안내가 갑니다",
+      }),
+      thankyou: {
+        root: root,
+        content: [
+          { type: "Heading", props: { id: "h", eyebrow: "신청 완료", text: "먼저 단톡방부터 들어오세요", level: 1, align: "center" } },
+          { type: "Text", props: { id: "t", text: "챌린지는 혼자 하면 3일 안에 그만둬요.\n단톡방에서 같이 해야 끝까지 갑니다.", align: "center", style: "body" } },
+          { type: "CTAButton", props: { id: "j", label: "단톡방 입장하기", sub: "챌린지 신청자 전용", href: "{{groupchat}}", variant: "primary" } },
+          { type: "CTAButton", props: { id: "n", label: "Day 1 미션 보기", sub: "", href: "{{next}}", variant: "ghost" } },
+        ],
+      } as FunnelData,
+    },
     automations: [
       {
         key: "challenge_daily",
@@ -284,6 +341,217 @@ export const FUNNEL_TEMPLATES: FunnelTemplate[] = [
     ],
     crmNote:
       "장바구니 이탈 복구는 전역 자동 메시지로 이미 적용됩니다.",
+  },
+
+  /* ───────────────────────── 리드마그넷 (무료 자료) ───────────────────────── */
+  {
+    key: "lead_magnet",
+    name: "무료 자료(리드마그넷) 퍼널",
+    tagline: "무료 미끼로 이상적 고객만 낚는다 — 사다리 첫 계단",
+    icon: "🎁",
+    ladder: "lead",
+    funnelType: "ebook",
+    terminalStep: "sales",
+    steps: ["landing", "delivery"],
+    productSlots: [
+      {
+        key: "magnet",
+        label: "무료 자료 (전자책/체크리스트/템플릿)",
+        placement: "sales",
+        productType: "ebook",
+        priceMode: "free",
+        required: true,
+      },
+    ],
+    disableGlobal: ["soap_opera", "watch_deadline"],
+    pageOverrides: {
+      landing: optinPage({
+        topbar: "무료 자료 받기",
+        eyebrow: "무료 다운로드",
+        title: "이거 하나면\n한참 헤맬 시간을 아낍니다",
+        subtitle: "이메일만 넣으면 바로 받아요.\n스팸 없음, 언제든 수신거부.",
+        bullets: ["신청 즉시 다운로드", "실무에 바로 쓰는 형식", "3페이지 체크리스트부터 보세요"],
+        submitLabel: "무료로 받기",
+        note: "신청하면 다음 화면에서 바로 다운로드",
+      }),
+    },
+    automations: [
+      {
+        key: "magnet_followup",
+        name: "자료 전달 → 다음 사다리",
+        trigger: "signup",
+        stopOn: ["purchase"],
+        steps: [
+          {
+            delayMinutes: 0,
+            audience: "all",
+            body: "{이름}님, 신청하신 자료 여기 있어요.\n📎 {다운로드링크}\n폰에서도 다시 보려면: {라이브러리링크}",
+          },
+          {
+            delayMinutes: 1 * D,
+            audience: "all",
+            body: "{이름}님, 어제 받으신 자료 열어보셨어요? 3페이지 체크리스트부터 보시면 딱이에요.\n📎 {다운로드링크}",
+          },
+          {
+            delayMinutes: 3 * D,
+            audience: "all",
+            body: "자료만으로 부족하셨다면, 같은 주제 무료 강의도 열어뒀어요.\n👉 {세일즈링크}",
+          },
+        ],
+      },
+    ],
+    crmNote:
+      "종착(세일즈)에는 '다음 계단' 상품(세미나·강의)을 연결해 크로스셀 하세요.",
+  },
+
+  /* ───────────────────────── 라이브 세미나 신청 ───────────────────────── */
+  {
+    key: "live_webinar",
+    name: "라이브 세미나 신청 퍼널",
+    tagline: "날짜 잡힌 라이브 — 참석 압박이 에버그린보다 강하다",
+    icon: "🔴",
+    ladder: "presentation",
+    funnelType: "live_webinar_reg",
+    terminalStep: "booking",
+    steps: ["landing", "thankyou", "vod", "booking"],
+    productSlots: [
+      {
+        key: "offer",
+        label: "세미나 뒤 오퍼 상품 (선택)",
+        placement: "sales",
+        productType: "vod_course",
+        priceMode: "paid",
+        required: false,
+      },
+    ],
+    disableGlobal: ["watch_deadline"],
+    pageOverrides: {
+      landing: optinPage({
+        topbar: "라이브 세미나 무료 신청",
+        eyebrow: "라이브 · 무료",
+        title: "이번 한 번뿐입니다.\n실시간으로 질문하세요",
+        subtitle: "녹화 강의로는 못 하는 Q&A.\n신청하면 일정·입장 링크를 보내드려요.",
+        bullets: ["신청 후 일정·캘린더 안내", "시작 전 리마인더 자동 발송", "못 보면 리플레이 48시간 제공"],
+        submitLabel: "무료 신청하기",
+        note: "신청 후 일정 안내 문자가 갑니다",
+      }),
+      thankyou: {
+        root: root,
+        content: [
+          { type: "Heading", props: { id: "h", eyebrow: "신청 완료", text: "일정을 캘린더에 넣어두세요", level: 1, align: "center" } },
+          { type: "Countdown", props: { id: "cd", label: "라이브 시작까지", deadlineIso: "", expiredText: "곧 시작합니다" } },
+          { type: "Text", props: { id: "t", text: "시작 직전에 입장 링크를 문자로 보내드려요.\n지금 캘린더에 등록하고, 그날 시간 비워두세요.", align: "center", style: "body" } },
+          { type: "CTAButton", props: { id: "l", label: "라이브 입장 링크 (시작 후 활성)", sub: "", href: "{{live}}", variant: "primary" } },
+          { type: "CTAButton", props: { id: "n", label: "지난 회차 리플레이 보기", sub: "라이브 종료 후 열림", href: "{{next}}", variant: "ghost" } },
+        ],
+      } as FunnelData,
+    },
+    automations: [
+      {
+        key: "live_replay",
+        name: "라이브 종료 → 리플레이 안내",
+        trigger: "event_registered",
+        stopOn: [],
+        steps: [
+          {
+            delayMinutes: 100,
+            audience: "all",
+            body: "{이름}님, 리플레이가 열렸어요. 놓친 부분 다시 보세요.\n📎 {링크}",
+          },
+          {
+            delayMinutes: 100 + 45 * H,
+            audience: "not_purchased",
+            body: "{이름}님, 리플레이가 곧 닫혀요. 지금 마무리하세요.\n📎 {링크}",
+          },
+        ],
+      },
+    ],
+    crmNote:
+      "전날·1시간 전 리마인더는 자동입니다. 캠페인 설정에 회차(일시·유튜브 링크)를 꼭 등록하세요.",
+  },
+
+  /* ───────────────────────── VOD 강의 판매 ───────────────────────── */
+  {
+    key: "course_sale",
+    name: "VOD 강의 판매 퍼널",
+    tagline: "세일즈레터 → 결제 → 업셀 → 강의실",
+    icon: "🎓",
+    ladder: "frontend",
+    funnelType: "vod_course",
+    terminalStep: "course",
+    steps: ["sales", "thankyou", "course"],
+    productSlots: [
+      {
+        key: "course",
+        label: "본 강의 (VOD 강의)",
+        placement: "sales",
+        productType: "vod_course",
+        priceMode: "paid",
+        required: true,
+      },
+      {
+        key: "upsell",
+        label: "업셀 상품 (심화/코칭 — 선택)",
+        placement: "sales",
+        productType: "coaching",
+        priceMode: "paid",
+        required: false,
+      },
+    ],
+    automations: [
+      {
+        key: "course_onboard",
+        name: "결제 후 완주 온보딩",
+        trigger: "purchase",
+        stopOn: [],
+        steps: [
+          { delayMinutes: 0, audience: "all", body: "{이름}님, 결제 완료! 강의실 바로 입장하세요.\n👉 {강의실링크}" },
+          { delayMinutes: 1 * D, audience: "all", body: "Day 1 완료하셨어요? 첫 모듈만 끝내도 절반은 온 거예요.\n{강의실링크}" },
+          { delayMinutes: 3 * D, audience: "all", body: "{이름}님, 3일째예요. 여기서 멈추는 분이 많은데 딱 10분만 더.\n{강의실링크}" },
+          { delayMinutes: 7 * D, audience: "all", body: "완주 후기가 단톡방에 올라와요. {이름}님 차례입니다.\n{강의실링크}" },
+          { delayMinutes: 10 * D, audience: "all", body: "강의 다 보셨으면 다음 단계 — {세일즈링크}" },
+        ],
+      },
+    ],
+    crmNote:
+      "장바구니 이탈 복구는 전역 자동 메시지로 적용됩니다. 업셀은 상품의 원클릭 업셀 슬롯을 쓰세요.",
+  },
+
+  /* ───────────────────────── 멤버십 ───────────────────────── */
+  {
+    key: "membership",
+    name: "멤버십 퍼널",
+    tagline: "연속 수익 — 멤버십 하나면 비즈니스가 바뀐다",
+    icon: "♾️",
+    ladder: "continuity",
+    funnelType: "vod_course",
+    terminalStep: "course",
+    steps: ["sales", "thankyou", "course"],
+    productSlots: [
+      {
+        key: "membership",
+        label: "멤버십 상품 (타입=멤버십, 무료 개월 설정)",
+        placement: "sales",
+        productType: "membership",
+        priceMode: "paid",
+        required: true,
+      },
+    ],
+    automations: [
+      {
+        key: "membership_onboard",
+        name: "멤버십 온보딩 + 첫 결제 안내",
+        trigger: "purchase",
+        stopOn: [],
+        steps: [
+          { delayMinutes: 0, audience: "all", body: "{이름}님, 멤버십 시작! 지금 볼 수 있는 것부터: {강의실링크}\n첫 결제 전이면 아무 때나 해지 가능해요." },
+          { delayMinutes: 3 * D, audience: "all", body: "첫 주에 하나만 끝내도 본전. 이번 주 추천 강의 확인해 보세요.\n{강의실링크}" },
+          { delayMinutes: 25 * D, audience: "all", body: "{이름}님, 곧 첫 결제가 진행돼요. 계속 이용하시면 아무것도 안 하셔도 됩니다. 해지는 보관함에서." },
+        ],
+      },
+    ],
+    crmNote:
+      "회차 결제 실패(dunning) 안내는 결제 시스템이 자동 처리합니다. 상품에서 무료 개월 수를 꼭 설정하세요.",
   },
 ];
 

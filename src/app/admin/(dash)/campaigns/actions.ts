@@ -55,7 +55,7 @@ export async function createCampaign(fd: FormData) {
     })
     .returning();
 
-  // 템플릿: 페이지(기본값) + CRM 자동화(캠페인 전용·꺼짐) 시드
+  // 템플릿: 페이지(템플릿 카피 or 기본값) + CRM 자동화(캠페인 전용·꺼짐) 시드
   if (template && !sourceId) {
     for (const pt of FUNNEL_PAGE_TYPES) {
       await db.insert(campaignPages).values({
@@ -63,7 +63,9 @@ export async function createCampaign(fd: FormData) {
         pageType: pt,
         version: 1,
         published: true,
-        data: (defaultPages[pt] ?? defaultPages.landing) as object,
+        data: (template.pageOverrides?.[pt] ??
+          defaultPages[pt] ??
+          defaultPages.landing) as object,
       });
     }
     // 전역 자동화 중 이 퍼널에서 끌 것 → 캠페인 전용본 enabled=false
