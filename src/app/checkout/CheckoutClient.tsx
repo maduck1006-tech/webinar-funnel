@@ -265,10 +265,12 @@ function PayStep({
   const [paying, setPaying] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const widgetsRef = useRef<Widgets | null>(null);
+  const startedRef = useRef(false);
 
-  // 위젯 초기화 (1회)
+  // 위젯 초기화 (1회) — StrictMode 이중 마운트에도 렌더는 1번만
   useEffect(() => {
-    let cancelled = false;
+    if (startedRef.current) return;
+    startedRef.current = true;
     (async () => {
       try {
         const toss = await loadTossPayments(clientKey);
@@ -276,20 +278,16 @@ function PayStep({
         await widgets.setAmount({ currency: "KRW", value: amount });
         await widgets.renderPaymentMethods({ selector: "#toss-payment-method" });
         await widgets.renderAgreement({ selector: "#toss-agreement" });
-        if (!cancelled) {
-          widgetsRef.current = widgets;
-          setReady(true);
-        }
+        widgetsRef.current = widgets;
+        setReady(true);
       } catch (e) {
-        if (!cancelled) setErr(String(e));
+        startedRef.current = false; // 실패 시 재시도 허용
+        setErr(String(e));
       }
     })();
-    return () => {
-      cancelled = true;
-    };
     // 최초 1회만. amount 변경은 아래 effect 가 처리.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientKey, lead?.id]);
+  }, []);
 
   // 범프 토글 → 금액 갱신
   useEffect(() => {
