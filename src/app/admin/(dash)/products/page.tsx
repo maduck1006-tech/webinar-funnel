@@ -99,6 +99,14 @@ export default async function ProductsPage({
                       </a>
                     )}
                     <a
+                      href={`/checkout?p=${p.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mr-2 text-xs text-blue-600 underline"
+                    >
+                      체크아웃 열기
+                    </a>
+                    <a
                       href={`/admin/products?edit=${p.id}`}
                       className="mr-2 text-xs text-blue-600 underline"
                     >
