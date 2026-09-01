@@ -110,6 +110,11 @@ export const campaigns = pgTable(
     terminalStep: text("terminal_step").notNull().default("booking"),
     /** 종착이 groupchat 일 때 안내할 오픈카톡 등 단톡방 초대 링크 */
     groupChatUrl: text("group_chat_url"),
+    /**
+     * 이 캠페인 퍼널의 단계 구성 (순서 + 사용여부). 없으면 funnel_type 프리셋 사용.
+     * (docs/multi-product-funnel-plan.md Phase A) src/lib/funnel-flow.ts
+     */
+    flow: jsonb("flow").$type<{ steps: { pageType: string; enabled: boolean }[] }>(),
 
     // 콘텐츠 / 연동
     vodSrc: text("vod_src"),

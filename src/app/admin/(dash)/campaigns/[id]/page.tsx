@@ -4,9 +4,19 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { campaignPages, campaigns, leads, orders } from "@/db/schema";
 import { Card, PageHeader, Stat, Tag, won } from "@/components/admin-ui";
-import { PAGE_META, FUNNEL_PAGE_TYPES } from "@/lib/flow-types";
 import { campaignBasePath } from "@/lib/campaign";
-import { endAbTest, setCampaignStatus, startAbTest } from "../actions";
+import {
+  ADDABLE_STEPS,
+  flowSummary,
+  resolveFlowSteps,
+  STEP_META,
+} from "@/lib/funnel-flow";
+import {
+  endAbTest,
+  setCampaignStatus,
+  setFlowStep,
+  startAbTest,
+} from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -185,48 +195,145 @@ export default async function CampaignHub({
         </Card>
       )}
 
-      <Card className="mt-6">
-        <p className="mb-3 text-sm font-bold">퍼널 페이지</p>
-        <ul className="divide-y">
-          {FUNNEL_PAGE_TYPES.map((pt) => {
-            const pub = pubMap.get(pt);
-            const meta = PAGE_META[pt];
-            return (
-              <li
-                key={pt}
-                className="flex items-center justify-between py-2.5 text-sm"
-              >
-                <span>
-                  {meta.step} · {meta.title}
-                  {pub ? (
-                    <span className="ml-2 text-xs text-zinc-400">
-                      v{pub.version} 발행됨
+      {(() => {
+        const steps = resolveFlowSteps(campaign);
+        const enabled = steps.filter((s) => s.enabled);
+        const disabled = ADDABLE_STEPS.filter(
+          (pt) => !steps.some((s) => s.pageType === pt && s.enabled),
+        );
+
+        const stepRow = (pageType: string, i: number) => {
+          const meta = STEP_META[pageType];
+          if (!meta) return null;
+          const pub = pubMap.get(pageType as never);
+          return (
+            <li
+              key={pageType}
+              className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm"
+            >
+              <span className="flex items-center gap-2">
+                <span className="grid h-6 w-6 place-items-center rounded-full bg-zinc-100 text-xs font-bold text-zinc-500">
+                  {i + 1}
+                </span>
+                {meta.title}
+                {meta.puck &&
+                  (pub ? (
+                    <span className="text-xs text-zinc-400">
+                      v{pub.version} 발행
                     </span>
                   ) : (
                     <Tag tone="amber">미발행</Tag>
-                  )}
-                </span>
-                <span className="flex gap-2">
+                  ))}
+                {meta.note && (
+                  <span className="text-[11px] text-zinc-400">{meta.note}</span>
+                )}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <FlowBtn campaignId={id} pageType={pageType} op="up" label="▲" />
+                <FlowBtn
+                  campaignId={id}
+                  pageType={pageType}
+                  op="down"
+                  label="▼"
+                />
+                {meta.puck && (
                   <Link
-                    href={`/admin/builder/${id}/${pt}`}
+                    href={`/admin/builder/${id}/${pageType}`}
                     className="rounded-md bg-black px-3 py-1.5 text-xs text-white"
                   >
                     편집
                   </Link>
-                  <a
-                    href={`${basePath}${meta.path}?preview=1`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-md border px-3 py-1.5 text-xs"
-                  >
-                    미리보기
-                  </a>
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      </Card>
+                )}
+                <a
+                  href={`${basePath}${meta.path}?preview=1`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-md border px-3 py-1.5 text-xs"
+                >
+                  미리보기
+                </a>
+                <FlowBtn
+                  campaignId={id}
+                  pageType={pageType}
+                  op="remove"
+                  label="빼기"
+                  danger
+                />
+              </span>
+            </li>
+          );
+        };
+
+        return (
+          <Card className="mt-6">
+            <p className="mb-1 text-sm font-bold">퍼널 흐름</p>
+            <p className="mb-3 rounded-lg bg-zinc-50 px-3 py-2 text-[13px] text-zinc-600">
+              {flowSummary(steps) || "사용 중인 단계 없음"}
+            </p>
+
+            <p className="mb-1 mt-4 text-xs font-semibold text-zinc-500">
+              사용 중인 단계 (순서대로)
+            </p>
+            <ul className="divide-y">
+              {enabled.length === 0 && (
+                <li className="py-3 text-xs text-zinc-400">
+                  아래에서 단계를 추가하세요.
+                </li>
+              )}
+              {enabled.map((s, i) => stepRow(s.pageType, i))}
+            </ul>
+
+            {disabled.length > 0 && (
+              <>
+                <p className="mb-2 mt-5 text-xs font-semibold text-zinc-500">
+                  추가할 수 있는 단계
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {disabled.map((pt) => (
+                    <form key={pt} action={setFlowStep}>
+                      <input type="hidden" name="campaignId" value={id} />
+                      <input type="hidden" name="pageType" value={pt} />
+                      <input type="hidden" name="op" value="add" />
+                      <button className="rounded-lg border border-dashed px-3 py-1.5 text-xs text-zinc-600 hover:border-solid hover:bg-zinc-50">
+                        + {STEP_META[pt].title}
+                      </button>
+                    </form>
+                  ))}
+                </div>
+              </>
+            )}
+          </Card>
+        );
+      })()}
     </>
+  );
+}
+
+function FlowBtn({
+  campaignId,
+  pageType,
+  op,
+  label,
+  danger,
+}: {
+  campaignId: string;
+  pageType: string;
+  op: "up" | "down" | "remove";
+  label: string;
+  danger?: boolean;
+}) {
+  return (
+    <form action={setFlowStep}>
+      <input type="hidden" name="campaignId" value={campaignId} />
+      <input type="hidden" name="pageType" value={pageType} />
+      <input type="hidden" name="op" value={op} />
+      <button
+        className={`rounded-md border px-2 py-1.5 text-xs ${
+          danger ? "text-red-500" : "text-zinc-500"
+        }`}
+      >
+        {label}
+      </button>
+    </form>
   );
 }

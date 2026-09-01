@@ -15,6 +15,7 @@ import {
 } from "@/db/schema";
 import { bustAbCache, isValidSlug } from "@/lib/campaign";
 import { FUNNEL_PAGE_TYPES } from "@/lib/flow-types";
+import { resolveFlowSteps, seedFlow } from "@/lib/funnel-flow";
 import { defaultPages } from "@/puck/defaults";
 
 /** 템플릿/기존 캠페인에서 복제해 새 캠페인 생성 */
@@ -29,7 +30,12 @@ export async function createCampaign(fd: FormData) {
 
   const [created] = await db
     .insert(campaigns)
-    .values({ name, slug, status: "draft" })
+    .values({
+      name,
+      slug,
+      status: "draft",
+      flow: seedFlow({ funnelType: "evergreen_webinar", terminalStep: "booking" }),
+    })
     .returning();
 
   // 소스 캠페인 설정/페이지/상품 복제
@@ -48,6 +54,7 @@ export async function createCampaign(fd: FormData) {
           funnelType: src.funnelType,
           terminalStep: src.terminalStep,
           groupChatUrl: src.groupChatUrl,
+          flow: src.flow ?? seedFlow(src),
         })
         .where(eq(campaigns.id, created.id));
 
@@ -133,6 +140,26 @@ export async function updateCampaign(fd: FormData) {
     }
   }
 
+  const newFunnelType = [
+    "evergreen_webinar",
+    "live_webinar_reg",
+    "vod_course",
+    "ebook",
+    "paid_consult",
+  ].includes(String(fd.get("funnelType")))
+    ? String(fd.get("funnelType"))
+    : "evergreen_webinar";
+  const newTerminalStep = ["booking", "groupchat", "sales"].includes(
+    String(fd.get("terminalStep")),
+  )
+    ? String(fd.get("terminalStep"))
+    : "booking";
+  // 퍼널 종류가 바뀌면 단계 구성을 새 프리셋으로 재시드 (기존 커스터마이즈는 리셋)
+  const reseedFlow =
+    newFunnelType !== cur.funnelType
+      ? seedFlow({ funnelType: newFunnelType, terminalStep: newTerminalStep })
+      : undefined;
+
   await db
     .update(campaigns)
     .set({
@@ -142,20 +169,9 @@ export async function updateCampaign(fd: FormData) {
       bookingEmbedUrl: str("bookingEmbedUrl"),
       downloadUrl: str("downloadUrl"),
       checkoutRedirectUrl: str("checkoutRedirectUrl"),
-      funnelType: [
-        "evergreen_webinar",
-        "live_webinar_reg",
-        "vod_course",
-        "ebook",
-        "paid_consult",
-      ].includes(String(fd.get("funnelType")))
-        ? String(fd.get("funnelType"))
-        : "evergreen_webinar",
-      terminalStep: ["booking", "groupchat", "sales"].includes(
-        String(fd.get("terminalStep")),
-      )
-        ? String(fd.get("terminalStep"))
-        : "booking",
+      funnelType: newFunnelType,
+      terminalStep: newTerminalStep,
+      ...(reseedFlow ? { flow: reseedFlow } : {}),
       groupChatUrl: str("groupChatUrl"),
       countdownMode: String(fd.get("countdownMode") ?? "none"),
       countdownRushSeconds: num("countdownRushSeconds"),
@@ -417,4 +433,36 @@ export async function deleteEvent(fd: FormData) {
   const campaignId = String(fd.get("campaignId"));
   await db.delete(events).where(eq(events.id, id));
   revalidatePath(`/admin/campaigns/${campaignId}/settings`);
+}
+
+/**
+ * 캠페인 허브의 단계 빌더 조작 (docs/multi-product-funnel-plan.md Phase A)
+ * fd: campaignId, pageType, op ('add' | 'remove' | 'up' | 'down')
+ */
+export async function setFlowStep(fd: FormData) {
+  const campaignId = String(fd.get("campaignId"));
+  const pageType = String(fd.get("pageType"));
+  const op = String(fd.get("op"));
+  const [c] = await db.select().from(campaigns).where(eq(campaigns.id, campaignId));
+  if (!c) return;
+
+  const steps = resolveFlowSteps(c).map((s) => ({ ...s }));
+  const idx = steps.findIndex((s) => s.pageType === pageType);
+
+  if (op === "add") {
+    if (idx === -1) steps.push({ pageType, enabled: true });
+    else steps[idx].enabled = true;
+  } else if (op === "remove") {
+    if (idx !== -1) steps[idx].enabled = false;
+  } else if (op === "up" && idx > 0) {
+    [steps[idx - 1], steps[idx]] = [steps[idx], steps[idx - 1]];
+  } else if (op === "down" && idx !== -1 && idx < steps.length - 1) {
+    [steps[idx + 1], steps[idx]] = [steps[idx], steps[idx + 1]];
+  }
+
+  await db
+    .update(campaigns)
+    .set({ flow: { steps }, updatedAt: new Date() })
+    .where(eq(campaigns.id, campaignId));
+  revalidatePath(`/admin/campaigns/${campaignId}`);
 }
