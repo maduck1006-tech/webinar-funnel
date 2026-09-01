@@ -32,6 +32,13 @@ function parse(fd: FormData) {
     placement: String(fd.get("placement") ?? "both"),
     // 상품 타입 / 전달 (docs/multi-product-funnel-plan.md §4-2)
     type: String(fd.get("type") ?? "workbook"),
+    // type=membership 이면 정기결제(빌링) 경로. kind 는 결제 방식 스위치
+    kind:
+      String(fd.get("type")) === "membership" ? "membership" : "one_time",
+    membershipFreeMonths:
+      String(fd.get("type")) === "membership"
+        ? num("membershipFreeMonths") ?? 1
+        : 0,
     priceMode: String(fd.get("priceMode") ?? "paid"),
     accessDays: num("accessDays"),
     delivery: (() => {

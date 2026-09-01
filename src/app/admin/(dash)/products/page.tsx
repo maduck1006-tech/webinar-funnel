@@ -197,6 +197,15 @@ export default async function ProductsPage({
                 }
               />
             </div>
+            <Field
+              name="membershipFreeMonths"
+              label="멤버십 무료 개월 (type=멤버십 · 비우면 1)"
+              defaultValue={
+                editing?.membershipFreeMonths
+                  ? String(editing.membershipFreeMonths)
+                  : ""
+              }
+            />
             <p className="text-[11px] text-zinc-400">
               정가를 넣으면 <b>취소선 + 할인율</b>이 자동 표시됩니다.
             </p>
