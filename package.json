@@ -14,11 +14,18 @@
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
     "migrate:campaigns": "tsx --env-file=.env.local scripts/migrate-to-campaigns.ts",
     "test:webhook": "SOLAPI_DRY_RUN=1 tsx --env-file=.env.local scripts/test-webhook.ts",
-    "test:cron": "SOLAPI_DRY_RUN=1 tsx --env-file=.env.local scripts/test-cron.ts"
+    "test:cron": "SOLAPI_DRY_RUN=1 tsx --env-file=.env.local scripts/test-cron.ts",
+    "remotion": "remotion studio remotion/index.ts",
+    "remotion:render": "remotion render remotion/index.ts Hello out/hello.mp4"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.8.3",
     "@puckeditor/core": "^0.23.0",
+    "@remotion/bundler": "^4.0.518",
+    "@remotion/cli": "^4.0.518",
+    "@remotion/player": "^4.0.518",
+    "@remotion/renderer": "^4.0.518",
+    "@tosspayments/tosspayments-sdk": "^2.8.1",
     "@vercel/blob": "^2.8.0",
     "@xyflow/react": "^12.11.5",
     "drizzle-orm": "^0.45.2",
@@ -26,6 +33,7 @@
     "postgres": "^3.4.9",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "remotion": "^4.0.518",
     "server-only": "^0.0.1",
     "solapi": "^6.0.1",
     "zod": "^4.4.3"

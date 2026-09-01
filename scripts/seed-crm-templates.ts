@@ -60,12 +60,18 @@ const ROWS: Row[] = [
     template:
       "진짜 닫힙니다. 무료 강의가 딱 1시간 남았습니다.\n\n영상 보실 때 최소 3배 아껴드리는 5만 원 가치의 {상품명}도 1시간 뒤면 원래 가격으로 돌아가고 링크가 사라집니다. 정 시간 없으시면 지금 들어와서 2배속으로라도 꼭 보세요!\n📎 {링크}",
   },
-  // payment_success / payment_cancel_admin 은 제거됨.
-  // 결제·다운로드 안내는 래피드(Latpeed) 자체 감사 문자에 위임.
+  {
+    key: "payment_success",
+    label: "결제 완료 즉시 · 시청 안내",
+    condition: "토스페이먼츠 결제 완료",
+    offsetHours: null,
+    template:
+      "{이름}님, 결제가 완료되었습니다! 🎉\n지금 바로 강의를 시청하세요.\n📎 {링크}",
+  },
 ];
 
 /** 더 이상 발송하지 않는 트리거 — 전역 row 정리 */
-const REMOVE_KEYS = ["payment_success", "payment_cancel_admin"];
+const REMOVE_KEYS = ["payment_cancel_admin"];
 
 async function enumValues(): Promise<Set<string>> {
   const rows = await db.execute(

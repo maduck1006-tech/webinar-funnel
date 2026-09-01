@@ -14,6 +14,11 @@ function parse(fd: FormData) {
     const v = fd.get(k);
     return v ? new Date(String(v)) : null;
   };
+  const provider = String(fd.get("paymentProvider") ?? "latpeed");
+  const uuidOrNull = (k: string) => {
+    const v = String(fd.get(k) ?? "").trim();
+    return v || null;
+  };
   return {
     name: String(fd.get("name") ?? "").trim(),
     description: String(fd.get("description") ?? "").trim() || null,
@@ -22,8 +27,18 @@ function parse(fd: FormData) {
     compareAtPrice: num("compareAtPrice"),
     showFrom: date("showFrom"),
     showUntil: date("showUntil"),
-    latpeedCheckoutUrl: String(fd.get("latpeedCheckoutUrl") ?? "").trim() || null,
+    paymentProvider: provider,
+    latpeedCheckoutUrl:
+      provider === "latpeed"
+        ? (String(fd.get("latpeedCheckoutUrl") ?? "").trim() || null)
+        : null,
+    tossOrderName: String(fd.get("tossOrderName") ?? "").trim() || null,
     placement: String(fd.get("placement") ?? "both"),
+    // 클릭퍼널스 확장 (토스 상품에서만 의미)
+    bumpProductId: uuidOrNull("bumpProductId"),
+    bumpDescription: String(fd.get("bumpDescription") ?? "").trim() || null,
+    upsellProductId: uuidOrNull("upsellProductId"),
+    downsellProductId: uuidOrNull("downsellProductId"),
     active: fd.get("active") === "on",
   };
 }

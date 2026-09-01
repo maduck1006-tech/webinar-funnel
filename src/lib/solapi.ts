@@ -44,6 +44,17 @@ export function renderMessage(
       return `결제가 완료되었습니다. 감사합니다!\n자료 다운로드 및 1:1 상담 예약 안내 → ${SITE}/booking?l=${vars.leadId}`;
     case "payment_cancel_admin":
       return `[관리자 알림] 결제 취소 발생 - lead ${vars.leadId}`;
+    // P2 구독(멤버십) — docs/toss-payments-plan.md §11. 문구는 seed/자동화에서 오버라이드.
+    case "membership_offer":
+      return `${vars.productName ?? "멤버십"} 안내를 보내드려요.\n첫 1개월 무료로 이용하실 수 있습니다 → ${SITE}/membership?l=${vars.leadId}`;
+    case "membership_trial_ending":
+      return `무료 이용 기간이 곧 종료됩니다.\n3일 뒤부터 정기 결제가 시작돼요. 해지를 원하시면 지금 알려주세요.`;
+    case "membership_renewed":
+      return `멤버십 결제가 정상 처리되었습니다. 계속 이용해 주셔서 감사합니다.`;
+    case "membership_payment_failed":
+      return `멤버십 결제에 실패했어요.\n카드 상태를 확인해 주세요. 며칠 내 재시도됩니다.`;
+    case "membership_canceled":
+      return `멤버십이 해지되었습니다.\n남은 이용 기간까지는 계속 시청하실 수 있어요.`;
   }
 }
 

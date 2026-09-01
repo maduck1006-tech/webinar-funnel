@@ -10,7 +10,7 @@ import {
   campaignBasePath,
   checkoutRedirect,
 } from "@/lib/campaign";
-import { getActiveOffer, checkoutUrlWithLead } from "@/lib/funnel-offer";
+import { getActiveOffer, resolveCheckoutUrl } from "@/lib/funnel-offer";
 
 /** 2단계 — 랜딩(신청) */
 export async function LandingView({ campaign }: { campaign: Campaign }) {
@@ -30,14 +30,15 @@ export async function ThankYouView({
 }) {
   const leadId = await resolveLeadId(l);
   const offer = await getActiveOffer(campaign.id, "thankyou");
+  const basePath = campaignBasePath(campaign);
   return (
     <FunnelPage
       campaign={campaign}
       pageType="thankyou"
       metadata={{
         leadId: leadId ?? undefined,
-        checkoutUrl: offer?.checkoutUrl
-          ? checkoutUrlWithLead(offer.checkoutUrl, leadId)
+        checkoutUrl: offer
+          ? (resolveCheckoutUrl(offer, { basePath, leadId }) ?? undefined)
           : undefined,
         productName: offer?.name,
         price: offer?.price,
@@ -63,14 +64,15 @@ export async function VodView({
   const windowH = campaign.vodWindowHours ?? 48;
   const offer = await getActiveOffer(campaign.id, "vod_bottom");
   const purchaseValue = offer?.price;
+  const basePath = campaignBasePath(campaign);
 
   function meta(leadId: string | null, deadlineIso?: string) {
     return {
       vodDeadlineIso: deadlineIso,
       vodSrc: campaign.vodSrc ?? undefined,
       leadId: leadId ?? undefined,
-      checkoutUrl: offer?.checkoutUrl
-        ? checkoutUrlWithLead(offer.checkoutUrl, leadId)
+      checkoutUrl: offer
+        ? (resolveCheckoutUrl(offer, { basePath, leadId }) ?? undefined)
         : undefined,
       productName: offer?.name,
       price: offer?.price,

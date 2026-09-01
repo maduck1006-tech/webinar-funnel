@@ -25,6 +25,8 @@ export const leadStatus = pgEnum("lead_status", [
   "consulted",
   "expired",
   "no_purchase",
+  // P2 구독: 멤버십 가입자 (docs/toss-payments-plan.md §11)
+  "member",
 ]);
 
 export const messageTrigger = pgEnum("message_trigger", [
@@ -35,6 +37,12 @@ export const messageTrigger = pgEnum("message_trigger", [
   "pre_payment_nudge",
   "payment_success",
   "payment_cancel_admin",
+  // P2 구독(멤버십) 관련 트리거 (docs/toss-payments-plan.md §11)
+  "membership_offer", // 미팅/고가상품 세션 후 관리자 수동 발송
+  "membership_trial_ending", // 무료기간(1개월) 종료 3일 전
+  "membership_renewed", // 회차 결제 성공
+  "membership_payment_failed", // 회차 결제 실패(dunning)
+  "membership_canceled", // 해지 확정
 ]);
 
 export const messageStatus = pgEnum("message_status", [
@@ -47,6 +55,8 @@ export const orderStatus = pgEnum("order_status", [
   "success",
   "cancel",
   "webhook_missing",
+  // 가상계좌 입금대기 등 승인 미확정 (P1 은 미사용, P2/후속 대비)
+  "pending",
 ]);
 
 /** 퍼널 페이지 종류 (캠페인마다 각 1개) */
@@ -55,6 +65,8 @@ export const pageType = pgEnum("page_type", [
   "thankyou",
   "vod",
   "booking",
+  // P2 구독: 멤버십 전환 판매 페이지 (docs/toss-payments-plan.md §11)
+  "membership",
 ]);
 
 export const campaignStatus = pgEnum("campaign_status", [
@@ -191,12 +203,43 @@ export const products = pgTable("products", {
   latpeedCheckoutUrl: text("latpeed_checkout_url"),
   /** 노출 위치: 'thankyou' | 'vod_bottom' | 'both' */
   placement: text("placement").notNull().default("both"),
+  /**
+   * 결제 provider: 'latpeed' | 'toss'  (docs/toss-payments-plan.md §4)
+   * latpeed = latpeedCheckoutUrl 링크로 이동 (기존)
+   * toss    = 자체 /checkout 페이지 + 서버승인
+   */
+  paymentProvider: text("payment_provider").notNull().default("latpeed"),
+  /** 상품 종류: 'one_time' | 'membership' (구독)  */
+  kind: text("kind").notNull().default("one_time"),
+  /** toss 결제창 orderName (없으면 name 사용) */
+  tossOrderName: text("toss_order_name"),
+  /** 멤버십 무료 개월 수 (0 = 없음, 멤버십 기본 1). §11.7 */
+  membershipFreeMonths: integer("membership_free_months").notNull().default(0),
+  /**
+   * 오더 범프: 이 상품 주문서에 체크박스로 붙는 추가 상품 (클릭퍼널스 order bump).
+   * 같은 결제건에 합산 결제됨. 상대 상품도 paymentProvider='toss' 여야 함.
+   */
+  bumpProductId: uuid("bump_product_id"),
+  /** 범프 체크박스 옆 설득 문구 (없으면 상품 설명 사용) */
+  bumpDescription: text("bump_description"),
+  /**
+   * 원클릭 업셀(OTO): 결제 완료 직후 뜨는 업셀 상품. 저장된 카드(빌링키)로 1클릭 결제.
+   * 이 값이 있으면 주문서가 빌링키 발급 방식으로 동작함.
+   */
+  upsellProductId: uuid("upsell_product_id"),
+  /** 업셀 거절 시 뜨는 다운셀 상품 (선택) */
+  downsellProductId: uuid("downsell_product_id"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
 });
 
-/** 래피드 웹훅으로 확정되는 주문 */
+/**
+ * 확정된 주문.
+ * - latpeed: 웹훅으로 확정 (latpeedOrderId)
+ * - toss: /api/toss/confirm 서버승인으로 확정 (tossPaymentKey). §3
+ * 구독 회차 결제도 여기 1행씩 적재 (provider='toss', subscriptionId 채움).
+ */
 export const orders = pgTable(
   "orders",
   {
@@ -204,7 +247,20 @@ export const orders = pgTable(
     campaignId: uuid("campaign_id").references(() => campaigns.id),
     leadId: uuid("lead_id").references(() => leads.id),
     productId: uuid("product_id").references(() => products.id),
-    latpeedOrderId: text("latpeed_order_id").notNull(),
+    /** 'latpeed' | 'toss' */
+    provider: text("provider").notNull().default("latpeed"),
+    /** latpeed 주문 ID (provider='latpeed' 일 때) */
+    latpeedOrderId: text("latpeed_order_id"),
+    /** toss paymentKey (provider='toss' 일 때) */
+    tossPaymentKey: text("toss_payment_key"),
+    /** 구독 회차 결제면 해당 구독 (§11) */
+    subscriptionId: uuid("subscription_id"),
+    /** 주문 성격: 'main' | 'upsell' | 'downsell' | 'subscription' */
+    orderRole: text("order_role").notNull().default("main"),
+    /** 오더 범프가 함께 결제됐으면 그 상품 (amount 에 범프가격 포함) */
+    bumpProductId: uuid("bump_product_id"),
+    /** 범프 부분 금액 (원) */
+    bumpAmount: integer("bump_amount"),
     email: text("email"),
     phone: text("phone"),
     amount: integer("amount").notNull(),
@@ -215,7 +271,102 @@ export const orders = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [uniqueIndex("orders_latpeed_order_id_idx").on(t.latpeedOrderId)],
+  (t) => [
+    // NULLS DISTINCT (PG 기본) → provider 별로 한쪽만 채워도 유니크 충돌 없음
+    uniqueIndex("orders_latpeed_order_id_idx").on(t.latpeedOrderId),
+    uniqueIndex("orders_toss_payment_key_idx").on(t.tossPaymentKey),
+  ],
+);
+
+/**
+ * 승인 전 주문 컨텍스트. toss successUrl 위변조(금액 조작) 방지용.
+ * /checkout 에서 orderId 발급하며 insert → /api/toss/confirm 에서 조회·검증. §3
+ */
+export const pendingOrders = pgTable("pending_orders", {
+  /** toss_<uuid> 형식, toss requestPayment 의 orderId */
+  orderId: text("order_id").primaryKey(),
+  campaignId: uuid("campaign_id").references(() => campaigns.id),
+  leadId: uuid("lead_id").references(() => leads.id),
+  productId: uuid("product_id").references(() => products.id),
+  /** 합산 결제 금액 (본상품 + 범프). successUrl amount 와 대조 */
+  amount: integer("amount").notNull(),
+  /** 오더 범프가 선택됐으면 그 상품 */
+  bumpProductId: uuid("bump_product_id"),
+  /** 범프 부분 금액 */
+  bumpAmount: integer("bump_amount"),
+  /** 'ready' | 'done' | 'fail' */
+  status: text("status").notNull().default("ready"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/**
+ * 구독(멤버십). toss 빌링키 기반 자동결제. §11
+ * 접근 판정: status='active' && currentPeriodEnd > now  (funnel-views VodView 게이팅 OR 조건)
+ */
+export const subscriptions = pgTable(
+  "subscriptions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    campaignId: uuid("campaign_id").references(() => campaigns.id),
+    leadId: uuid("lead_id")
+      .references(() => leads.id)
+      .notNull(),
+    productId: uuid("product_id").references(() => products.id),
+    /** toss 빌링키 (카드정보 대신 저장하는 토큰) */
+    billingKey: text("billing_key").notNull(),
+    /** toss customerKey (= leadId) */
+    customerKey: text("customer_key").notNull(),
+    /** 마스킹 카드정보 표시용 "신한 1234" */
+    cardInfo: text("card_info"),
+    /** 'active' | 'past_due' | 'canceled' */
+    status: text("status").notNull().default("active"),
+    /** 'monthly' 등 */
+    interval: text("interval").notNull().default("monthly"),
+    /** 월 구독료(원) */
+    amount: integer("amount").notNull(),
+    /** 이 시점까지 시청 가능. 크론이 도달 시 다음 회차 청구 */
+    currentPeriodEnd: timestamp("current_period_end", {
+      withTimezone: true,
+    }).notNull(),
+    /** 무료기간 종료(=첫 유료청구) 예정일. §11.7 */
+    trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
+    canceledAt: timestamp("canceled_at", { withTimezone: true }),
+    /** dunning 재시도 횟수 */
+    retryCount: integer("retry_count").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("subscriptions_lead_idx").on(t.leadId),
+    index("subscriptions_status_period_idx").on(t.status, t.currentPeriodEnd),
+  ],
+);
+
+/**
+ * 저장된 카드(toss 빌링키). 원클릭 업셀(OTO) 결제에 사용.
+ * 주문서에서 카드 등록(requestBillingAuth) 시 발급 → lead 당 1개(최신).
+ */
+export const billingKeys = pgTable(
+  "billing_keys",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    leadId: uuid("lead_id")
+      .references(() => leads.id)
+      .notNull(),
+    /** toss customerKey (= leadId 기반 무작위값) */
+    customerKey: text("customer_key").notNull(),
+    /** toss 빌링키 */
+    billingKey: text("billing_key").notNull(),
+    /** 표시용 마스킹 "신한 1234" */
+    cardInfo: text("card_info"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex("billing_keys_lead_idx").on(t.leadId)],
 );
 
 /** 래피드 웹훅 원본 로그 (서명검증 통과 여부 포함, 디버깅/CS 대응) */
@@ -396,3 +547,8 @@ export type AutomationTrigger = typeof automationTriggers.$inferSelect;
 export type Campaign = typeof campaigns.$inferSelect;
 export type CampaignPage = typeof campaignPages.$inferSelect;
 export type PageType = (typeof pageType.enumValues)[number];
+export type PendingOrder = typeof pendingOrders.$inferSelect;
+export type Subscription = typeof subscriptions.$inferSelect;
+export type BillingKey = typeof billingKeys.$inferSelect;
+export type PaymentProvider = "latpeed" | "toss";
+export type ProductKind = "one_time" | "membership";

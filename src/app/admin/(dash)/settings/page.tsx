@@ -73,6 +73,8 @@ export default async function SettingsPage() {
     { key: "META_CAPI_TEST_CODE", label: "Meta CApI 테스트 코드 (검증용·평시 비움)" },
     { key: "SMS_QUIET_START", label: "문자 야간 차단 시작 시각 (기본 0=자정)" },
     { key: "SMS_QUIET_END", label: "문자 야간 차단 종료 시각 (기본 8)" },
+    { key: "NEXT_PUBLIC_TOSS_CLIENT_KEY", label: "토스페이먼츠 클라이언트 키 (결제위젯)" },
+    { key: "TOSS_SECRET_KEY", label: "토스페이먼츠 시크릿 키 (승인 API)" },
   ];
 
   return (

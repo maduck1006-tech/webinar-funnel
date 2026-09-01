@@ -25,6 +25,7 @@ const TRIGGERS = [
   { key: "reminder_12h_left", label: "DB 입력 +36h", condition: "시청 기한 내 · 미구매", offsetHours: 36 },
   { key: "reminder_1h_left", label: "DB 입력 +47h", condition: "시청 기한 내 · 미구매", offsetHours: 47 },
   { key: "pre_payment_nudge", label: "결제 직전 유도", condition: "저가 상품 미결제", offsetHours: 3 },
+  { key: "payment_success", label: "결제 완료 즉시", condition: "토스페이먼츠 결제 DONE", offsetHours: null },
 ] as const;
 
 const VARS_HINT =

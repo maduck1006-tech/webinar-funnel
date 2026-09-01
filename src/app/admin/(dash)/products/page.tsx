@@ -82,8 +82,10 @@ export default async function ProductsPage({
                     </Tag>
                   </td>
                   <td className="py-2">
-                    {p.latpeedCheckoutUrl ? (
-                      <Tag tone="green">연결됨</Tag>
+                    {p.paymentProvider === "toss" ? (
+                      <Tag tone="blue">토스페이먼츠</Tag>
+                    ) : p.latpeedCheckoutUrl ? (
+                      <Tag tone="green">래피드 연결</Tag>
                     ) : (
                       <Tag tone="amber">URL 없음</Tag>
                     )}
@@ -148,9 +150,31 @@ export default async function ProductsPage({
               정가를 넣으면 <b>취소선 + 할인율</b>이 자동 표시됩니다.
             </p>
 
+            <fieldset className="rounded-lg border p-3">
+              <legend className="px-1 text-xs text-zinc-500">결제 방식</legend>
+              {[
+                { v: "latpeed", t: "래피드 (외부 링크)", d: "기존 래피드 결제 페이지 URL로 이동" },
+                { v: "toss", t: "토스페이먼츠 (자체 결제)", d: "자체 /checkout 페이지에 결제위젯 임베드" },
+              ].map((o) => (
+                <label key={o.v} className="mt-1.5 flex cursor-pointer items-start gap-2">
+                  <input
+                    type="radio"
+                    name="paymentProvider"
+                    value={o.v}
+                    defaultChecked={(editing?.paymentProvider ?? "latpeed") === o.v}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="text-sm">{o.t}</span>
+                    <span className="block text-[11px] text-zinc-400">{o.d}</span>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+
             <label className="block pt-1">
               <span className="text-xs font-semibold text-zinc-700">
-                결제 페이지 URL
+                래피드 결제 페이지 URL
               </span>
               <input
                 name="latpeedCheckoutUrl"
@@ -160,7 +184,22 @@ export default async function ProductsPage({
                 className="mt-1 w-full rounded border border-zinc-300 px-2 py-1"
               />
               <span className="mt-1 block text-[11px] text-zinc-400">
-                래피드 등 결제 서비스의 결제 페이지 주소. CTA 버튼이 여기로 이동합니다.
+                결제 방식이 '래피드'일 때만 사용. CTA 버튼이 여기로 이동합니다.
+              </span>
+            </label>
+
+            <label className="block">
+              <span className="text-xs font-semibold text-zinc-700">
+                토스 주문명 (선택)
+              </span>
+              <input
+                name="tossOrderName"
+                defaultValue={editing?.tossOrderName ?? undefined}
+                placeholder="비워두면 상품명 사용"
+                className="mt-1 w-full rounded border border-zinc-300 px-2 py-1"
+              />
+              <span className="mt-1 block text-[11px] text-zinc-400">
+                토스 결제창에 표시되는 주문명. 비워두면 상품명을 그대로 사용합니다.
               </span>
             </label>
 
@@ -210,6 +249,68 @@ export default async function ProductsPage({
                 </label>
               ))}
             </fieldset>
+
+            <details className="rounded-lg border p-3">
+              <summary className="cursor-pointer text-xs text-zinc-500">
+                주문서 추가 오퍼 (선택) — 오더 범프 · 원클릭 업셀
+              </summary>
+              <p className="mt-2 text-[11px] text-zinc-400">
+                토스 결제 상품에서만 동작합니다. 연결할 상품도 &apos;토스페이먼츠&apos;
+                결제 방식이어야 합니다.
+              </p>
+
+              <label className="mt-3 block">
+                <span className="text-xs font-semibold text-zinc-700">
+                  오더 범프 상품
+                </span>
+                <span className="block text-[11px] text-zinc-400">
+                  주문서에 체크박스로 붙는 소액 추가상품. 같은 결제에 합산됩니다.
+                </span>
+                <ProductSelect
+                  name="bumpProductId"
+                  list={list}
+                  excludeId={editing?.id}
+                  selected={editing?.bumpProductId ?? ""}
+                />
+              </label>
+              <label className="mt-2 block">
+                <span className="text-[11px] text-zinc-400">
+                  범프 체크박스 문구 (비우면 상품 설명 사용)
+                </span>
+                <input
+                  name="bumpDescription"
+                  defaultValue={editing?.bumpDescription ?? undefined}
+                  placeholder="예: 실전 템플릿 30종도 함께 받기"
+                  className="mt-1 w-full rounded border border-zinc-300 px-2 py-1"
+                />
+              </label>
+
+              <label className="mt-3 block">
+                <span className="text-xs font-semibold text-zinc-700">
+                  원클릭 업셀(OTO) 상품
+                </span>
+                <span className="block text-[11px] text-zinc-400">
+                  결제 완료 직후 뜨는 업셀. 저장된 카드로 &apos;네&apos; 한 번에 결제.
+                </span>
+                <ProductSelect
+                  name="upsellProductId"
+                  list={list}
+                  excludeId={editing?.id}
+                  selected={editing?.upsellProductId ?? ""}
+                />
+              </label>
+              <label className="mt-2 block">
+                <span className="text-xs font-semibold text-zinc-700">
+                  다운셀 상품 (업셀 거절 시)
+                </span>
+                <ProductSelect
+                  name="downsellProductId"
+                  list={list}
+                  excludeId={editing?.id}
+                  selected={editing?.downsellProductId ?? ""}
+                />
+              </label>
+            </details>
 
             <details className="rounded-lg border p-3">
               <summary className="cursor-pointer text-xs text-zinc-500">
@@ -267,6 +368,36 @@ export default async function ProductsPage({
         </Card>
       </div>
     </>
+  );
+}
+
+function ProductSelect({
+  name,
+  list,
+  excludeId,
+  selected,
+}: {
+  name: string;
+  list: Product[];
+  excludeId?: string;
+  selected: string;
+}) {
+  const options = list.filter(
+    (p) => p.id !== excludeId && p.paymentProvider === "toss",
+  );
+  return (
+    <select
+      name={name}
+      defaultValue={selected}
+      className="mt-1 w-full rounded border border-zinc-300 px-2 py-1 text-sm"
+    >
+      <option value="">— 없음 —</option>
+      {options.map((p) => (
+        <option key={p.id} value={p.id}>
+          {p.name} ({won(p.price)})
+        </option>
+      ))}
+    </select>
   );
 }
 

@@ -3,6 +3,8 @@ export const FUNNEL_PAGE_TYPES = [
   "thankyou",
   "vod",
   "booking",
+  // P2 구독: 멤버십 전환 판매 페이지 (docs/toss-payments-plan.md §11)
+  "membership",
 ] as const;
 export type FunnelPageType = (typeof FUNNEL_PAGE_TYPES)[number];
 
@@ -15,6 +17,7 @@ export const PAGE_META: Record<
   thankyou: { title: "땡큐 + 저가상품", step: "3단계", path: "/thankyou" },
   vod: { title: "VOD 시청", step: "4단계", path: "/vod" },
   booking: { title: "상담 예약", step: "5단계", path: "/booking" },
+  membership: { title: "멤버십 전환", step: "백엔드", path: "/membership" },
 };
 
 export type Exit = {
