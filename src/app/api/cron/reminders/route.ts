@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { leads, messageLogs, orders } from "@/db/schema";
 import { sendSms } from "@/lib/solapi";
 import { renderCampaignMessage, resolveTrigger } from "@/lib/campaign-messages";
+import { runDueSequenceSteps } from "@/lib/sequences";
 
 export const runtime = "nodejs";
 
@@ -149,5 +150,13 @@ export async function GET(req: Request) {
     await send(w.id, w.campaignId, w.phone, "pre_payment_nudge");
   }
 
-  return NextResponse.json({ ok: true, at: now.toISOString(), sent });
+  // Follow-up 시퀀스 스텝도 같은 크론에서 처리 (Hobby 플랜 cron 수 제한)
+  let sequences: Awaited<ReturnType<typeof runDueSequenceSteps>> | null = null;
+  try {
+    sequences = await runDueSequenceSteps(now);
+  } catch (e) {
+    sequences = { processed: 0, sent: 0, skipped: 0, failed: 0, error: String(e) } as never;
+  }
+
+  return NextResponse.json({ ok: true, at: now.toISOString(), sent, sequences });
 }

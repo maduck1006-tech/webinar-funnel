@@ -3,10 +3,29 @@
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { leads, messageLogs } from "@/db/schema";
+import { leads, messageLogs, messageSequences } from "@/db/schema";
 import { renderMessage, sendSms } from "@/lib/solapi";
+import { enrollLeadInSequence } from "@/lib/sequences";
 
 export type ActionResult = { ok: boolean; message: string };
+
+/** 이 고객을 특정 시퀀스에 수동 등록 */
+export async function enrollInSequence(
+  _prev: ActionResult | null,
+  fd: FormData,
+): Promise<ActionResult> {
+  const leadId = String(fd.get("leadId"));
+  const sequenceId = String(fd.get("sequenceId") ?? "");
+  if (!sequenceId) return { ok: false, message: "시퀀스를 선택하세요." };
+  const [seq] = await db
+    .select({ name: messageSequences.name })
+    .from(messageSequences)
+    .where(eq(messageSequences.id, sequenceId));
+  if (!seq) return { ok: false, message: "시퀀스를 찾을 수 없습니다." };
+  await enrollLeadInSequence(sequenceId, leadId);
+  revalidatePath(`/admin/crm/${leadId}`);
+  return { ok: true, message: `'${seq.name}' 시퀀스에 등록했습니다.` };
+}
 
 export async function resendMessage(
   _prev: ActionResult | null,

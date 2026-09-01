@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import {
+  enrollInSequence,
   forceStatus,
   regrantAccess,
   resendMessage,
@@ -21,11 +22,17 @@ export function ManualActions({
   leadId,
   statusOptions,
   currentStatus,
+  sequences = [],
 }: {
   leadId: string;
   statusOptions: [string, string][];
   currentStatus: string;
+  sequences?: { id: string; name: string }[];
 }) {
+  const [enrollState, enrollAction, enrollPending] = useActionState<
+    ActionResult | null,
+    FormData
+  >(enrollInSequence, null);
   const [resendState, resendAction, resendPending] = useActionState<
     ActionResult | null,
     FormData
@@ -41,6 +48,33 @@ export function ManualActions({
 
   return (
     <div className="space-y-3 text-sm">
+      {sequences.length > 0 && (
+        <form action={enrollAction} className="space-y-1">
+          <input type="hidden" name="leadId" value={leadId} />
+          <select
+            name="sequenceId"
+            defaultValue=""
+            className="w-full rounded border px-2 py-1"
+          >
+            <option value="" disabled>
+              문자 시퀀스 선택…
+            </option>
+            {sequences.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+          <button
+            disabled={enrollPending}
+            className="w-full rounded-lg border py-2 disabled:opacity-50"
+          >
+            {enrollPending ? "등록 중…" : "시퀀스에 등록"}
+          </button>
+          <Result state={enrollState} />
+        </form>
+      )}
+
       <form action={resendAction}>
         <input type="hidden" name="leadId" value={leadId} />
         <input type="hidden" name="trigger" value="signup_confirm" />

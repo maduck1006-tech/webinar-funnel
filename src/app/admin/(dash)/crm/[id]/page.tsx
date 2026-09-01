@@ -2,7 +2,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { campaigns, leads, messageLogs, orders } from "@/db/schema";
+import {
+  campaigns,
+  leads,
+  messageLogs,
+  messageSequences,
+  orders,
+  sequenceEnrollments,
+  sequenceSends,
+  sequenceSteps,
+} from "@/db/schema";
+import { and, isNull, or } from "drizzle-orm";
 import {
   Card,
   PageHeader,
@@ -53,6 +63,82 @@ export default async function CrmDetailPage({
   }
   if (!lead) notFound();
 
+  // 문자 시퀀스: 이 고객의 등록 현황 + 발송 + 등록 가능한 시퀀스
+  type EnrRow = {
+    enrId: string;
+    name: string;
+    status: string;
+    enrolledAt: Date;
+  };
+  let enrollments: EnrRow[] = [];
+  let seqSends: { at: Date; text: string }[] = [];
+  let availableSeqs: { id: string; name: string }[] = [];
+  try {
+    enrollments = await db
+      .select({
+        enrId: sequenceEnrollments.id,
+        name: messageSequences.name,
+        status: sequenceEnrollments.status,
+        enrolledAt: sequenceEnrollments.enrolledAt,
+      })
+      .from(sequenceEnrollments)
+      .innerJoin(
+        messageSequences,
+        eq(messageSequences.id, sequenceEnrollments.sequenceId),
+      )
+      .where(eq(sequenceEnrollments.leadId, id))
+      .orderBy(desc(sequenceEnrollments.enrolledAt));
+
+    if (enrollments.length > 0) {
+      const enrIds = enrollments.map((e) => e.enrId);
+      const sends = await db
+        .select({
+          at: sequenceSends.createdAt,
+          status: sequenceSends.status,
+          stepOrder: sequenceSteps.stepOrder,
+          seqName: messageSequences.name,
+        })
+        .from(sequenceSends)
+        .innerJoin(
+          sequenceEnrollments,
+          eq(sequenceEnrollments.id, sequenceSends.enrollmentId),
+        )
+        .innerJoin(
+          messageSequences,
+          eq(messageSequences.id, sequenceEnrollments.sequenceId),
+        )
+        .leftJoin(sequenceSteps, eq(sequenceSteps.id, sequenceSends.stepId))
+        .where(eq(sequenceEnrollments.leadId, id));
+      seqSends = sends.map((s) => ({
+        at: s.at,
+        text: `시퀀스 「${s.seqName}」 문자${s.stepOrder ?? "?"} — ${
+          s.status === "sent"
+            ? "발송"
+            : s.status === "skipped"
+              ? "대상 아님(건너뜀)"
+              : "실패"
+        }`,
+      }));
+    }
+
+    availableSeqs = await db
+      .select({ id: messageSequences.id, name: messageSequences.name })
+      .from(messageSequences)
+      .where(
+        and(
+          eq(messageSequences.enabled, true),
+          lead.campaignId
+            ? or(
+                eq(messageSequences.campaignId, lead.campaignId),
+                isNull(messageSequences.campaignId),
+              )
+            : isNull(messageSequences.campaignId),
+        ),
+      );
+  } catch {
+    /* 시퀀스 테이블 없음 등 */
+  }
+
   const timeline = [
     { at: lead.createdAt, text: "DB 입력 (신청)" },
     ...(lead.firstWatchedAt
@@ -66,6 +152,7 @@ export default async function CrmDetailPage({
       at: o.paidAt ?? o.createdAt,
       text: `결제 ${o.status} — ${won(o.amount)}${o.orderRole !== "main" ? ` [${o.orderRole}]` : ""}`,
     })),
+    ...seqSends,
   ].sort((a, b) => a.at.getTime() - b.at.getTime());
 
   return (
@@ -112,14 +199,47 @@ export default async function CrmDetailPage({
           </Card>
         </div>
 
-        <Card>
-          <p className="mb-3 text-sm font-bold">수동 조치</p>
-          <ManualActions
-            leadId={lead.id}
-            statusOptions={Object.entries(STATUS_LABEL)}
-            currentStatus={lead.status}
-          />
-        </Card>
+        <div className="space-y-6">
+          <Card>
+            <p className="mb-3 text-sm font-bold">수동 조치</p>
+            <ManualActions
+              leadId={lead.id}
+              statusOptions={Object.entries(STATUS_LABEL)}
+              currentStatus={lead.status}
+              sequences={availableSeqs}
+            />
+          </Card>
+
+          <Card>
+            <p className="mb-2 text-sm font-bold">문자 시퀀스</p>
+            {enrollments.length === 0 ? (
+              <p className="text-xs text-zinc-500">등록된 시퀀스 없음</p>
+            ) : (
+              <ul className="space-y-1.5 text-xs">
+                {enrollments.map((e) => (
+                  <li key={e.enrId} className="flex items-center gap-1.5">
+                    <Tag
+                      tone={
+                        e.status === "active"
+                          ? "green"
+                          : e.status === "done"
+                            ? "gray"
+                            : "amber"
+                      }
+                    >
+                      {e.status === "active"
+                        ? "진행중"
+                        : e.status === "done"
+                          ? "완료"
+                          : "중지"}
+                    </Tag>
+                    <span>{e.name}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        </div>
       </div>
     </>
   );
