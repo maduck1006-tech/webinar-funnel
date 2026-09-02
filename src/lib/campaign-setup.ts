@@ -27,7 +27,16 @@ export type CheckItem = {
         productType: string;
         priceMode: "paid" | "free";
       }
-    | { kind: "setting"; field: "bookingEmbedUrl" | "groupChatUrl"; value: string };
+    | {
+        kind: "setting";
+        field:
+          | "bookingEmbedUrl"
+          | "groupChatUrl"
+          | "vodSrc"
+          | "metaPixelId";
+        value: string;
+        placeholder?: string;
+      };
 };
 
 export type SetupGroup = {
@@ -159,9 +168,9 @@ export async function getSetupChecklist(campaign: Campaign): Promise<{
         kind: "setting",
         field: "groupChatUrl",
         value: campaign.groupChatUrl ?? "",
+        placeholder: "오픈카톡 초대 링크 (https://open.kakao.com/…)",
       },
       required: true,
-      href: settings,
     });
   }
   if (campaign.funnelType === "live_webinar_reg") {
@@ -179,7 +188,12 @@ export async function getSetupChecklist(campaign: Campaign): Promise<{
       label: "VOD 영상 링크 등록",
       done: !!campaign.vodSrc,
       required: true,
-      href: settings,
+      inline: {
+        kind: "setting",
+        field: "vodSrc",
+        value: campaign.vodSrc ?? "",
+        placeholder: "YouTube · Vimeo 공유 링크 또는 MP4 URL",
+      },
     });
   }
 
@@ -261,9 +275,15 @@ export async function getSetupChecklist(campaign: Campaign): Promise<{
     {
       id: "pixel",
       label: "추적 픽셀 연결 (Meta 또는 GA4)",
+      help: "GA4 등 나머지 추적 설정은 '설정' 탭에서",
       done: !!campaign.metaPixelId || !!campaign.ga4MeasurementId,
       required: false,
-      href: settings,
+      inline: {
+        kind: "setting",
+        field: "metaPixelId",
+        value: campaign.metaPixelId ?? "",
+        placeholder: "Meta 픽셀 ID (숫자 15~16자리)",
+      },
     },
   ];
 

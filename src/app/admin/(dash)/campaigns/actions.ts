@@ -591,7 +591,12 @@ export async function saveSettingField(fd: FormData) {
   const campaignId = String(fd.get("campaignId"));
   const field = String(fd.get("field"));
   const value = String(fd.get("value") ?? "").trim() || null;
-  if (!["bookingEmbedUrl", "groupChatUrl"].includes(field)) return;
+  if (
+    !["bookingEmbedUrl", "groupChatUrl", "vodSrc", "metaPixelId", "ga4MeasurementId"].includes(
+      field,
+    )
+  )
+    return;
   await db
     .update(campaigns)
     .set({ [field]: value, updatedAt: new Date() })

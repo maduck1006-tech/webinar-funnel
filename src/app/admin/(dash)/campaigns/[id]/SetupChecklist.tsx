@@ -71,14 +71,23 @@ function ProductInline({
   );
 }
 
+const FIELD_PLACEHOLDER: Record<string, string> = {
+  bookingEmbedUrl: "되는시간 임베드 URL",
+  groupChatUrl: "오픈카톡 초대 링크",
+  vodSrc: "YouTube · Vimeo 링크 또는 MP4 URL",
+  metaPixelId: "Meta 픽셀 ID",
+};
+
 function SettingInline({
   campaignId,
   field,
   value,
+  placeholder,
 }: {
   campaignId: string;
   field: string;
   value: string;
+  placeholder?: string;
 }) {
   return (
     <form
@@ -90,11 +99,7 @@ function SettingInline({
       <input
         name="value"
         defaultValue={value}
-        placeholder={
-          field === "bookingEmbedUrl"
-            ? "되는시간 임베드 URL"
-            : "오픈카톡 초대 링크"
-        }
+        placeholder={placeholder ?? FIELD_PLACEHOLDER[field] ?? ""}
         className="flex-1 rounded border border-zinc-300 bg-transparent px-2 py-1 text-xs"
       />
       <button className="shrink-0 rounded bg-black px-3 py-1 text-[12px] font-semibold text-white">
@@ -192,6 +197,7 @@ export function SetupChecklist({
                       campaignId={campaignId}
                       field={it.inline.field}
                       value={it.inline.value}
+                      placeholder={it.inline.placeholder}
                     />
                   )}
                 </li>
