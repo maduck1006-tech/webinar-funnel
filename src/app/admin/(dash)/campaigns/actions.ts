@@ -14,7 +14,9 @@ import {
   messageAutomations,
   messageAutomationSteps,
   orders,
+  pendingOrders,
   products,
+  subscriptions,
 } from "@/db/schema";
 import { getTemplate } from "@/lib/funnel-templates";
 import { bustAbCache, isValidSlug } from "@/lib/campaign";
@@ -344,9 +346,40 @@ export async function deleteCampaign(
   if (orderCount > 0) {
     return { error: `주문 ${orderCount}건이 연결돼 있어 삭제할 수 없습니다.` };
   }
+  const [{ n: subCount }] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(subscriptions)
+    .where(eq(subscriptions.campaignId, id));
+  if (subCount > 0) {
+    return {
+      error: `구독 ${subCount}건이 연결돼 있어 삭제할 수 없습니다. 보관(archived) 처리하세요.`,
+    };
+  }
 
-  // campaign_pages / campaign_products / campaign_messages / campaign_slug_redirects 는 cascade
-  await db.delete(campaigns).where(eq(campaigns.id, id));
+  /*
+   * campaigns 를 참조하면서 cascade 가 아닌 테이블은 직접 치워야 한다.
+   * (cascade: campaign_pages · campaign_products · campaign_messages ·
+   *  campaign_slug_redirects · events · ad_daily_stats)
+   *  - message_automations: 이 캠페인 전용 자동화. 템플릿으로 만든 캠페인은
+   *    항상 몇 개씩 딸려 있어서, 안 지우면 삭제가 FK 위반으로 터진다.
+   *    (steps · enrollments · sends 는 여기서 cascade)
+   *  - pending_orders: 결제창만 열고 만 흔적. 남길 이유 없음.
+   */
+  try {
+    await db
+      .delete(messageAutomations)
+      .where(eq(messageAutomations.campaignId, id));
+    await db.delete(pendingOrders).where(eq(pendingOrders.campaignId, id));
+    await db.delete(campaigns).where(eq(campaigns.id, id));
+  } catch (e) {
+    // 화면이 통째로 죽는 대신 왜 안 되는지 보여준다
+    console.error("deleteCampaign failed", { campaignId: id, error: e });
+    return {
+      error:
+        "다른 데이터가 이 캠페인을 참조하고 있어 삭제하지 못했습니다. 대신 보관(archived) 처리하세요.",
+    };
+  }
+
   revalidatePath("/admin/campaigns");
   redirect("/admin/campaigns");
 }

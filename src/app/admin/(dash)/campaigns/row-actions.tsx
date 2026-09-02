@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
-import { deleteCampaign, renameCampaign } from "./actions";
+import { deleteCampaign, renameCampaign, setCampaignStatus } from "./actions";
 
 export function EditableName({
   id,
@@ -108,6 +108,47 @@ export function DeleteCampaignButton({
           {state.error}
         </p>
       )}
+    </form>
+  );
+}
+
+/**
+ * 보관 / 보관 해제.
+ * 신청자·주문이 붙은 캠페인은 삭제가 막히는데, 그때 안내하는 대안이 이것이다.
+ * (상태만 바꾸므로 데이터는 그대로 남는다)
+ */
+export function ArchiveCampaignButton({
+  id,
+  name,
+  archived,
+  disabled,
+}: {
+  id: string;
+  name: string;
+  archived: boolean;
+  disabled?: boolean;
+}) {
+  if (disabled) return null;
+  return (
+    <form
+      action={setCampaignStatus}
+      onSubmit={(e) => {
+        if (
+          !archived &&
+          !confirm(
+            `"${name}" 캠페인을 보관할까요?\n페이지가 더 이상 열리지 않지만 신청자·주문 기록은 그대로 남습니다.`,
+          )
+        ) {
+          e.preventDefault();
+        }
+      }}
+      className="inline"
+    >
+      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="status" value={archived ? "draft" : "archived"} />
+      <button className="text-xs text-zinc-500 underline">
+        {archived ? "보관 해제" : "보관"}
+      </button>
     </form>
   );
 }

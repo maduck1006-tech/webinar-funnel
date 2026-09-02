@@ -5,7 +5,11 @@ import { campaignProducts, campaigns, products } from "@/db/schema";
 import { Card, PageHeader, Tag, fmtDate } from "@/components/admin-ui";
 import { resolveFlowSteps, STEP_META } from "@/lib/funnel-flow";
 import { makeDefault } from "./actions";
-import { DeleteCampaignButton, EditableName } from "./row-actions";
+import {
+  ArchiveCampaignButton,
+  DeleteCampaignButton,
+  EditableName,
+} from "./row-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -171,6 +175,12 @@ export default async function CampaignsPage() {
                       미리보기
                     </Link>
                   )}
+                  <ArchiveCampaignButton
+                    id={c.id}
+                    name={c.name}
+                    archived={c.status === "archived"}
+                    disabled={c.isDefault || c.isTemplate}
+                  />
                   <DeleteCampaignButton
                     id={c.id}
                     name={c.name}
