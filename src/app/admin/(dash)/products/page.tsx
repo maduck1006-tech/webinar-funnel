@@ -218,11 +218,30 @@ export default async function ProductsPage({
 
         {/* ── 등록/수정 폼 ── */}
         <Card className="h-fit">
-          <p className="mb-1 text-sm font-bold">
-            {editing ? `✏️ '${editing.name}' 수정` : "➕ 새 상품 등록"}
-          </p>
+          {!editing && (
+            <Link
+              href="/admin/products/new"
+              className="mb-4 block rounded-xl bg-black p-4 text-center text-sm font-semibold text-white"
+            >
+              ➕ 새 상품 만들기
+              <span className="mt-0.5 block text-[11px] font-normal opacity-70">
+                한 번에 한 가지씩 물어봐요
+              </span>
+            </Link>
+          )}
+
+          {!editing && (
+            <p className="text-[12px] text-zinc-500">
+              이미 만든 상품의 <b>세부 수정</b>은 목록에서 &quot;수정&quot;을
+              누르세요.
+            </p>
+          )}
+
+          {editing && (
+          <>
+          <p className="mb-1 text-sm font-bold">✏️ &apos;{editing.name}&apos; 수정</p>
           <p className="mb-4 text-[12px] text-zinc-500">
-            아래 순서대로 채우면 됩니다. 선택 항목은 나중에 채워도 돼요.
+            선택 항목은 나중에 채워도 돼요.
           </p>
 
           <form action={saveProduct} className="space-y-5 text-sm">
@@ -461,17 +480,17 @@ export default async function ProductsPage({
             </label>
 
             <SubmitButton className="w-full rounded-lg bg-black py-2.5 font-semibold text-white">
-              {editing ? "수정 저장" : "상품 등록"}
+              수정 저장
             </SubmitButton>
-            {editing && (
-              <Link
-                href="/admin/products"
-                className="block text-center text-xs text-zinc-500 underline"
-              >
-                취소하고 새 상품 등록
-              </Link>
-            )}
+            <Link
+              href="/admin/products"
+              className="block text-center text-xs text-zinc-500 underline"
+            >
+              닫기
+            </Link>
           </form>
+          </>
+          )}
         </Card>
       </div>
     </>

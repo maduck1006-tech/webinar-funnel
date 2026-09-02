@@ -95,6 +95,12 @@ export type CheckItem = {
         priceMode: "paid" | "free";
       }
     | {
+        kind: "product-connect";
+        campaignId: string;
+        newHref: string;
+        options: { id: string; name: string; price: number }[];
+      }
+    | {
         kind: "setting";
         field:
           | "bookingEmbedUrl"
@@ -146,10 +152,14 @@ export async function getSetupChecklist(campaign: Campaign): Promise<{
   const [mapped, pages, ev] = await Promise.all([
     db
       .select({
+        productId: campaignProducts.productId,
         placement: campaignProducts.placement,
         price: products.price,
         active: products.active,
         type: products.type,
+        bumpProductId: campaignProducts.bumpProductId,
+        upsellProductId: campaignProducts.upsellProductId,
+        downsellProductId: campaignProducts.downsellProductId,
       })
       .from(campaignProducts)
       .innerJoin(products, eq(products.id, campaignProducts.productId))
@@ -165,6 +175,16 @@ export async function getSetupChecklist(campaign: Campaign): Promise<{
 
   const activeMapped = mapped.filter((m) => m.active);
   const hasPaidProduct = activeMapped.some((m) => m.price > 0);
+  const hasOffers = mapped.some(
+    (m) => m.bumpProductId || m.upsellProductId || m.downsellProductId,
+  );
+  const mappedIds = new Set(mapped.map((m) => m.productId));
+  const connectable = (
+    await db
+      .select({ id: products.id, name: products.name, price: products.price })
+      .from(products)
+      .where(eq(products.active, true))
+  ).filter((p) => !mappedIds.has(p.id));
   const pageData = new Map<string, string>(
     pages.map((p) => [String(p.pageType), JSON.stringify(p.data ?? {})]),
   );
@@ -315,19 +335,49 @@ export async function getSetupChecklist(campaign: Campaign): Promise<{
       : undefined,
   });
 
-  // 결제 연결
+  // 결제 연결 — 토스 연동(전역 1회)과 유료 상품 연결(캠페인별)을 분리
   const needsCheckout = stepTypes.has("sales") || stepTypes.has("thankyou");
   if (needsCheckout) {
+    if (!process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY) {
+      funnel.push({
+        id: "toss-key",
+        label: "토스페이먼츠 연동 (모든 캠페인 공통 · 한 번만)",
+        help: "설정 화면에서 토스 결제 키를 넣으면 모든 캠페인에 적용됩니다",
+        done: false,
+        required: true,
+        href: "/admin/settings",
+      });
+    }
     funnel.push({
-      id: "payment",
-      label: "결제 연결 (토스 + 상품)",
-      help: !process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY
-        ? "NEXT_PUBLIC_TOSS_CLIENT_KEY 미설정"
-        : undefined,
-      done: !!process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY && hasPaidProduct,
-      required: campaign.funnelType === "ebook" || campaign.funnelType === "vod_course",
-      href: "/admin/products",
+      id: "paid-product",
+      label: "유료 상품 연결",
+      help: "이 퍼널에 가격이 있는 상품이 하나는 연결돼야 결제가 돌아갑니다",
+      done: hasPaidProduct,
+      required:
+        campaign.funnelType === "ebook" || campaign.funnelType === "vod_course",
+      inline: {
+        kind: "product-connect",
+        campaignId: id,
+        newHref: `/admin/products/new?campaign=${id}&return=${encodeURIComponent(
+          `/admin/campaigns/${id}`,
+        )}`,
+        options: connectable,
+      },
+      href: settings,
     });
+
+    if (activeMapped.length > 0) {
+      funnel.push({
+        id: "offers",
+        label: hasOffers
+          ? "추가 매출(오더범프·업셀·다운셀) 설정됨"
+          : "추가 매출 붙이기 — 오더범프·업셀·다운셀 (선택)",
+        help: "결제 객단가를 올리는 장치. 캠페인 설정의 '연결 상품'에서 상품마다 지정합니다",
+        done: hasOffers,
+        required: false,
+        href: settings,
+      });
+    }
   }
 
   /* ── 3. CRM 메시지 (자동으로 나가는 문자) ── */

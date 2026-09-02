@@ -7,6 +7,7 @@ import {
   saveSettingField,
   setAutomationEnabled,
 } from "../actions";
+import { connectExistingProduct } from "../../products/actions";
 import { SubmitButton } from "../../form-ui";
 
 const TYPE_LABEL: Record<string, string> = {
@@ -77,6 +78,51 @@ function ProductInline({
         </button>
       </div>
     </form>
+  );
+}
+
+/** 기존 상품을 이 캠페인에 연결하거나, 위저드로 새로 만들기 */
+function ProductConnectInline({
+  campaignId,
+  newHref,
+  options,
+}: {
+  campaignId: string;
+  newHref: string;
+  options: { id: string; name: string; price: number }[];
+}) {
+  return (
+    <div className="mt-1.5 w-full space-y-1.5">
+      {options.length > 0 && (
+        <form action={connectExistingProduct} className="flex gap-1.5">
+          <input type="hidden" name="campaignId" value={campaignId} />
+          <select
+            name="productId"
+            required
+            defaultValue=""
+            className="min-w-0 flex-1 rounded border border-zinc-300 bg-transparent px-2 py-1 text-xs"
+          >
+            <option value="" disabled>
+              기존 상품에서 고르기…
+            </option>
+            {options.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name} ({o.price.toLocaleString("ko-KR")}원)
+              </option>
+            ))}
+          </select>
+          <SubmitButton className="shrink-0 rounded bg-black px-3 py-1 text-[12px] font-semibold text-white">
+            연결
+          </SubmitButton>
+        </form>
+      )}
+      <a
+        href={newHref}
+        className="inline-block rounded border border-blue-500 px-2.5 py-1 text-[12px] font-semibold text-blue-600"
+      >
+        + 새 상품 만들기
+      </a>
+    </div>
   );
 }
 
@@ -381,6 +427,13 @@ function ChecklistGroup({
                 field={it.inline.field}
                 value={it.inline.value}
                 placeholder={it.inline.placeholder}
+              />
+            )}
+            {!it.done && it.inline?.kind === "product-connect" && (
+              <ProductConnectInline
+                campaignId={it.inline.campaignId}
+                newHref={it.inline.newHref}
+                options={it.inline.options}
               />
             )}
           </li>
