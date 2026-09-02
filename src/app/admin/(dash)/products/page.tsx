@@ -10,6 +10,7 @@ import {
   fmtDate,
   won,
 } from "@/components/admin-ui";
+import { SectionTabs } from "../SectionTabs";
 import { ImagePicker } from "@/components/ImagePicker";
 import { saveProduct, toggleProduct } from "./actions";
 
@@ -38,6 +39,8 @@ export default async function ProductsPage({
         title="상품 관리"
         desc="저가 상품 등록 · 결제 페이지 URL 을 넣으면 퍼널 CTA 버튼({{checkout}})에 자동 연결됩니다"
       />
+
+      <SectionTabs set="product" />
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <Card className="overflow-x-auto">
           <table className="w-full text-sm">

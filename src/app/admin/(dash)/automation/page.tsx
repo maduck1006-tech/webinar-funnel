@@ -3,6 +3,7 @@ import { and, asc, count, eq, isNull, or } from "drizzle-orm";
 import { db } from "@/db";
 import { messageAutomations, messageAutomationSteps } from "@/db/schema";
 import { Card, PageHeader } from "@/components/admin-ui";
+import { SectionTabs } from "../SectionTabs";
 import { CampaignFilter } from "@/components/CampaignFilter";
 import { listCampaigns } from "@/lib/campaign";
 import { cloneForCampaign, createAutomation, toggleAutomation } from "./actions";
@@ -121,6 +122,8 @@ export default async function AutomationPage({
         desc="손님이 어떤 행동을 하면, 정해둔 시간에, 문자가 저절로 나가도록 만드는 곳이에요."
         actions={<CampaignFilter options={campaignOptions} />}
       />
+
+      <SectionTabs set="customer" />
 
       {/* 초보자용 설명 카드 */}
       <Card className="mb-6 !bg-zinc-900 text-white">

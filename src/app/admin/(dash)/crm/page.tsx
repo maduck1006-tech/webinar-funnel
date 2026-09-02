@@ -11,6 +11,7 @@ import {
   fmtDate,
   statusTone,
 } from "@/components/admin-ui";
+import { SectionTabs } from "../SectionTabs";
 import { listCampaigns } from "@/lib/campaign";
 
 export const dynamic = "force-dynamic";
@@ -64,6 +65,8 @@ export default async function CrmListPage({
   return (
     <>
       <PageHeader title="CRM 고객 목록" desc="DB 입력자 전체 · 캠페인/상태/기간 필터" />
+
+      <SectionTabs set="customer" />
 
       <Card className="mb-4">
         <form className="flex flex-wrap items-end gap-3 text-sm" method="get">

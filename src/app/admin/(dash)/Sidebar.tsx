@@ -6,29 +6,27 @@ import { usePathname } from "next/navigation";
 type Item = { href: string; label: string };
 type Section = { title?: string; items: Item[] };
 
-const SECTIONS: Section[] = [
+/** group: 이 항목이 활성으로 보일 하위 경로들 (SectionTabs 와 짝) */
+const SECTIONS: (Section & { items: (Item & { group?: string[] })[] })[] = [
   { items: [{ href: "/admin", label: "오늘" }] },
   { items: [{ href: "/admin/campaigns", label: "캠페인" }] },
   {
-    title: "고객",
     items: [
-      { href: "/admin/crm", label: "연락처" },
-      { href: "/admin/automation", label: "자동 메시지" },
-      { href: "/admin/broadcasts", label: "브로드캐스트" },
-    ],
-  },
-  {
-    title: "상품",
-    items: [
-      { href: "/admin/products", label: "상품 관리" },
-      { href: "/admin/coupons", label: "쿠폰" },
-    ],
-  },
-  {
-    title: "매출",
-    items: [
-      { href: "/admin/orders", label: "주문" },
-      { href: "/admin/analytics", label: "광고 성과" },
+      {
+        href: "/admin/crm",
+        label: "고객",
+        group: ["/admin/crm", "/admin/automation", "/admin/broadcasts"],
+      },
+      {
+        href: "/admin/products",
+        label: "상품",
+        group: ["/admin/products", "/admin/coupons"],
+      },
+      {
+        href: "/admin/orders",
+        label: "매출",
+        group: ["/admin/orders", "/admin/analytics"],
+      },
     ],
   },
   { items: [{ href: "/admin/settings", label: "설정" }] },
@@ -36,10 +34,12 @@ const SECTIONS: Section[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const active = (href: string) =>
+  const matches = (href: string) =>
     href === "/admin"
       ? pathname === "/admin"
       : pathname === href || pathname.startsWith(href + "/");
+  const active = (n: Item & { group?: string[] }) =>
+    n.group ? n.group.some(matches) : matches(n.href);
 
   return (
     <nav className="flex flex-1 flex-col gap-3 p-2">
@@ -55,7 +55,7 @@ export function Sidebar() {
               key={n.href}
               href={n.href}
               className={`block rounded-md px-3 py-1.5 text-sm ${
-                active(n.href)
+                active(n)
                   ? "bg-zinc-900 font-semibold text-white"
                   : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
               }`}

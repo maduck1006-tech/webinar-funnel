@@ -2,6 +2,7 @@ import { desc } from "drizzle-orm";
 import { db } from "@/db";
 import { coupons, type Coupon } from "@/db/schema";
 import { Card, EmptyRow, PageHeader, Tag, fmtDate } from "@/components/admin-ui";
+import { SectionTabs } from "../SectionTabs";
 import { deleteCoupon, saveCoupon, toggleCoupon } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,8 @@ export default async function CouponsPage({
         title="쿠폰"
         desc="결제창에서 '프로모션 코드'로 입력받는 할인 코드입니다"
       />
+
+      <SectionTabs set="product" />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <Card>

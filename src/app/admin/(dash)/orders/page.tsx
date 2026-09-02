@@ -9,6 +9,7 @@ import {
   fmtDate,
   won,
 } from "@/components/admin-ui";
+import { SectionTabs } from "../SectionTabs";
 import { CampaignFilter } from "@/components/CampaignFilter";
 import { listCampaigns } from "@/lib/campaign";
 import { correctOrder } from "./actions";
@@ -53,6 +54,8 @@ export default async function OrdersPage({
         desc="토스 결제 승인 내역 · 상태 수동 보정 · 연동 이벤트 로그"
         actions={<CampaignFilter options={campaignOptions} />}
       />
+
+      <SectionTabs set="revenue" />
       {!connected && <p className="mb-4 text-sm text-amber-600">DB 미연결</p>}
 
       <Card className="mb-6 overflow-x-auto">

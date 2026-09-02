@@ -3,6 +3,7 @@ import { and, between, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { adDailyStats, leads, orders } from "@/db/schema";
 import { Card, PageHeader, won } from "@/components/admin-ui";
+import { SectionTabs } from "../SectionTabs";
 import { CampaignFilter } from "@/components/CampaignFilter";
 import { listCampaigns } from "@/lib/campaign";
 
@@ -180,6 +181,8 @@ export default async function AnalyticsPage({
         desc="Meta 광고에서 나온 방문·신청·매출을 한 표로. 광고비·노출·클릭은 매일 새벽 자동 동기화"
         actions={<CampaignFilter options={campaignOptions} />}
       />
+
+      <SectionTabs set="revenue" />
 
       <form className="mb-5 flex items-end gap-2 text-sm" method="get">
         {campaignId && (

@@ -2,6 +2,7 @@ import { desc } from "drizzle-orm";
 import { db } from "@/db";
 import { broadcasts, campaigns, products } from "@/db/schema";
 import { Card, EmptyRow, PageHeader, Tag, fmtDate } from "@/components/admin-ui";
+import { SectionTabs } from "../SectionTabs";
 import { countSegment } from "@/lib/broadcasts";
 import { BroadcastComposer } from "./BroadcastComposer";
 import { deleteBroadcast } from "./actions";
@@ -37,6 +38,8 @@ export default async function BroadcastsPage() {
         title="브로드캐스트"
         desc="세그먼트에 한 번 쏘는 문자 (자동 드립 아님). 프로모·공지·재활성화에 사용"
       />
+
+      <SectionTabs set="customer" />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_420px]">
         <Card>
