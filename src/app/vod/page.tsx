@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
+export const metadata: Metadata = { title: "무료 강의 시청", robots: { index: false, follow: false } };
 import { getDefaultCampaign } from "@/lib/campaign";
 import { VodView } from "@/components/funnel-views";
 

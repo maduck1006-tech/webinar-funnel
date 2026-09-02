@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
+export const metadata: Metadata = { title: "신청 완료", robots: { index: false, follow: false } };
 import { getDefaultCampaign } from "@/lib/campaign";
 import { ThankYouView } from "@/components/funnel-views";
 

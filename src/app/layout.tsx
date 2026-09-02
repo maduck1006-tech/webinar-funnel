@@ -1,6 +1,12 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, IBM_Plex_Sans_KR } from "next/font/google";
 import "./globals.css";
+
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : "https://class.launchscale.kr");
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,8 +26,19 @@ const sansKr = IBM_Plex_Sans_KR({
 });
 
 export const metadata: Metadata = {
-  title: "무료 강의 신청",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "무료 강의 신청",
+    template: "%s · 무료 강의",
+  },
   description: "무료 강의 신청 · 시청 · 상담 예약",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#0b0b0d",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

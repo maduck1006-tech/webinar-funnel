@@ -1,4 +1,6 @@
 import { DeliveryView } from "@/components/funnel-views";
+import type { Metadata } from "next";
+export const metadata: Metadata = { title: "다운로드", robots: { index: false, follow: false } };
 import { resolveOr404 } from "../_resolve";
 
 export const dynamic = "force-dynamic";

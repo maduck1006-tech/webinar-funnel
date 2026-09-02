@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
+export const metadata: Metadata = { title: "입장 안내", robots: { index: false, follow: false } };
 import { getDefaultCampaign } from "@/lib/campaign";
 import { GroupChatView } from "@/components/funnel-views";
 

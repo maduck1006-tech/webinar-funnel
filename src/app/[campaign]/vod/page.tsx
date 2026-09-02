@@ -1,4 +1,6 @@
 import { VodView } from "@/components/funnel-views";
+import type { Metadata } from "next";
+export const metadata: Metadata = { title: "무료 강의 시청", robots: { index: false, follow: false } };
 import { resolveOr404 } from "../_resolve";
 
 export default async function CampaignVod({

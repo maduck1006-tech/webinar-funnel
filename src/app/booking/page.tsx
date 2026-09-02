@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
+export const metadata: Metadata = { title: "상담 예약", robots: { index: false, follow: false } };
 import { getDefaultCampaign } from "@/lib/campaign";
 import { BookingView } from "@/components/funnel-views";
 

@@ -1,4 +1,6 @@
 import { CourseView } from "@/components/funnel-views";
+import type { Metadata } from "next";
+export const metadata: Metadata = { title: "강의실", robots: { index: false, follow: false } };
 import { resolveOr404 } from "../_resolve";
 
 export const dynamic = "force-dynamic";
