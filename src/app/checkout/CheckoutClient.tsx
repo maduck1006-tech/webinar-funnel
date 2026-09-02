@@ -4,6 +4,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { loadTossPayments, ANONYMOUS } from "@tosspayments/tosspayments-sdk";
 import { track, trackOnce } from "@/lib/track";
 import { paymentErrorInfo } from "@/lib/payment-errors";
+import {
+  emailError,
+  formatPhoneKR,
+  hasErrors,
+  nameError,
+  phoneDigits,
+  phoneError,
+  validateLead,
+} from "@/lib/form-validate";
 
 /** 토스 SDK 에러 → 사용자용 문구 (raw 메시지/코드 노출 방지) */
 function sdkErr(e: unknown): string | null {
@@ -209,26 +218,27 @@ export function CheckoutClient(props: CheckoutClientProps) {
             </div>
           </div>
 
-          {(coupon || (withBump && bump)) && (
-            <div className="mt-3 space-y-1 border-t border-white/10 pt-3 text-[13px]">
-              {withBump && bump && (
-                <div className="flex justify-between text-white/60">
-                  <span>{bump.name}</span>
-                  <span>+{won(bump.price)}</span>
-                </div>
-              )}
-              {coupon && (
-                <div className="flex justify-between text-emerald-300">
-                  <span>쿠폰 · {coupon.label}</span>
-                  <span>−{won(coupon.discount)}</span>
-                </div>
-              )}
-              <div className="flex justify-between pt-1 font-bold text-white">
-                <span>결제 금액</span>
-                <span>{won(amount)}</span>
+          <div className="mt-3 space-y-1 border-t border-white/10 pt-3 text-[13px]">
+            {withBump && bump && (
+              <div className="flex justify-between text-white/60">
+                <span>{bump.name}</span>
+                <span>+{won(bump.price)}</span>
               </div>
+            )}
+            {coupon && (
+              <div className="flex justify-between text-emerald-300">
+                <span>쿠폰 · {coupon.label}</span>
+                <span>−{won(coupon.discount)}</span>
+              </div>
+            )}
+            <div className="flex justify-between pt-1 text-[15px] font-bold text-white">
+              <span>결제 금액</span>
+              <span>{won(amount)}</span>
             </div>
-          )}
+          </div>
+          <p className="mt-2 text-[11px] leading-relaxed text-white/40">
+            결제 즉시 이용 가능 · 콘텐츠 제공 전이라면 문자로 요청 시 전액 환불돼요.
+          </p>
         </div>
       )}
 
@@ -281,104 +291,169 @@ function ContactStep({
   defaultValues: Lead | null;
   onDone: (lead: Lead) => void;
 }) {
-  const [name, setName] = useState(defaultValues?.name ?? "");
-  const [email, setEmail] = useState(defaultValues?.email ?? "");
-  const [phone, setPhone] = useState(defaultValues?.phone ?? "");
+  const [values, setValues] = useState({
+    name: defaultValues?.name ?? "",
+    email: defaultValues?.email ?? "",
+    phone: defaultValues?.phone ? formatPhoneKR(defaultValues.phone) : "",
+  });
+  const [errs, setErrs] = useState<Record<FieldKey, string | null>>({
+    name: null,
+    email: null,
+    phone: null,
+  });
+  const [touched, setTouched] = useState<Record<FieldKey, boolean>>({
+    name: false,
+    email: false,
+    phone: false,
+  });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  const check = (k: FieldKey, raw: string) => {
+    const v =
+      k === "name" ? nameError(raw) : k === "email" ? emailError(raw) : phoneError(raw);
+    setErrs((e) => ({ ...e, [k]: v }));
+    return v;
+  };
+  const onChange = (k: FieldKey, raw: string) => {
+    const v = k === "phone" ? formatPhoneKR(raw) : raw;
+    setValues((s) => ({ ...s, [k]: v }));
+    if (touched[k]) check(k, v);
+  };
+  const onBlur = (k: FieldKey) => {
+    setTouched((t) => ({ ...t, [k]: true }));
+    check(k, values[k]);
+  };
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (busy) return;
-    setBusy(true);
     setErr(null);
+
+    const fieldErrs = validateLead(values);
+    setErrs(fieldErrs);
+    setTouched({ name: true, email: true, phone: true });
+    if (hasErrors(fieldErrs)) return;
+
+    setBusy(true);
     try {
       const res = await fetch("/api/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           campaignId: campaignId ?? undefined,
-          name: name.trim(),
-          email: email.trim(),
-          phone: phone.trim(),
+          name: values.name.trim(),
+          email: values.email.trim(),
+          phone: phoneDigits(values.phone),
           landingUrl:
             typeof window !== "undefined" ? window.location.href : undefined,
         }),
       });
       const data = (await res.json()) as { leadId?: string; error?: string };
       if (!res.ok || !data.leadId) {
-        setErr(data.error || "정보 저장에 실패했습니다. 입력값을 확인해 주세요.");
+        setErr("정보 저장에 실패했어요. 입력값을 확인하고 다시 시도해 주세요.");
         setBusy(false);
         return;
       }
       onDone({
         id: data.leadId,
-        name: name.trim(),
-        email: email.trim(),
-        phone: phone.trim(),
+        name: values.name.trim(),
+        email: values.email.trim(),
+        phone: phoneDigits(values.phone),
       });
     } catch {
-      setErr("네트워크 오류입니다. 잠시 후 다시 시도해 주세요.");
+      setErr("네트워크 오류예요. 잠시 후 다시 시도해 주세요.");
       setBusy(false);
     }
   }
 
   return (
-    <form onSubmit={submit} className="space-y-2.5">
-      <Field value={name} onChange={setName} placeholder="이름" autoComplete="name" />
-      <Field
-        value={email}
-        onChange={setEmail}
+    <form onSubmit={submit} noValidate className="space-y-2.5">
+      <CoField
+        k="name"
+        placeholder="이름"
+        autoComplete="name"
+        value={values.name}
+        error={touched.name ? errs.name : null}
+        onChange={onChange}
+        onBlur={onBlur}
+      />
+      <CoField
+        k="email"
         placeholder="이메일"
         type="email"
         autoComplete="email"
+        value={values.email}
+        error={touched.email ? errs.email : null}
+        onChange={onChange}
+        onBlur={onBlur}
       />
-      <Field
-        value={phone}
-        onChange={setPhone}
+      <CoField
+        k="phone"
         placeholder="휴대폰 번호"
         type="tel"
         autoComplete="tel"
+        value={values.phone}
+        error={touched.phone ? errs.phone : null}
+        onChange={onChange}
+        onBlur={onBlur}
       />
       {err && <p className="text-xs text-red-400">{err}</p>}
       <button
         type="submit"
-        disabled={busy || !name.trim() || !email.trim() || phone.trim().length < 8}
+        disabled={busy}
         className="mt-2 w-full rounded-xl py-3.5 text-sm font-bold text-white disabled:opacity-50"
         style={{ background: "var(--fn-accent)" }}
       >
         {busy ? "저장 중…" : "다음 · 결제하기"}
       </button>
-      <p className="pt-1 text-center text-[11px] text-white/40">
+      <p className="pt-1 text-center text-[11px] leading-relaxed text-white/40">
+        결제 후 이 번호로 시청·다운로드 링크가 문자로 전송돼요.
+        <br />
         입력하신 정보는 주문 처리와 상품 안내에만 사용됩니다.
       </p>
     </form>
   );
 }
 
-function Field({
-  value,
-  onChange,
+type FieldKey = "name" | "email" | "phone";
+
+function CoField({
+  k,
   placeholder,
   type = "text",
   autoComplete,
+  value,
+  error,
+  onChange,
+  onBlur,
 }: {
-  value: string;
-  onChange: (v: string) => void;
+  k: FieldKey;
   placeholder: string;
   type?: string;
   autoComplete?: string;
+  value: string;
+  error: string | null;
+  onChange: (k: FieldKey, v: string) => void;
+  onBlur: (k: FieldKey) => void;
 }) {
   return (
-    <input
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      type={type}
-      autoComplete={autoComplete}
-      inputMode={type === "tel" ? "numeric" : undefined}
-      className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3.5 text-sm text-white placeholder:text-white/40 focus:border-[var(--fn-accent)] focus:outline-none"
-    />
+    <div>
+      <input
+        value={value}
+        onChange={(e) => onChange(k, e.target.value)}
+        onBlur={() => onBlur(k)}
+        placeholder={placeholder}
+        type={type}
+        autoComplete={autoComplete}
+        inputMode={type === "tel" ? "numeric" : undefined}
+        aria-invalid={error ? "true" : undefined}
+        className={`w-full rounded-xl border bg-white/5 px-4 py-3.5 text-sm text-white placeholder:text-white/40 focus:outline-none ${
+          error ? "border-red-400/70" : "border-white/15 focus:border-[var(--fn-accent)]"
+        }`}
+      />
+      {error && <p className="mt-1 pl-1 text-[12px] text-red-400">{error}</p>}
+    </div>
   );
 }
 
@@ -428,11 +503,31 @@ function PayStep({
   const isMembership = productKind === "membership";
   const ready = isMembership || widgetReady;
 
+  // 결제창이 (팝업 차단 등으로) 안 뜨고 멈추는 경우 대비 — 25초 후 안내 + 버튼 복구
+  const slowTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearSlowHint = () => {
+    if (slowTimer.current) {
+      clearTimeout(slowTimer.current);
+      slowTimer.current = null;
+    }
+  };
+  const armSlowHint = () => {
+    clearSlowHint();
+    slowTimer.current = setTimeout(() => {
+      setErr(
+        "결제창이 뜨지 않으면 브라우저 팝업 차단을 해제하고 다시 시도해 주세요.",
+      );
+      setPaying(false);
+    }, 25000);
+  };
+  useEffect(() => clearSlowHint, []);
+
   // 멤버십: 빌링 인증(카드 등록) → 리다이렉트. 정기결제는 크론이 청구.
   const payMembership = useCallback(async () => {
     if (paying || !lead?.id) return;
     setPaying(true);
     setErr(null);
+    armSlowHint();
     try {
       const toss = await loadTossPayments(clientKey);
       const payment = toss.payment({ customerKey: lead.id });
@@ -444,10 +539,12 @@ function PayStep({
         customerName: lead.name || undefined,
       });
     } catch (e: unknown) {
+      clearSlowHint();
       const m = sdkErr(e);
       if (m) setErr(m);
       setPaying(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paying, lead, clientKey, successUrl, failUrl]);
 
   // 주문서 도달 = AddToCart (리타게팅)
@@ -533,6 +630,7 @@ function PayStep({
         currency: "KRW",
         value: data.amount ?? amount,
       });
+      armSlowHint();
       await widgetsRef.current.requestPayment({
         orderId: data.orderId,
         orderName: data.orderName ?? "주문",
@@ -543,10 +641,12 @@ function PayStep({
         customerMobilePhone: lead?.phone?.replace(/[^0-9]/g, "") || undefined,
       });
     } catch (e: unknown) {
+      clearSlowHint();
       const m = sdkErr(e);
       if (m) setErr(m);
       setPaying(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     paying,
     productId,
