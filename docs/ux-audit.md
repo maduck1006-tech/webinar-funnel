@@ -7,9 +7,13 @@
 
 ## 진행 현황
 - ✅ **P0 안전망** (커밋 `e0bea48`, 배포됨): A2 바운더리 · A3 Gate CTA · B2/B6 결제 에러 한국어화
-- ⬜ P0 공유·유입 (A1 + A8/D1)
+- ✅ **P0 공유·유입** (커밋 `ab9ef88`, 배포됨): A1 캠페인별 메타/OG(Puck 자동추출) · A8/D1 viewport·theme-color · 퍼널 내부 페이지 noindex
 - ⬜ P1 폼 마찰 (A6 + B4 + B1 + B3)
 - ⬜ P1 관리자 (E1 + E2)
+
+### P0 공유·유입 후속(선택)
+- OG 이미지가 랜딩 Hero 에 없으면 미리보기에 이미지가 안 붙음 → `opengraph-image.tsx` 동적 폴백(next/og) 추가하면 100% 커버
+- 캠페인별 SEO 오버라이드 컬럼(`seoTitle`/`seoDescription`/`ogImageUrl`) — 현재는 Puck 콘텐츠에서 자동 추출만
 
 ---
 
