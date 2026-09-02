@@ -11,6 +11,7 @@ import {
   won,
 } from "@/components/admin-ui";
 import { SectionTabs } from "../SectionTabs";
+import { SubmitButton } from "../form-ui";
 import { ImagePicker } from "@/components/ImagePicker";
 import { saveProduct, toggleProduct } from "./actions";
 
@@ -432,9 +433,9 @@ export default async function ProductsPage({
                 <span className="text-zinc-400">(끄면 퍼널에서 숨김)</span>
               </span>
             </label>
-            <button className="w-full rounded-lg bg-black py-2 font-semibold text-white">
+            <SubmitButton className="w-full rounded-lg bg-black py-2 font-semibold text-white">
               저장
-            </button>
+            </SubmitButton>
             {editing && (
               <Link
                 href="/admin/products"

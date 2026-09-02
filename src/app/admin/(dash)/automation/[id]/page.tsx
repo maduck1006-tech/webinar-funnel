@@ -8,6 +8,7 @@ import {
   messageAutomationSteps,
 } from "@/db/schema";
 import { Card, PageHeader, Tag } from "@/components/admin-ui";
+import { ConfirmSubmit, SubmitButton } from "../../form-ui";
 import {
   addStep,
   deleteAutomation,
@@ -220,15 +221,16 @@ export default async function AutomationEditor({
                       </div>
 
                       <div className="flex gap-2 border-t pt-3">
-                        <button className="rounded-lg bg-black px-4 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800">
+                        <SubmitButton className="rounded-lg bg-black px-4 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800">
                           이 문자 저장
-                        </button>
-                        <button
+                        </SubmitButton>
+                        <ConfirmSubmit
                           formAction={deleteStep}
+                          message="이 문자를 삭제할까요? 되돌릴 수 없습니다."
                           className="rounded-lg border px-3 py-1.5 text-xs text-red-600 hover:bg-red-50"
                         >
                           이 문자 삭제
-                        </button>
+                        </ConfirmSubmit>
                       </div>
                     </form>
                   </Card>
@@ -358,9 +360,9 @@ export default async function AutomationEditor({
                 </div>
               </div>
 
-              <button className="w-full rounded-lg bg-black py-2 font-semibold text-white hover:bg-zinc-800">
+              <SubmitButton className="w-full rounded-lg bg-black py-2 font-semibold text-white hover:bg-zinc-800">
                 설정 저장
-              </button>
+              </SubmitButton>
             </form>
           </Card>
 
@@ -372,9 +374,12 @@ export default async function AutomationEditor({
                   이 캠페인만의 설정입니다. 지우면 다시 모든 캠페인 공통 기본값을
                   따릅니다.
                 </p>
-                <button className="text-xs text-red-600 underline">
+                <ConfirmSubmit
+                  message="이 캠페인 전용 설정을 지우고 공통 기본값으로 되돌릴까요?"
+                  className="text-xs text-red-600 underline"
+                >
                   캠페인 전용 설정 삭제 → 공통 기본값으로
-                </button>
+                </ConfirmSubmit>
               </form>
             ) : auto.key ? (
               <p className="text-xs text-zinc-400">
@@ -384,9 +389,12 @@ export default async function AutomationEditor({
             ) : (
               <form action={deleteAutomation}>
                 <input type="hidden" name="id" value={auto.id} />
-                <button className="text-xs text-red-600 underline">
+                <ConfirmSubmit
+                  message="이 자동 메시지를 완전히 삭제할까요? 되돌릴 수 없습니다."
+                  className="text-xs text-red-600 underline"
+                >
                   이 자동 메시지 완전히 삭제
-                </button>
+                </ConfirmSubmit>
               </form>
             )}
           </Card>

@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { broadcasts, campaigns, products } from "@/db/schema";
 import { Card, EmptyRow, PageHeader, Tag, fmtDate } from "@/components/admin-ui";
 import { SectionTabs } from "../SectionTabs";
+import { ConfirmSubmit } from "../form-ui";
 import { countSegment } from "@/lib/broadcasts";
 import { BroadcastComposer } from "./BroadcastComposer";
 import { deleteBroadcast } from "./actions";
@@ -76,9 +77,12 @@ export default async function BroadcastsPage() {
                     <td className="py-2 text-right">
                       <form action={deleteBroadcast} className="inline">
                         <input type="hidden" name="id" value={b.id} />
-                        <button className="text-xs text-red-500 underline">
+                        <ConfirmSubmit
+                          message="이 브로드캐스트를 삭제할까요? 되돌릴 수 없습니다."
+                          className="text-xs text-red-500 underline"
+                        >
                           삭제
-                        </button>
+                        </ConfirmSubmit>
                       </form>
                     </td>
                   </tr>

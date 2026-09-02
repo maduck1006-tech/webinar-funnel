@@ -11,6 +11,7 @@ import {
 } from "@/components/admin-ui";
 import { listAffiliatesWithStats } from "@/lib/affiliates";
 import { SectionTabs } from "../SectionTabs";
+import { ConfirmSubmit, SubmitButton } from "../form-ui";
 import { markCommissionPaid, saveAffiliate, toggleAffiliate } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -119,9 +120,12 @@ export default async function AffiliatesPage({
                     {a.unpaid > 0 && (
                       <form action={markCommissionPaid} className="inline">
                         <input type="hidden" name="id" value={a.id} />
-                        <button className="text-emerald-600 underline">
+                        <ConfirmSubmit
+                          message={`${a.name} 님의 미지급 커미션 ${won(a.unpaid)} 을(를) 지급완료로 표시할까요? 되돌릴 수 없습니다.`}
+                          className="text-emerald-600 underline"
+                        >
                           지급완료
-                        </button>
+                        </ConfirmSubmit>
                       </form>
                     )}
                   </td>
@@ -194,9 +198,9 @@ export default async function AffiliatesPage({
                 className="mt-1 w-full rounded border px-2 py-1"
               />
             </label>
-            <button className="mt-1 w-full rounded-lg bg-black py-2 font-semibold text-white">
+            <SubmitButton className="mt-1 w-full rounded-lg bg-black py-2 font-semibold text-white">
               {editing ? "저장" : "만들기"}
-            </button>
+            </SubmitButton>
             {editing && (
               <Link
                 href="/admin/affiliates"

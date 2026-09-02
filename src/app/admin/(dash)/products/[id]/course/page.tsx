@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { products } from "@/db/schema";
 import { Card, PageHeader } from "@/components/admin-ui";
+import { ConfirmSubmit } from "../../../form-ui";
 import { getCourseByProduct } from "@/lib/courses";
 import {
   addLesson,
@@ -53,9 +54,12 @@ export default async function CourseBuilderPage({
                 <form action={deleteModule}>
                   <input type="hidden" name="id" value={m.id} />
                   <input type="hidden" name="productId" value={productId} />
-                  <button className="text-xs text-red-600 hover:underline">
+                  <ConfirmSubmit
+                    message={`모듈 "${m.title}" 과(와) 하위 레슨을 삭제할까요? 되돌릴 수 없습니다.`}
+                    className="text-xs text-red-600 hover:underline"
+                  >
                     모듈 삭제
-                  </button>
+                  </ConfirmSubmit>
                 </form>
               </div>
 
@@ -117,9 +121,12 @@ export default async function CourseBuilderPage({
                         name="productId"
                         value={productId}
                       />
-                      <button className="text-[11px] text-red-500 hover:underline">
+                      <ConfirmSubmit
+                        message="이 레슨을 삭제할까요? 되돌릴 수 없습니다."
+                        className="text-[11px] text-red-500 hover:underline"
+                      >
                         삭제
-                      </button>
+                      </ConfirmSubmit>
                     </form>
                   </li>
                 ))}

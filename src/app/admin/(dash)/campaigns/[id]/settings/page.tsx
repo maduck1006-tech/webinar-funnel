@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { campaignProducts, campaigns, events, products } from "@/db/schema";
 import { Card, PageHeader, Tag } from "@/components/admin-ui";
 import { CampaignTabs } from "../CampaignTabs";
+import { ConfirmSubmit, SubmitButton } from "../../../form-ui";
 import {
   deleteEvent,
   saveEvent,
@@ -191,9 +192,9 @@ export default async function CampaignSettings({
               />
             </label>
 
-            <button className="mt-2 w-full rounded-lg bg-black py-2 font-semibold text-white">
+            <SubmitButton className="mt-2 w-full rounded-lg bg-black py-2 font-semibold text-white">
               저장
-            </button>
+            </SubmitButton>
           </form>
         </Card>
 
@@ -333,9 +334,12 @@ export default async function CampaignSettings({
                 <form action={deleteEvent} className="mt-1 text-right">
                   <input type="hidden" name="id" value={e.id} />
                   <input type="hidden" name="campaignId" value={id} />
-                  <button className="text-[11px] text-red-500 hover:underline">
+                  <ConfirmSubmit
+                    message="이 회차를 삭제할까요? 되돌릴 수 없습니다."
+                    className="text-[11px] text-red-500 hover:underline"
+                  >
                     삭제
-                  </button>
+                  </ConfirmSubmit>
                 </form>
               </li>
             ))}

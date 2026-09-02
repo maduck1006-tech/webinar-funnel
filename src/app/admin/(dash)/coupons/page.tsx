@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { coupons, type Coupon } from "@/db/schema";
 import { Card, EmptyRow, PageHeader, Tag, fmtDate } from "@/components/admin-ui";
 import { SectionTabs } from "../SectionTabs";
+import { ConfirmSubmit, SubmitButton } from "../form-ui";
 import { deleteCoupon, saveCoupon, toggleCoupon } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -95,7 +96,12 @@ export default async function CouponsPage({
                     </form>
                     <form action={deleteCoupon} className="inline">
                       <input type="hidden" name="id" value={c.id} />
-                      <button className="text-red-500 underline">삭제</button>
+                      <ConfirmSubmit
+                        message={`쿠폰 "${c.code}" 을(를) 삭제할까요? 되돌릴 수 없습니다.`}
+                        className="text-red-500 underline"
+                      >
+                        삭제
+                      </ConfirmSubmit>
                     </form>
                   </td>
                 </tr>
@@ -211,9 +217,9 @@ export default async function CouponsPage({
               />
               <span className="text-xs">지금 사용 가능</span>
             </label>
-            <button className="mt-1 w-full rounded-lg bg-black py-2 font-semibold text-white">
+            <SubmitButton className="mt-1 w-full rounded-lg bg-black py-2 font-semibold text-white">
               {editing ? "저장" : "만들기"}
-            </button>
+            </SubmitButton>
           </form>
           <p className="mt-3 rounded-lg bg-zinc-50 px-3 py-2 text-[11px] leading-relaxed text-zinc-500">
             한 번 결제한 고객은 같은 쿠폰을 다시 못 씁니다. 상품 전체에
