@@ -6,6 +6,7 @@ import { leads, type Campaign } from "@/db/schema";
 import { enrollLead } from "@/lib/messaging";
 import { FunnelPage } from "@/puck/FunnelPage";
 import { PaidTracker } from "@/components/PaidTracker";
+import { OfferTracker } from "@/components/OfferTracker";
 import { previewEnabled } from "@/lib/preview";
 import { resolveLeadId } from "@/lib/lead";
 import { resolveVariant } from "@/lib/ab";
@@ -92,7 +93,15 @@ export async function ThankYouView({
           return next ? stepPath(next, basePath) : `${basePath}/vod`;
         })(),
       }}
-    />
+    >
+      {offer && (
+        <OfferTracker
+          where="thankyou"
+          productName={offer.name}
+          price={offer.price}
+        />
+      )}
+    </FunnelPage>
   );
 }
 
@@ -225,6 +234,9 @@ async function renderLiveReplayGate({
   };
   return (
     <FunnelPage campaign={campaign} pageType="vod" metadata={md}>
+      {purchaseValue ? (
+        <OfferTracker where="vod" price={purchaseValue} />
+      ) : null}
       {paid === "1" && (
         <PaidTracker leadId={leadId ?? undefined} value={purchaseValue} />
       )}
@@ -346,6 +358,9 @@ export async function VodView({
   const md = meta(leadId, deadlineIso);
   return (
     <FunnelPage campaign={campaign} pageType="vod" metadata={md}>
+      {purchaseValue ? (
+        <OfferTracker where="vod" price={purchaseValue} />
+      ) : null}
       {paid === "1" && (
         <PaidTracker leadId={leadId ?? undefined} value={purchaseValue} />
       )}
@@ -486,7 +501,15 @@ export async function SalesView({
         price: offer?.price,
         compareAt: offer?.compareAt ?? undefined,
       }}
-    />
+    >
+      {offer && (
+        <OfferTracker
+          where="sales"
+          productName={offer.name}
+          price={offer.price}
+        />
+      )}
+    </FunnelPage>
   );
 }
 

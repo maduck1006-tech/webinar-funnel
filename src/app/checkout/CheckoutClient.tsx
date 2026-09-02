@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { loadTossPayments, ANONYMOUS } from "@tosspayments/tosspayments-sdk";
+import { track, trackOnce } from "@/lib/track";
 
 type Lead = { id: string; name: string; email: string; phone: string };
 
@@ -438,6 +439,15 @@ function PayStep({
     }
   }, [paying, lead, clientKey, successUrl, failUrl]);
 
+  // 주문서 도달 = AddToCart (리타게팅)
+  useEffect(() => {
+    trackOnce(`atc:${productId}`, "add_to_cart", {
+      value: amount,
+      currency: "KRW",
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // 위젯 초기화 (1회) — 멤버십은 위젯 대신 빌링 인증이라 스킵
   useEffect(() => {
     if (isMembership) return;
@@ -503,6 +513,10 @@ function PayStep({
         setPaying(false);
         return;
       }
+      track("checkout_start", {
+        value: data.amount ?? amount,
+        currency: "KRW",
+      });
       await widgetsRef.current.setAmount({
         currency: "KRW",
         value: data.amount ?? amount,

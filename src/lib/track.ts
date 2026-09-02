@@ -4,17 +4,27 @@
  * 클라이언트 전환 이벤트 발화. Meta Pixel(fbq) + GA4(gtag) 둘 다로 보냄.
  * 스크립트는 <CampaignTracking> 이 주입. 미주입 환경에서도 안전(no-op).
  */
-type TrackEvent = "page_view" | "lead" | "checkout_start" | "purchase";
+type TrackEvent =
+  | "page_view"
+  | "lead"
+  | "view_content"
+  | "add_to_cart"
+  | "checkout_start"
+  | "purchase";
 
 const META_MAP: Record<TrackEvent, string> = {
   page_view: "PageView",
   lead: "Lead",
+  view_content: "ViewContent", // 오퍼 페이지 조회 — 리타게팅 오디언스
+  add_to_cart: "AddToCart", // 결제창(주문서) 도달
   checkout_start: "InitiateCheckout",
   purchase: "Purchase",
 };
 const GA_MAP: Record<TrackEvent, string> = {
   page_view: "page_view",
   lead: "generate_lead",
+  view_content: "view_item",
+  add_to_cart: "add_to_cart",
   checkout_start: "begin_checkout",
   purchase: "purchase",
 };
