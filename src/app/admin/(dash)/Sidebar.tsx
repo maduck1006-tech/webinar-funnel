@@ -25,7 +25,7 @@ const SECTIONS: (Section & { items: (Item & { group?: string[] })[] })[] = [
       {
         href: "/admin/orders",
         label: "매출",
-        group: ["/admin/orders", "/admin/analytics"],
+        group: ["/admin/orders", "/admin/analytics", "/admin/affiliates"],
       },
     ],
   },

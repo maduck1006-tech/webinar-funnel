@@ -16,6 +16,7 @@ const SETS: Record<string, { label: string; href: string }[]> = {
   revenue: [
     { label: "주문", href: "/admin/orders" },
     { label: "광고 성과", href: "/admin/analytics" },
+    { label: "어필리에이트", href: "/admin/affiliates" },
   ],
 };
 

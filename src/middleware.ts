@@ -34,6 +34,16 @@ function applyFirstTouch(req: NextRequest, res: NextResponse) {
   if (fbclid && !cookies.get("_fbc")) {
     res.cookies.set("_fbc", `fb.1.${Date.now()}.${fbclid}`, opts);
   }
+
+  // 어필리에이트 추천: ?ref=CODE → _aff 쿠키 (90일 first-touch)
+  const refCode = url.searchParams.get("ref");
+  if (
+    refCode &&
+    /^[a-zA-Z0-9_-]{2,32}$/.test(refCode) &&
+    !cookies.get("_aff")
+  ) {
+    res.cookies.set("_aff", refCode, opts);
+  }
   if (!cookies.get("_ft")) {
     const ft: Record<string, string> = {};
     url.searchParams.forEach((v, k) => {

@@ -263,6 +263,50 @@ export const phoneOtps = pgTable(
 );
 
 /**
+ * 어필리에이트(제휴 파트너) — 남이 퍼널을 홍보하고 커미션 받는 구조.
+ * (docs/multi-product-funnel-plan.md 보완 5 · 브런슨 Backpack)
+ * 링크: {SITE}/?ref=<code> → middleware 가 _aff 쿠키(90일 first-touch)
+ */
+export const affiliates = pgTable(
+  "affiliates",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: text("name").notNull(),
+    phone: text("phone"),
+    email: text("email"),
+    /** 추천 링크에 붙는 코드 (?ref=CODE) */
+    code: text("code").notNull(),
+    /** 커미션 % (주문 금액 대비) */
+    commissionPct: integer("commission_pct").notNull().default(20),
+    /** 'active' | 'paused' */
+    status: text("status").notNull().default("active"),
+    /** 정산 정보 (은행/계좌 등) — 표시용 */
+    payoutInfo: text("payout_info"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex("affiliates_code_idx").on(t.code)],
+);
+
+export const affiliateReferrals = pgTable(
+  "affiliate_referrals",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    affiliateId: uuid("affiliate_id")
+      .notNull()
+      .references(() => affiliates.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex("affiliate_referrals_lead_idx").on(t.leadId)],
+);
+
+/**
  * 브로드캐스트 — 세그먼트에 한 번 쏘는 문자 (자동 드립 아님).
  * 브런슨: 자동화=신규용, 브로드캐스트=리스트를 계속 데우는 것.
  * (docs/multi-product-funnel-plan.md 보완 1 · 브로드캐스트)
@@ -395,6 +439,10 @@ export const orders = pgTable(
     /** 적용된 쿠폰 + 할인액(원). amount 는 이미 차감된 실결제액 */
     couponId: uuid("coupon_id"),
     discount: integer("discount").notNull().default(0),
+    /** 어필리에이트 귀속 + 커미션(원) + 정산 여부 */
+    affiliateId: uuid("affiliate_id"),
+    commission: integer("commission").notNull().default(0),
+    commissionPaid: boolean("commission_paid").notNull().default(false),
     email: text("email"),
     phone: text("phone"),
     amount: integer("amount").notNull(),
@@ -1038,6 +1086,7 @@ export type Entitlement = typeof entitlements.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Coupon = typeof coupons.$inferSelect;
 export type Broadcast = typeof broadcasts.$inferSelect;
+export type Affiliate = typeof affiliates.$inferSelect;
 export type Course = typeof courses.$inferSelect;
 export type Event = typeof events.$inferSelect;
 export type EventRegistration = typeof eventRegistrations.$inferSelect;

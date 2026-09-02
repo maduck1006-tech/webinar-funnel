@@ -107,6 +107,20 @@ export async function GET(req: Request) {
     }
   }
 
+  // 4.6. 어필리에이트 커미션 기록 (신규 주문 + lead 에 추천 연결됐을 때)
+  if (insertedOrder?.id && pending.leadId) {
+    try {
+      const { recordCommission } = await import("@/lib/affiliates");
+      await recordCommission({
+        orderId: insertedOrder.id,
+        leadId: pending.leadId,
+        amount: confirmed.totalAmount,
+      });
+    } catch (e) {
+      reportError("toss.confirm.affiliate", e, { orderId });
+    }
+  }
+
   // 5. pending_orders 완료 처리
   await db
     .update(pendingOrders)

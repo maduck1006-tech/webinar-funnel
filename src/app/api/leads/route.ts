@@ -126,6 +126,19 @@ export async function POST(req: Request) {
     }
   });
 
+  // 어필리에이트 추천 연결 (?ref=CODE → _aff 쿠키, first-touch)
+  after(async () => {
+    try {
+      const code = readCookie(cookieHeader, "_aff");
+      if (code) {
+        const { linkReferral } = await import("@/lib/affiliates");
+        await linkReferral(row.id, decodeURIComponent(code));
+      }
+    } catch {
+      /* noop */
+    }
+  });
+
   // 신청 자동화 등록 (delay 0 = 확인 문자 즉시 발송). 응답 후 백그라운드.
   after(async () => {
     try {
