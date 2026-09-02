@@ -106,7 +106,9 @@ export async function getSetupChecklist(campaign: Campaign): Promise<{
     pages.map((p) => [String(p.pageType), JSON.stringify(p.data ?? {})]),
   );
 
-  const funnelBuilder = `/admin/builder/${id}`;
+  // Puck 빌더는 페이지 타입까지 필요: /admin/builder/[campaignId]/[pageType]
+  const builderFor = (pageType: string) => `/admin/builder/${id}/${pageType}`;
+  const funnelOverview = `/admin/campaigns/${id}/funnel`;
   const settings = `/admin/campaigns/${id}/settings`;
 
   /* ── 1. 오퍼 ── */
@@ -218,7 +220,7 @@ export async function getSetupChecklist(campaign: Campaign): Promise<{
       help: "헤드라인이 전환을 만듭니다. 기본 문구 그대로 두지 마세요",
       done: copyPending.length === 0,
       required: false,
-      href: funnelBuilder,
+      href: builderFor(copyPending[0] ?? copyPages[0]),
     });
   }
 
@@ -241,7 +243,9 @@ export async function getSetupChecklist(campaign: Campaign): Promise<{
     help: "각 페이지에 다음 단계 버튼({{next}}) 또는 결제 버튼({{checkout}})이 있어야 합니다",
     done: deadEnds.length === 0,
     required: deadEnds.length > 0,
-    href: funnelBuilder,
+    href: deadEnds[0]
+      ? builderFor(deadEnds[0].pageType)
+      : funnelOverview,
   });
 
   // 결제 연결
