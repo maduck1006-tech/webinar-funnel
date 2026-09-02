@@ -12,6 +12,7 @@ import { confirmTossPayment } from "@/lib/toss";
 import { sendMetaEvent } from "@/lib/meta-capi";
 import { grantEntitlement } from "@/lib/entitlements";
 import { enrollLead, stopAutomations } from "@/lib/messaging";
+import { getProductOffers } from "@/lib/funnel-offer";
 import { reportError } from "@/lib/report";
 
 export const runtime = "nodejs";
@@ -304,18 +305,18 @@ async function redirectAfterPurchase(pending: {
   role: string;
 }) {
   if (pending.role === "main" && pending.productId) {
-    const [p] = await db
-      .select({ upsellProductId: products.upsellProductId })
-      .from(products)
-      .where(eq(products.id, pending.productId));
-    if (p?.upsellProductId) {
+    const offers = await getProductOffers(
+      pending.productId,
+      pending.campaignId,
+    );
+    if (offers.upsellProductId) {
       const [up] = await db
         .select({ id: products.id, active: products.active })
         .from(products)
-        .where(eq(products.id, p.upsellProductId));
+        .where(eq(products.id, offers.upsellProductId));
       if (up?.active) {
         const basePath = await basePathFor(pending.campaignId);
-        const qs = new URLSearchParams({ p: up.id });
+        const qs = new URLSearchParams({ p: up.id, main: pending.productId });
         if (pending.leadId) qs.set("l", pending.leadId);
         return NextResponse.redirect(
           new URL(`${basePath}/checkout/upsell?${qs.toString()}`, getOrigin()),

@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { campaigns, leads, products } from "@/db/schema";
 import { isUuid, resolveLeadId } from "@/lib/lead";
+import { getProductOffers } from "@/lib/funnel-offer";
 
 export const dynamic = "force-dynamic";
 
@@ -20,25 +21,27 @@ const won = (n: number) => n.toLocaleString("ko-KR") + "원";
 export default async function UpsellPage({
   searchParams,
 }: {
-  searchParams: Promise<{ p?: string; l?: string; d?: string }>;
+  searchParams: Promise<{ p?: string; l?: string; d?: string; main?: string }>;
 }) {
-  const { p: productId, l: lParam, d } = await searchParams;
+  const { p: productId, l: lParam, d, main } = await searchParams;
   const isDownsell = d === "1";
 
   const leadId = await resolveLeadId(lParam);
   const leadQs = leadId ? `&l=${leadId}` : "";
 
   let basePath = "";
+  let campaignId: string | null = null;
   if (leadId) {
     const [lead] = await db
       .select({ campaignId: leads.campaignId })
       .from(leads)
       .where(eq(leads.id, leadId));
-    if (lead?.campaignId) {
+    campaignId = lead?.campaignId ?? null;
+    if (campaignId) {
       const [c] = await db
         .select({ slug: campaigns.slug, isDefault: campaigns.isDefault })
         .from(campaigns)
-        .where(eq(campaigns.id, lead.campaignId));
+        .where(eq(campaigns.id, campaignId));
       if (c && !c.isDefault) basePath = `/${c.slug}`;
     }
   }
@@ -57,10 +60,15 @@ export default async function UpsellPage({
   const acceptUrl = `${basePath}/checkout?p=${product.id}${leadQs}&role=${
     isDownsell ? "downsell" : "upsell"
   }`;
-  const declineUrl =
-    !isDownsell && product.downsellProductId
-      ? `${basePath}/checkout/upsell?p=${product.downsellProductId}${leadQs}&d=1`
-      : vodUrl;
+
+  // 업셀 거절 시 다운셀: 본상품(main)의 이 캠페인 기준 downsellProductId
+  let downsellId: string | null = null;
+  if (!isDownsell && isUuid(main)) {
+    downsellId = (await getProductOffers(main, campaignId)).downsellProductId;
+  }
+  const declineUrl = downsellId
+    ? `${basePath}/checkout/upsell?p=${downsellId}${leadQs}&d=1`
+    : vodUrl;
 
   return (
     <div

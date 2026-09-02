@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { leads, pendingOrders, products } from "@/db/schema";
 import { generateTossOrderId } from "@/lib/toss";
 import { validateCoupon } from "@/lib/coupons";
+import { getProductOffers } from "@/lib/funnel-offer";
 
 export const runtime = "nodejs";
 
@@ -37,18 +38,31 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "상품을 찾을 수 없습니다" }, { status: 404 });
   }
 
-  // 업셀·다운셀엔 오더 범프 없음
+  let campaignId: string | null = null;
+  if (leadId) {
+    const [l] = await db
+      .select({ c: leads.campaignId })
+      .from(leads)
+      .where(eq(leads.id, leadId))
+      .limit(1);
+    campaignId = l?.c ?? null;
+  }
+
+  // 업셀·다운셀엔 오더 범프 없음. 범프는 이 캠페인 기준.
   let bumpAmount = 0;
   let bumpProductId: string | null = null;
-  if (role === "main" && withBump && product.bumpProductId) {
-    const [bp] = await db
-      .select()
-      .from(products)
-      .where(eq(products.id, product.bumpProductId))
-      .limit(1);
-    if (bp && bp.active) {
-      bumpAmount = bp.price;
-      bumpProductId = bp.id;
+  if (role === "main" && withBump) {
+    const offers = await getProductOffers(product.id, campaignId);
+    if (offers.bumpProductId) {
+      const [bp] = await db
+        .select()
+        .from(products)
+        .where(eq(products.id, offers.bumpProductId))
+        .limit(1);
+      if (bp && bp.active) {
+        bumpAmount = bp.price;
+        bumpProductId = bp.id;
+      }
     }
   }
 
@@ -72,16 +86,6 @@ export async function POST(req: Request) {
   }
 
   const amount = Math.max(100, gross - discount); // 토스 최소 결제액 대비
-
-  let campaignId: string | null = null;
-  if (leadId) {
-    const [l] = await db
-      .select({ c: leads.campaignId })
-      .from(leads)
-      .where(eq(leads.id, leadId))
-      .limit(1);
-    campaignId = l?.c ?? null;
-  }
 
   const orderId = generateTossOrderId();
   await db.insert(pendingOrders).values({

@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { campaigns, leads, products } from "@/db/schema";
 import { isUuid, resolveLeadId } from "@/lib/lead";
+import { getProductOffers } from "@/lib/funnel-offer";
 import { CheckoutClient } from "./CheckoutClient";
 
 export const dynamic = "force-dynamic";
@@ -39,23 +40,6 @@ export default async function CheckoutPage({
     return notFound();
   }
 
-  // 오더 범프 상품 (본상품 결제에서만)
-  let bump: { name: string; price: number; description: string } | null = null;
-  if (orderRole === "main" && product.bumpProductId) {
-    const [bp] = await db
-      .select()
-      .from(products)
-      .where(eq(products.id, product.bumpProductId))
-      .limit(1);
-    if (bp && bp.active) {
-      bump = {
-        name: bp.name,
-        price: bp.price,
-        description: product.bumpDescription || bp.description || "",
-      };
-    }
-  }
-
   // lead 조회
   const leadId = await resolveLeadId(lParam);
   let lead: typeof leads.$inferSelect | null = null;
@@ -84,6 +68,26 @@ export default async function CheckoutPage({
         .from(campaigns)
         .where(eq(campaigns.isDefault, true));
       campaignId = d?.id ?? null;
+    }
+  }
+
+  // 오더 범프 (이 캠페인 기준. 본상품 결제에서만)
+  let bump: { name: string; price: number; description: string } | null = null;
+  if (orderRole === "main") {
+    const offers = await getProductOffers(product.id, campaignId);
+    if (offers.bumpProductId) {
+      const [bp] = await db
+        .select()
+        .from(products)
+        .where(eq(products.id, offers.bumpProductId))
+        .limit(1);
+      if (bp && bp.active) {
+        bump = {
+          name: bp.name,
+          price: bp.price,
+          description: offers.bumpDescription || bp.description || "",
+        };
+      }
     }
   }
 

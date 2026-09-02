@@ -58,6 +58,76 @@ export async function getActiveOffer(
   }
 }
 
+export type ProductOffers = {
+  bumpProductId: string | null;
+  bumpDescription: string | null;
+  upsellProductId: string | null;
+  downsellProductId: string | null;
+};
+
+/**
+ * 이 캠페인에서 이 상품 주문서에 붙는 추가 오퍼(범프/업셀/다운셀).
+ * campaign_products 매핑 우선, 없으면 products 의 (deprecated) 전역값 폴백.
+ * campaignId 가 없으면(퍼널 밖 직접 결제) products 전역값만.
+ */
+export async function getProductOffers(
+  productId: string,
+  campaignId: string | null,
+): Promise<ProductOffers> {
+  const empty: ProductOffers = {
+    bumpProductId: null,
+    bumpDescription: null,
+    upsellProductId: null,
+    downsellProductId: null,
+  };
+  try {
+    const [prod] = await db
+      .select({
+        bumpProductId: products.bumpProductId,
+        bumpDescription: products.bumpDescription,
+        upsellProductId: products.upsellProductId,
+        downsellProductId: products.downsellProductId,
+      })
+      .from(products)
+      .where(eq(products.id, productId));
+    if (!prod) return empty;
+
+    let cp:
+      | {
+          bumpProductId: string | null;
+          bumpDescription: string | null;
+          upsellProductId: string | null;
+          downsellProductId: string | null;
+        }
+      | undefined;
+    if (campaignId) {
+      [cp] = await db
+        .select({
+          bumpProductId: campaignProducts.bumpProductId,
+          bumpDescription: campaignProducts.bumpDescription,
+          upsellProductId: campaignProducts.upsellProductId,
+          downsellProductId: campaignProducts.downsellProductId,
+        })
+        .from(campaignProducts)
+        .where(
+          and(
+            eq(campaignProducts.campaignId, campaignId),
+            eq(campaignProducts.productId, productId),
+          ),
+        );
+    }
+    return {
+      bumpProductId: cp?.bumpProductId ?? prod.bumpProductId ?? null,
+      bumpDescription: cp?.bumpDescription ?? prod.bumpDescription ?? null,
+      upsellProductId: cp?.upsellProductId ?? prod.upsellProductId ?? null,
+      downsellProductId:
+        cp?.downsellProductId ?? prod.downsellProductId ?? null,
+    };
+  } catch {
+    return empty;
+  }
+}
+
 /** 결제 URL 에 lead 식별자 붙이기 */
 export function checkoutUrlWithLead(url: string, leadId?: string | null): string {
   if (!leadId) return url;

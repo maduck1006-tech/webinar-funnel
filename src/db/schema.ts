@@ -896,9 +896,17 @@ export const campaignProducts = pgTable(
     productId: uuid("product_id")
       .notNull()
       .references(() => products.id, { onDelete: "cascade" }),
-    /** 'thankyou' | 'vod_bottom' | 'both' */
+    /** 'thankyou' | 'vod_bottom' | 'both' | 'sales' */
     placement: text("placement").notNull().default("both"),
     sortOrder: integer("sort_order").notNull().default(0),
+    /**
+     * 이 캠페인에서 이 상품 주문서에 붙는 추가 오퍼 (클릭퍼널스식).
+     * products 의 동일 컬럼(전역)은 deprecated — 여기 값이 우선.
+     */
+    bumpProductId: uuid("bump_product_id"),
+    bumpDescription: text("bump_description"),
+    upsellProductId: uuid("upsell_product_id"),
+    downsellProductId: uuid("downsell_product_id"),
   },
   (t) => [
     uniqueIndex("campaign_products_pk").on(t.campaignId, t.productId),
