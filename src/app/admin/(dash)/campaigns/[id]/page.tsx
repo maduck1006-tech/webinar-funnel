@@ -7,6 +7,7 @@ import { Card, PageHeader, Stat, Tag, won } from "@/components/admin-ui";
 import { campaignBasePath } from "@/lib/campaign";
 import { getSetupChecklist } from "@/lib/campaign-setup";
 import { SetupChecklist } from "./SetupChecklist";
+import { CampaignTabs } from "./CampaignTabs";
 import {
   ADDABLE_STEPS,
   flowSummary,
@@ -111,39 +112,21 @@ export default async function CampaignHub({
           </span>
         }
         actions={
-          <div className="flex gap-2">
-            <Link
-              href={`/admin/campaigns/${id}/settings`}
-              className="rounded-lg border px-3 py-2 text-sm"
-            >
-              설정
-            </Link>
-            <Link
-              href={`/admin/flow?campaign=${campaign.slug}`}
-              className="rounded-lg border px-3 py-2 text-sm"
-            >
-              흐름도
-            </Link>
-            <Link
-              href={`/admin/automation?campaign=${id}`}
-              className="rounded-lg border px-3 py-2 text-sm"
-            >
-              문자 문구
-            </Link>
-            <form action={setCampaignStatus}>
-              <input type="hidden" name="id" value={id} />
-              <input
-                type="hidden"
-                name="status"
-                value={campaign.status === "live" ? "draft" : "live"}
-              />
-              <button className="rounded-lg bg-black px-3 py-2 text-sm font-semibold text-white">
-                {campaign.status === "live" ? "비공개로" : "발행(live)"}
-              </button>
-            </form>
-          </div>
+          <form action={setCampaignStatus}>
+            <input type="hidden" name="id" value={id} />
+            <input
+              type="hidden"
+              name="status"
+              value={campaign.status === "live" ? "draft" : "live"}
+            />
+            <button className="rounded-lg bg-black px-3 py-2 text-sm font-semibold text-white">
+              {campaign.status === "live" ? "비공개로" : "발행(live)"}
+            </button>
+          </form>
         }
       />
+
+      <CampaignTabs id={id} slug={campaign.slug} />
 
       {checklist && (
         <SetupChecklist

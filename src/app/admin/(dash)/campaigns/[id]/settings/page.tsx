@@ -4,6 +4,7 @@ import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { campaignProducts, campaigns, events, products } from "@/db/schema";
 import { Card, PageHeader, Tag } from "@/components/admin-ui";
+import { CampaignTabs } from "../CampaignTabs";
 import {
   deleteEvent,
   saveEvent,
@@ -53,6 +54,8 @@ export default async function CampaignSettings({
           </Link>
         }
       />
+
+      <CampaignTabs id={id} slug={c.slug} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

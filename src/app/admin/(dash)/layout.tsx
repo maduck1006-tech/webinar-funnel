@@ -1,21 +1,6 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { UserButton } from "@clerk/nextjs";
-
-const nav = [
-  { href: "/admin", label: "대시보드" },
-  { href: "/admin/campaigns", label: "캠페인" },
-  { href: "/admin/flow", label: "퍼널 흐름도" },
-  { href: "/admin/products", label: "상품 관리" },
-  { href: "/admin/coupons", label: "쿠폰" },
-  { href: "/admin/crm", label: "CRM 고객" },
-  { href: "/admin/journey", label: "여정 지도" },
-  { href: "/admin/automation", label: "자동 메시지" },
-  { href: "/admin/broadcasts", label: "브로드캐스트" },
-  { href: "/admin/orders", label: "결제/주문" },
-  { href: "/admin/analytics", label: "광고 성과" },
-  { href: "/admin/settings", label: "연동 설정" },
-];
+import { Sidebar } from "./Sidebar";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
@@ -24,17 +9,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <div className="border-b px-4 py-4 text-sm font-bold">
           웨비나 퍼널 · 관리자
         </div>
-        <nav className="flex flex-1 flex-col p-2">
-          {nav.map((n) => (
-            <Link
-              key={n.href}
-              href={n.href}
-              className="rounded-md px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
-            >
-              {n.label}
-            </Link>
-          ))}
-        </nav>
+        <Sidebar />
         <div className="border-t p-3">
           <UserButton
             showName
