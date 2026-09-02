@@ -1,21 +1,53 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { products, type Product } from "@/db/schema";
-import {
-  Card,
-  EmptyRow,
-  PageHeader,
-  Tag,
-  fmtDate,
-  won,
-} from "@/components/admin-ui";
+import { campaignProducts, campaigns, products, type Product } from "@/db/schema";
+import { Card, PageHeader, Tag, fmtDate, won } from "@/components/admin-ui";
 import { SectionTabs } from "../SectionTabs";
 import { SubmitButton } from "../form-ui";
 import { ImagePicker } from "@/components/ImagePicker";
 import { saveProduct, toggleProduct } from "./actions";
 
 export const dynamic = "force-dynamic";
+
+const TYPE_META: Record<
+  string,
+  { icon: string; label: string; need: string }
+> = {
+  workbook: {
+    icon: "📄",
+    label: "워크북 / 자료",
+    need: "결제하면 문자·보관함으로 자료를 전달합니다. 파일은 캠페인 설정의 다운로드 링크나 보관함을 씁니다.",
+  },
+  ebook: {
+    icon: "📕",
+    label: "전자책",
+    need: "아래 '전자책 파일 URL'에 PDF 링크를 넣으면 결제 후 자동 전달됩니다.",
+  },
+  vod_course: {
+    icon: "🎬",
+    label: "VOD 강의",
+    need: "먼저 저장한 뒤, 상품 목록의 '강의 구성'에서 커리큘럼·영상을 넣으세요.",
+  },
+  coaching: {
+    icon: "🗓️",
+    label: "1:1 코칭",
+    need: "결제하면 상담 예약 안내로 이어집니다. 예약 캘린더는 캠페인 설정에서 연결하세요.",
+  },
+  membership: {
+    icon: "♾️",
+    label: "멤버십 (구독)",
+    need: "'멤버십 무료 개월'을 정하면 그 기간이 지난 뒤 매달 자동결제로 전환됩니다.",
+  },
+};
+
+const PLACEMENT_LABEL: Record<string, string> = {
+  both: "땡큐 + VOD",
+  thankyou: "땡큐 페이지",
+  vod_bottom: "VOD 시청",
+  sales: "세일즈 페이지",
+};
 
 async function getProducts(): Promise<Product[]> {
   try {
@@ -34,243 +66,316 @@ export default async function ProductsPage({
   const list = await getProducts();
   const editing = list.find((p) => p.id === edit) ?? null;
 
+  // 상품이 어느 캠페인에 연결됐는지
+  const linkMap = new Map<string, string[]>();
+  try {
+    const cps = await db
+      .select({
+        productId: campaignProducts.productId,
+        name: campaigns.name,
+      })
+      .from(campaignProducts)
+      .innerJoin(campaigns, eq(campaigns.id, campaignProducts.campaignId));
+    for (const cp of cps) {
+      linkMap.set(cp.productId, [...(linkMap.get(cp.productId) ?? []), cp.name]);
+    }
+  } catch {
+    /* noop */
+  }
+
+  const nameById = new Map(list.map((p) => [p.id, p.name]));
+
   return (
     <>
       <PageHeader
         title="상품 관리"
-        desc="저가 상품 등록 · 결제 페이지 URL 을 넣으면 퍼널 CTA 버튼({{checkout}})에 자동 연결됩니다"
+        desc="퍼널에서 판매할 상품을 등록하는 곳. CTA 버튼을 {{checkout}} 으로 두면 여기 상품의 결제창으로 자동 연결됩니다."
       />
 
       <SectionTabs set="product" />
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <Card className="overflow-x-auto">
-          <div className="-mx-5 overflow-x-auto px-5"><table className="w-full min-w-[600px] text-sm">
-            <thead>
-              <tr className="border-b text-left text-xs text-zinc-500">
-                <th className="pb-2">상품명</th>
-                <th className="pb-2">가격</th>
-                <th className="pb-2">상태</th>
-                <th className="pb-2">결제 연결</th>
-                <th className="pb-2">노출기간</th>
-                <th className="pb-2"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {list.length === 0 && <EmptyRow colSpan={6} text="등록된 상품 없음" />}
-              {list.map((p) => (
-                <tr key={p.id}>
-                  <td className="py-2 font-medium">
-                    <span className="flex items-center gap-2">
-                      {p.imageUrl && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={p.imageUrl}
-                          alt=""
-                          className="h-8 w-8 rounded object-cover"
-                        />
-                      )}
-                      {p.name}
-                    </span>
-                  </td>
-                  <td className="py-2">
-                    {p.compareAtPrice && p.compareAtPrice > p.price && (
-                      <span className="mr-1 text-zinc-400 line-through">
-                        {won(p.compareAtPrice)}
-                      </span>
+
+      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+        {/* ── 목록 ── */}
+        <div className="space-y-3">
+          {list.length === 0 && (
+            <Card>
+              <p className="py-8 text-center text-sm text-zinc-400">
+                등록된 상품이 없어요. 오른쪽에서 첫 상품을 만들어보세요.
+              </p>
+            </Card>
+          )}
+
+          {list.map((p) => {
+            const t = TYPE_META[p.type] ?? {
+              icon: "📦",
+              label: p.type,
+              need: "",
+            };
+            const linkedCampaigns = linkMap.get(p.id) ?? [];
+            const off = p.compareAtPrice && p.compareAtPrice > p.price
+              ? Math.round((1 - p.price / p.compareAtPrice) * 100)
+              : 0;
+            return (
+              <Card
+                key={p.id}
+                className={!p.active ? "opacity-60" : ""}
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex min-w-0 flex-1 gap-3">
+                    {p.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={p.imageUrl}
+                        alt=""
+                        className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-[var(--fn-bg-2)] text-xl">
+                        {t.icon}
+                      </div>
                     )}
-                    {won(p.price)}
-                  </td>
-                  <td className="py-2">
-                    <Tag tone={p.active ? "green" : "gray"}>
-                      {p.active ? "노출중" : "중지"}
-                    </Tag>
-                  </td>
-                  <td className="py-2">
-                    <Tag tone="blue">토스 결제</Tag>
-                  </td>
-                  <td className="py-2 text-xs text-zinc-500">
-                    {p.showFrom || p.showUntil
-                      ? `${fmtDate(p.showFrom)} ~ ${fmtDate(p.showUntil)}`
-                      : "상시"}
-                  </td>
-                  <td className="py-2 text-right">
+                    <div className="min-w-0 space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold text-zinc-900">
+                          {p.name}
+                        </span>
+                        <Tag tone="gray">
+                          {t.icon} {t.label}
+                        </Tag>
+                        <Tag tone={p.active ? "green" : "gray"}>
+                          {p.active ? "판매중" : "중지"}
+                        </Tag>
+                        {p.priceMode === "free" && <Tag tone="blue">무료</Tag>}
+                      </div>
+
+                      <p className="text-sm">
+                        {p.priceMode === "free" ? (
+                          <span className="font-bold text-zinc-900">무료</span>
+                        ) : (
+                          <>
+                            {off > 0 && (
+                              <>
+                                <span className="mr-1 text-zinc-400 line-through">
+                                  {won(p.compareAtPrice!)}
+                                </span>
+                                <span className="mr-1 text-red-500">
+                                  {off}%
+                                </span>
+                              </>
+                            )}
+                            <span className="font-bold text-zinc-900">
+                              {won(p.price)}
+                            </span>
+                          </>
+                        )}
+                      </p>
+
+                      <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-zinc-500">
+                        <span>노출: {PLACEMENT_LABEL[p.placement] ?? p.placement}</span>
+                        {p.bumpProductId && (
+                          <Tag tone="amber">
+                            + 범프: {nameById.get(p.bumpProductId) ?? "?"}
+                          </Tag>
+                        )}
+                        {p.upsellProductId && (
+                          <Tag tone="amber">
+                            + 업셀: {nameById.get(p.upsellProductId) ?? "?"}
+                          </Tag>
+                        )}
+                        {linkedCampaigns.length > 0 ? (
+                          <span>· 연결 캠페인: {linkedCampaigns.join(", ")}</span>
+                        ) : (
+                          <span className="text-amber-600">
+                            · 아직 캠페인에 연결 안 됨
+                          </span>
+                        )}
+                        <span>
+                          ·{" "}
+                          {p.showFrom || p.showUntil
+                            ? `${fmtDate(p.showFrom)} ~ ${fmtDate(p.showUntil)}`
+                            : "상시 판매"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-t pt-2 text-xs sm:border-0 sm:pt-0">
                     {p.type === "vod_course" && (
-                      <a
+                      <Link
                         href={`/admin/products/${p.id}/course`}
-                        className="mr-2 text-xs text-blue-600 underline"
+                        className="text-blue-600 underline"
                       >
                         강의 구성
-                      </a>
+                      </Link>
                     )}
                     <a
                       href={`/checkout?p=${p.id}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="mr-2 text-xs text-blue-600 underline"
+                      className="text-zinc-400 underline"
                     >
-                      체크아웃 열기
+                      결제창 미리보기
                     </a>
-                    <a
+                    <Link
                       href={`/admin/products?edit=${p.id}`}
-                      className="mr-2 text-xs text-blue-600 underline"
+                      className="rounded-lg border px-2.5 py-1 font-semibold text-blue-600 hover:bg-blue-50"
                     >
                       수정
-                    </a>
-                    <form action={toggleProduct} className="inline">
+                    </Link>
+                    <form action={toggleProduct}>
                       <input type="hidden" name="id" value={p.id} />
-                      <input
-                        type="hidden"
-                        name="next"
-                        value={String(!p.active)}
-                      />
-                      <button className="text-xs text-zinc-500 underline">
-                        {p.active ? "중지" : "노출"}
+                      <input type="hidden" name="next" value={String(!p.active)} />
+                      <button className="text-zinc-500 underline">
+                        {p.active ? "판매중지" : "판매재개"}
                       </button>
                     </form>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table></div>
-        </Card>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
 
-        <Card>
-          <p className="mb-3 text-sm font-bold">
-            {editing ? "상품 수정" : "새 상품 등록"}
+        {/* ── 등록/수정 폼 ── */}
+        <Card className="h-fit">
+          <p className="mb-1 text-sm font-bold">
+            {editing ? `✏️ '${editing.name}' 수정` : "➕ 새 상품 등록"}
           </p>
-          <form action={saveProduct} className="space-y-2 text-sm">
-            {editing && <input type="hidden" name="id" value={editing.id} />}
-            <ImagePicker
-              name="imageUrl"
-              label="상품 이미지"
-              defaultValue={editing?.imageUrl ?? ""}
-            />
-            <Field name="name" label="상품명" defaultValue={editing?.name} />
+          <p className="mb-4 text-[12px] text-zinc-500">
+            아래 순서대로 채우면 됩니다. 선택 항목은 나중에 채워도 돼요.
+          </p>
 
-            <div className="flex gap-2">
-              <label className="block flex-1">
-                <span className="text-xs font-semibold text-zinc-700">
-                  상품 타입
+          <form action={saveProduct} className="space-y-5 text-sm">
+            {editing && <input type="hidden" name="id" value={editing.id} />}
+
+            {/* 1. 무슨 상품 */}
+            <FormSection num={1} title="어떤 상품인가요?">
+              <label className="block">
+                <span className="text-xs font-medium text-zinc-600">
+                  상품 종류
                 </span>
                 <select
                   name="type"
                   defaultValue={editing?.type ?? "workbook"}
-                  className="mt-1 w-full rounded border border-zinc-300 px-2 py-1"
+                  className="mt-1 w-full rounded-lg border px-2.5 py-2"
                 >
-                  <option value="workbook">워크북/자료</option>
-                  <option value="ebook">전자책</option>
-                  <option value="vod_course">VOD 강의</option>
-                  <option value="coaching">1:1 코칭</option>
-                  <option value="membership">멤버십</option>
+                  {Object.entries(TYPE_META).map(([v, m]) => (
+                    <option key={v} value={v}>
+                      {m.icon} {m.label}
+                    </option>
+                  ))}
                 </select>
+                <span className="mt-1.5 block rounded-lg bg-blue-50 p-2 text-[11px] leading-relaxed text-blue-800">
+                  💡{" "}
+                  {(TYPE_META[editing?.type ?? "workbook"] ?? TYPE_META.workbook)
+                    .need}
+                </span>
               </label>
-              <label className="block flex-1">
-                <span className="text-xs font-semibold text-zinc-700">
-                  가격 모드
+              <ImagePicker
+                name="imageUrl"
+                label="상품 이미지 (선택)"
+                defaultValue={editing?.imageUrl ?? ""}
+              />
+              <Field name="name" label="상품명" defaultValue={editing?.name} />
+              <label className="block">
+                <span className="text-xs font-medium text-zinc-600">
+                  설명 (선택)
+                </span>
+                <textarea
+                  name="description"
+                  defaultValue={editing?.description ?? ""}
+                  rows={2}
+                  className="mt-1 w-full rounded-lg border px-2.5 py-2"
+                />
+              </label>
+            </FormSection>
+
+            {/* 2. 가격 */}
+            <FormSection num={2} title="가격">
+              <label className="block">
+                <span className="text-xs font-medium text-zinc-600">
+                  가격 방식
                 </span>
                 <select
                   name="priceMode"
                   defaultValue={editing?.priceMode ?? "paid"}
-                  className="mt-1 w-full rounded border border-zinc-300 px-2 py-1"
+                  className="mt-1 w-full rounded-lg border px-2.5 py-2"
                 >
-                  <option value="paid">유료</option>
-                  <option value="free">무료 (체크아웃 스킵)</option>
+                  <option value="paid">유료 — 결제창을 띄웁니다</option>
+                  <option value="free">무료 — 결제 없이 바로 지급</option>
                 </select>
               </label>
-            </div>
+              <div className="flex gap-2">
+                <Field
+                  name="price"
+                  label="판매가 (원)"
+                  className="block flex-1"
+                  defaultValue={editing?.price?.toString()}
+                />
+                <Field
+                  name="compareAtPrice"
+                  label="정가 (선택)"
+                  className="block flex-1"
+                  defaultValue={editing?.compareAtPrice?.toString()}
+                />
+              </div>
+              <p className="text-[11px] text-zinc-400">
+                정가를 넣으면 퍼널에 <b>취소선 + 할인율</b>이 자동 표시됩니다.
+              </p>
+            </FormSection>
 
-            <div className="flex gap-2">
-              <Field
-                name="price"
-                label="판매가 (원)"
-                className="block flex-1"
-                defaultValue={editing?.price?.toString()}
-              />
-              <Field
-                name="compareAtPrice"
-                label="정가 (선택)"
-                className="block flex-1"
-                defaultValue={editing?.compareAtPrice?.toString()}
-              />
-            </div>
-            <div className="flex gap-2">
-              <Field
-                name="accessDays"
-                label="열람/수강 기한 (일 · 비우면 무제한)"
-                className="block flex-1"
-                defaultValue={editing?.accessDays?.toString()}
-              />
+            {/* 3. 전달 방식 (타입별) */}
+            <FormSection num={3} title="전달 방식 (해당하는 것만)">
+              <div className="flex gap-2">
+                <Field
+                  name="accessDays"
+                  label="열람 기한 (일 · 비우면 무제한)"
+                  className="block flex-1"
+                  defaultValue={editing?.accessDays?.toString()}
+                />
+                <Field
+                  name="membershipFreeMonths"
+                  label="멤버십 무료 개월 (비우면 1)"
+                  className="block flex-1"
+                  defaultValue={
+                    editing?.membershipFreeMonths
+                      ? String(editing.membershipFreeMonths)
+                      : ""
+                  }
+                />
+              </div>
               <Field
                 name="deliveryAssetUrl"
-                label="전자책 파일 URL (type=전자책)"
-                className="block flex-1"
+                label="전자책 파일 URL (전자책일 때)"
                 defaultValue={
-                  (editing?.delivery?.assetUrl as string | undefined) ?? ""
+                  ((editing?.delivery as { assetUrl?: string } | null)?.assetUrl) ?? ""
                 }
               />
-            </div>
-            <Field
-              name="membershipFreeMonths"
-              label="멤버십 무료 개월 (type=멤버십 · 비우면 1)"
-              defaultValue={
-                editing?.membershipFreeMonths
-                  ? String(editing.membershipFreeMonths)
-                  : ""
-              }
-            />
-            <p className="text-[11px] text-zinc-400">
-              정가를 넣으면 <b>취소선 + 할인율</b>이 자동 표시됩니다.
-            </p>
+            </FormSection>
 
-            <p className="rounded-lg bg-zinc-50 px-3 py-2 text-[11px] text-zinc-500">
-              결제는 자체 토스 결제창(<code>/checkout</code>)으로 진행됩니다.
-              CTA 버튼(<code>{`{{checkout}}`}</code>)이 여기로 연결됩니다.
-            </p>
-
-            <label className="block">
-              <span className="text-xs font-semibold text-zinc-700">
-                토스 주문명 (선택)
-              </span>
-              <input
-                name="tossOrderName"
-                defaultValue={editing?.tossOrderName ?? undefined}
-                placeholder="비워두면 상품명 사용"
-                className="mt-1 w-full rounded border border-zinc-300 px-2 py-1"
-              />
-              <span className="mt-1 block text-[11px] text-zinc-400">
-                토스 결제창에 표시되는 주문명. 비워두면 상품명을 그대로 사용합니다.
-              </span>
-            </label>
-
-            <label className="block">
-              <span className="text-xs text-zinc-500">설명 (선택)</span>
-              <textarea
-                name="description"
-                defaultValue={editing?.description ?? ""}
-                className="mt-1 h-16 w-full rounded border px-2 py-1"
-              />
-            </label>
-
-            <fieldset className="rounded-lg border p-3">
-              <legend className="px-1 text-xs text-zinc-500">
-                어느 페이지에 노출할까요?
-              </legend>
+            {/* 4. 노출 위치 */}
+            <FormSection num={4} title="퍼널 어디에 보여줄까요?">
               {[
                 {
                   v: "both",
-                  t: "땡큐 + VOD 시청 페이지 모두",
-                  d: "권장 · 3단계와 4단계 하단 두 곳에 노출",
+                  t: "땡큐 + VOD 시청 두 곳 (권장)",
+                  d: "신청 직후와 영상 아래, 두 번 기회를 줍니다",
                 },
-                { v: "thankyou", t: "땡큐 페이지만", d: "3단계(신청 직후)에서만" },
+                { v: "thankyou", t: "땡큐 페이지만", d: "신청 직후에만" },
                 {
                   v: "vod_bottom",
                   t: "VOD 시청 페이지만",
-                  d: "4단계 영상 아래에서만",
+                  d: "영상 아래에서만",
+                },
+                {
+                  v: "sales",
+                  t: "세일즈 페이지",
+                  d: "전자책·강의·상담 등 유료 세일즈 퍼널의 메인 상품",
                 },
               ].map((o) => (
                 <label
                   key={o.v}
-                  className="mt-1.5 flex cursor-pointer items-start gap-2"
+                  className="flex cursor-pointer items-start gap-2 rounded-lg border p-2"
                 >
                   <input
                     type="radio"
@@ -280,29 +385,31 @@ export default async function ProductsPage({
                     className="mt-0.5"
                   />
                   <span>
-                    <span className="text-sm">{o.t}</span>
+                    <span className="block text-xs font-medium text-zinc-700">
+                      {o.t}
+                    </span>
                     <span className="block text-[11px] text-zinc-400">
                       {o.d}
                     </span>
                   </span>
                 </label>
               ))}
-            </fieldset>
+            </FormSection>
 
+            {/* 5. 추가 매출 */}
             <details className="rounded-lg border p-3">
-              <summary className="cursor-pointer text-xs text-zinc-500">
-                주문서 추가 오퍼 (선택) — 오더 범프 · 원클릭 업셀
+              <summary className="cursor-pointer text-xs font-medium text-zinc-600">
+                💰 추가 매출 붙이기 (선택) — 오더 범프 · 원클릭 업셀
               </summary>
-              <p className="mt-2 text-[11px] text-zinc-400">
-                주문서에 붙는 추가 오퍼입니다. 연결할 상품도 활성 상태여야 합니다.
+              <p className="mt-2 text-[11px] leading-relaxed text-zinc-400">
+                연결할 상품도 먼저 등록·판매중이어야 합니다.
               </p>
-
               <label className="mt-3 block">
-                <span className="text-xs font-semibold text-zinc-700">
+                <span className="text-xs font-medium text-zinc-700">
                   오더 범프 상품
                 </span>
                 <span className="block text-[11px] text-zinc-400">
-                  주문서에 체크박스로 붙는 소액 추가상품. 같은 결제에 합산됩니다.
+                  주문서에 체크박스로 붙는 소액 추가상품. 같은 결제에 합산돼요.
                 </span>
                 <ProductSelect
                   name="bumpProductId"
@@ -313,22 +420,21 @@ export default async function ProductsPage({
               </label>
               <label className="mt-2 block">
                 <span className="text-[11px] text-zinc-400">
-                  범프 체크박스 문구 (비우면 상품 설명 사용)
+                  범프 체크박스 문구 (비우면 상품 설명)
                 </span>
                 <input
                   name="bumpDescription"
                   defaultValue={editing?.bumpDescription ?? undefined}
                   placeholder="예: 실전 템플릿 30종도 함께 받기"
-                  className="mt-1 w-full rounded border border-zinc-300 px-2 py-1"
+                  className="mt-1 w-full rounded border px-2.5 py-1.5"
                 />
               </label>
-
               <label className="mt-3 block">
-                <span className="text-xs font-semibold text-zinc-700">
+                <span className="text-xs font-medium text-zinc-700">
                   원클릭 업셀(OTO) 상품
                 </span>
                 <span className="block text-[11px] text-zinc-400">
-                  결제 완료 직후 뜨는 업셀. 저장된 카드로 &apos;네&apos; 한 번에 결제.
+                  결제 완료 직후 뜨는 오퍼 페이지의 상품
                 </span>
                 <ProductSelect
                   name="upsellProductId"
@@ -338,7 +444,7 @@ export default async function ProductsPage({
                 />
               </label>
               <label className="mt-2 block">
-                <span className="text-xs font-semibold text-zinc-700">
+                <span className="text-xs font-medium text-zinc-700">
                   다운셀 상품 (업셀 거절 시)
                 </span>
                 <ProductSelect
@@ -350,37 +456,36 @@ export default async function ProductsPage({
               </label>
             </details>
 
+            {/* 6. 번들 */}
             <details className="rounded-lg border p-3">
-              <summary className="cursor-pointer text-xs text-zinc-500">
-                번들 · 크로스셀 (선택)
+              <summary className="cursor-pointer text-xs font-medium text-zinc-600">
+                🎁 번들 · 크로스셀 (선택)
               </summary>
-              <div className="mt-2">
-                <span className="text-xs font-semibold text-zinc-700">
-                  번들 구성 상품 (체크하면 이 상품 결제 시 함께 지급)
-                </span>
-                <div className="mt-1 max-h-40 space-y-1 overflow-y-auto rounded border p-2">
-                  {list
-                    .filter((x) => x.id !== editing?.id)
-                    .map((x) => (
-                      <label
-                        key={x.id}
-                        className="flex items-center gap-2 text-xs"
-                      >
-                        <input
-                          type="checkbox"
-                          name="bundleProductIds"
-                          value={x.id}
-                          defaultChecked={
-                            editing?.bundleProductIds?.includes(x.id) ?? false
-                          }
-                        />
-                        {x.name}
-                      </label>
-                    ))}
-                </div>
+              <p className="mt-2 text-[11px] text-zinc-700">
+                번들 구성 상품 (체크하면 이 상품 결제 시 함께 지급)
+              </p>
+              <div className="mt-1 max-h-40 space-y-1 overflow-y-auto rounded border p-2">
+                {list
+                  .filter((x) => x.id !== editing?.id)
+                  .map((x) => (
+                    <label
+                      key={x.id}
+                      className="flex items-center gap-2 text-xs"
+                    >
+                      <input
+                        type="checkbox"
+                        name="bundleProductIds"
+                        value={x.id}
+                        defaultChecked={
+                          editing?.bundleProductIds?.includes(x.id) ?? false
+                        }
+                      />
+                      {x.name}
+                    </label>
+                  ))}
               </div>
               <label className="mt-2 block">
-                <span className="text-xs font-semibold text-zinc-700">
+                <span className="text-xs font-medium text-zinc-700">
                   다음 추천 상품 (구매자 보관함 상단에 노출)
                 </span>
                 <ProductSelect
@@ -392,9 +497,10 @@ export default async function ProductsPage({
               </label>
             </details>
 
+            {/* 7. 판매 기간 + 고급 */}
             <details className="rounded-lg border p-3">
-              <summary className="cursor-pointer text-xs text-zinc-500">
-                판매 기간 정하기 (선택) — 비워두면 상시 판매
+              <summary className="cursor-pointer text-xs font-medium text-zinc-600">
+                📅 판매 기간 · 토스 주문명 (선택)
               </summary>
               <div className="mt-2 flex gap-2">
                 <label className="block flex-1">
@@ -402,9 +508,7 @@ export default async function ProductsPage({
                   <input
                     type="date"
                     name="showFrom"
-                    defaultValue={editing?.showFrom
-                      ?.toISOString()
-                      .slice(0, 10)}
+                    defaultValue={editing?.showFrom?.toISOString().slice(0, 10)}
                     className="mt-1 w-full rounded border px-2 py-1"
                   />
                 </label>
@@ -413,28 +517,38 @@ export default async function ProductsPage({
                   <input
                     type="date"
                     name="showUntil"
-                    defaultValue={editing?.showUntil
-                      ?.toISOString()
-                      .slice(0, 10)}
+                    defaultValue={editing?.showUntil?.toISOString().slice(0, 10)}
                     className="mt-1 w-full rounded border px-2 py-1"
                   />
                 </label>
               </div>
+              <label className="mt-2 block">
+                <span className="text-[11px] text-zinc-400">
+                  토스 결제창 주문명 (비우면 상품명)
+                </span>
+                <input
+                  name="tossOrderName"
+                  defaultValue={editing?.tossOrderName ?? undefined}
+                  placeholder="비워두면 상품명 사용"
+                  className="mt-1 w-full rounded border px-2.5 py-1.5"
+                />
+              </label>
             </details>
 
-            <label className="flex items-center gap-2 pt-1">
+            <label className="flex items-center gap-2 rounded-lg bg-[var(--fn-bg-2)] p-2.5">
               <input
                 type="checkbox"
                 name="active"
                 defaultChecked={editing ? editing.active : true}
               />
               <span className="text-xs">
-                지금 노출하기{" "}
+                <b>지금 판매하기</b>{" "}
                 <span className="text-zinc-400">(끄면 퍼널에서 숨김)</span>
               </span>
             </label>
-            <SubmitButton className="w-full rounded-lg bg-black py-2 font-semibold text-white">
-              저장
+
+            <SubmitButton className="w-full rounded-lg bg-black py-2.5 font-semibold text-white">
+              {editing ? "수정 저장" : "상품 등록"}
             </SubmitButton>
             {editing && (
               <Link
@@ -448,6 +562,28 @@ export default async function ProductsPage({
         </Card>
       </div>
     </>
+  );
+}
+
+function FormSection({
+  num,
+  title,
+  children,
+}: {
+  num: number;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="space-y-2.5">
+      <p className="flex items-center gap-2 text-xs font-bold text-zinc-700">
+        <span className="grid h-5 w-5 place-items-center rounded-full bg-black text-[10px] text-white">
+          {num}
+        </span>
+        {title}
+      </p>
+      {children}
+    </div>
   );
 }
 
@@ -467,7 +603,7 @@ function ProductSelect({
     <select
       name={name}
       defaultValue={selected}
-      className="mt-1 w-full rounded border border-zinc-300 px-2 py-1 text-sm"
+      className="mt-1 w-full rounded border px-2.5 py-1.5 text-sm"
     >
       <option value="">— 없음 —</option>
       {options.map((p) => (
@@ -492,11 +628,11 @@ function Field({
 }) {
   return (
     <label className={className}>
-      <span className="text-xs text-zinc-500">{label}</span>
+      <span className="text-xs font-medium text-zinc-600">{label}</span>
       <input
         name={name}
         defaultValue={defaultValue}
-        className="mt-1 w-full rounded border px-2 py-1"
+        className="mt-1 w-full rounded-lg border px-2.5 py-2"
       />
     </label>
   );
