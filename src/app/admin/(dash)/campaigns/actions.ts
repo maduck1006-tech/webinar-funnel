@@ -26,6 +26,36 @@ import {
 } from "@/lib/funnel-flow";
 import { defaultPages } from "@/puck/defaults";
 
+/**
+ * 위저드용 래퍼 — 조용히 실패하지 않고 사람이 읽을 수 있는 오류를 돌려준다.
+ * (createCampaign 은 이름/슬러그가 잘못되면 그냥 return 해서 화면에 아무 일도 안 일어남)
+ */
+export async function createCampaignWizard(
+  _prev: { error?: string } | null,
+  fd: FormData,
+): Promise<{ error?: string }> {
+  const name = String(fd.get("name") ?? "").trim();
+  const slug = String(fd.get("slug") ?? "")
+    .trim()
+    .toLowerCase();
+  if (!name) return { error: "캠페인 이름을 입력해주세요." };
+  if (!isValidSlug(slug))
+    return {
+      error:
+        "주소는 영문 소문자·숫자·하이픈(-)만 쓸 수 있어요. 예: sales-webinar-mar",
+    };
+  const [dup] = await db
+    .select({ id: campaigns.id })
+    .from(campaigns)
+    .where(eq(campaigns.slug, slug));
+  if (dup)
+    return { error: `'${slug}' 주소는 이미 쓰고 있어요. 다른 주소를 넣어주세요.` };
+
+  // 성공하면 내부에서 redirect() 가 throw 되어 여기로 안 돌아옴
+  await createCampaign(fd);
+  return { error: "캠페인을 만들지 못했어요. 입력값을 확인해주세요." };
+}
+
 /** 템플릿/기존 캠페인에서 복제해 새 캠페인 생성 */
 export async function createCampaign(fd: FormData) {
   const name = String(fd.get("name") ?? "").trim();
@@ -465,29 +495,12 @@ export async function setCampaignProduct(fd: FormData) {
     return;
   }
 
-  const uuidOrNull = (k: string) => {
-    const v = String(fd.get(k) ?? "").trim();
-    return v || null;
-  };
-  // "offers" 폼이면 오퍼 필드만, 아니면 placement 토글
-  const isOffers = fd.get("offers") === "1";
-  const patch = isOffers
-    ? {
-        bumpProductId: uuidOrNull("bumpProductId"),
-        bumpDescription: String(fd.get("bumpDescription") ?? "").trim() || null,
-        upsellProductId: uuidOrNull("upsellProductId"),
-        downsellProductId: uuidOrNull("downsellProductId"),
-      }
-    : { placement: String(fd.get("placement") ?? "both") };
+  // 추가 오퍼(범프·업셀·다운셀)는 saveCampaignOffers 위저드가 담당한다
+  const patch = { placement: String(fd.get("placement") ?? "both") };
 
   await db
     .insert(campaignProducts)
-    .values({
-      campaignId,
-      productId,
-      placement: String(fd.get("placement") ?? "both"),
-      ...patch,
-    })
+    .values({ campaignId, productId, ...patch })
     .onConflictDoUpdate({
       target: [campaignProducts.campaignId, campaignProducts.productId],
       set: patch,
@@ -564,6 +577,43 @@ export async function setFlowStep(fd: FormData) {
  * fd: campaignId, slotKey, name, price, imageUrl?, tossOrderName?, freeMonths?
  * (docs/funnel-templates-plan.md — 한 흐름으로)
  */
+/**
+ * 위저드용 — 이 캠페인에서 한 상품의 추가 오퍼(범프·업셀·다운셀)를 저장하고
+ * 캠페인 설정으로 돌아간다. 값이 전역(products.*)보다 우선한다.
+ */
+export async function saveCampaignOffers(fd: FormData) {
+  const campaignId = String(fd.get("campaignId") ?? "").trim();
+  const productId = String(fd.get("productId") ?? "").trim();
+  if (!campaignId || !productId) return;
+
+  const pick = (k: string) => {
+    const v = String(fd.get(k) ?? "").trim();
+    return v || null;
+  };
+  const bumpProductId = pick("bumpProductId");
+  const upsellProductId = pick("upsellProductId");
+  const patch = {
+    bumpProductId,
+    bumpDescription: bumpProductId
+      ? String(fd.get("bumpDescription") ?? "").trim() || null
+      : null,
+    upsellProductId,
+    // 업셀이 없으면 다운셀은 뜰 자리가 없다
+    downsellProductId: upsellProductId ? pick("downsellProductId") : null,
+  };
+
+  await db
+    .insert(campaignProducts)
+    .values({ campaignId, productId, placement: "both", ...patch })
+    .onConflictDoUpdate({
+      target: [campaignProducts.campaignId, campaignProducts.productId],
+      set: patch,
+    });
+  revalidatePath(`/admin/campaigns/${campaignId}`);
+  revalidatePath(`/admin/campaigns/${campaignId}/settings`);
+  redirect(`/admin/campaigns/${campaignId}/settings`);
+}
+
 export async function createSlotProduct(fd: FormData) {
   const campaignId = String(fd.get("campaignId"));
   const slotKey = String(fd.get("slotKey"));

@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { and, asc, count, eq, isNull, or } from "drizzle-orm";
+import { asc, eq, isNull, or } from "drizzle-orm";
 import { db } from "@/db";
 import { messageAutomations, messageAutomationSteps } from "@/db/schema";
 import { Card, PageHeader } from "@/components/admin-ui";
 import { SectionTabs } from "../SectionTabs";
 import { CampaignFilter } from "@/components/CampaignFilter";
 import { listCampaigns } from "@/lib/campaign";
-import { cloneForCampaign, createAutomation, toggleAutomation } from "./actions";
+import { cloneForCampaign, toggleAutomation } from "./actions";
 import {
   automationSummary,
   MiniTimeline,
@@ -210,42 +210,26 @@ export default async function AutomationPage({
 
         <Card className="h-fit">
           <p className="mb-1 text-sm font-bold">➕ 새 자동 메시지 만들기</p>
-          <p className="mb-3 text-[12px] text-zinc-500">
-            이름은 관리용이라 손님에게 안 보여요. 자유롭게 지으세요.
+          <p className="mb-3 text-[12px] leading-relaxed text-zinc-500">
+            언제 · 누구에게 · 뭐라고 보낼지를 한 번에 하나씩 물어봐요. 첫 문자
+            문구까지 만들어집니다.
           </p>
-          <form action={createAutomation} className="space-y-3 text-sm">
+          <Link
+            href={
+              campaignId
+                ? `/admin/automation/new?campaign=${campaignId}`
+                : "/admin/automation/new"
+            }
+            className="block rounded-xl bg-black p-4 text-center text-sm font-semibold text-white"
+          >
+            만들기 시작 →
             {campaignId && (
-              <input type="hidden" name="campaignId" value={campaignId} />
-            )}
-            <label className="block">
-              <span className="text-xs font-medium text-zinc-600">이름</span>
-              <input
-                name="name"
-                required
-                placeholder="예: 신청 후 5일 스토리"
-                className="mt-1 w-full rounded-lg border px-3 py-2"
-              />
-            </label>
-            <label className="block">
-              <span className="text-xs font-medium text-zinc-600">
-                손님이 언제 이 흐름에 들어오나요?
+              <span className="mt-0.5 block text-[11px] font-normal opacity-70">
+                이 캠페인 전용으로 만들어집니다
               </span>
-              <select
-                name="trigger"
-                className="mt-1 w-full rounded-lg border px-3 py-2"
-              >
-                {Object.entries(TRIGGER_META).map(([v, t]) => (
-                  <option key={v} value={v}>
-                    {t.icon} {t.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button className="w-full rounded-lg bg-black py-2.5 font-semibold text-white hover:bg-zinc-800">
-              만들고 문자 추가하러 가기 →
-            </button>
-          </form>
-          <div className="mt-4 rounded-lg bg-amber-50 p-3 text-[11.5px] leading-relaxed text-amber-800">
+            )}
+          </Link>
+          <div className="mt-4 rounded-lg bg-amber-50 p-3 text-[11.5px] leading-relaxed text-amber-700">
             🕒 문자는 <b>15분마다</b> 자동으로 확인해서 보낼 시간이 된 것만
             나갑니다. &quot;바로&quot;로 설정하면 그 행동 즉시 나가요.
           </div>

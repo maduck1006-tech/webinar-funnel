@@ -25,21 +25,52 @@ function rev(id?: string) {
   if (id) revalidatePath(`/admin/automation/${id}`);
 }
 
-export async function createAutomation(fd: FormData) {
+/**
+ * 위저드용 — 자동화 + 첫 문자 한 통까지 한 번에 만든다.
+ * (createAutomation 은 껍데기만 만들고 빈 에디터로 보내서 초보자가 막힘)
+ */
+export async function createAutomationWizard(
+  _prev: { error?: string } | null,
+  fd: FormData,
+): Promise<{ error?: string }> {
   const name = String(fd.get("name") ?? "").trim();
-  const trigger = String(fd.get("trigger") ?? "signup");
+  const trigger = String(fd.get("trigger") ?? "");
+  const body = String(fd.get("body") ?? "").trim();
   const campaignId = String(fd.get("campaignId") ?? "").trim() || null;
-  if (!name || !TRIGGERS.includes(trigger as MessageAutomationTrigger)) return;
+  if (!TRIGGERS.includes(trigger as MessageAutomationTrigger))
+    return { error: "언제 보낼지를 골라주세요." };
+  if (!name) return { error: "이름을 입력해주세요." };
+  if (!body) return { error: "문자 내용을 입력해주세요." };
+
+  const delayMinutes = Math.max(
+    0,
+    Math.round(Number(fd.get("delayMinutes") ?? 0)) || 0,
+  );
+  const stopOn = ["purchase", "booking", "watch_start"].filter(
+    (k) => fd.get(`stop_${k}`) === "on",
+  );
+
   const [row] = await db
     .insert(messageAutomations)
     .values({
       name,
       trigger: trigger as MessageAutomationTrigger,
       campaignId,
+      enabled: false,
+      stopOn,
     })
     .returning({ id: messageAutomations.id });
-  rev();
-  redirect(`/admin/automation/${row.id}`);
+
+  await db.insert(messageAutomationSteps).values({
+    automationId: row.id,
+    stepOrder: 1,
+    delayMinutes,
+    audience: String(fd.get("audience") ?? "all") as never,
+    body,
+  });
+
+  rev(row.id);
+  redirect(`/admin/automation/${row.id}?created=1`);
 }
 
 export async function updateAutomation(fd: FormData) {

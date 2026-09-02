@@ -82,6 +82,21 @@ export default async function SettingsPage() {
         desc="실사용 전 연결해야 하는 외부 서비스"
       />
 
+      <Link
+        href="/admin/settings/setup"
+        className="mb-6 flex items-center justify-between gap-3 rounded-xl bg-black p-4 text-white"
+      >
+        <span>
+          <span className="block text-sm font-semibold">
+            🧭 처음 설정 마법사
+          </span>
+          <span className="mt-0.5 block text-[12px] opacity-70">
+            문자 → 결제 → 예약 → 추적, 한 번에 하나씩 안내합니다
+          </span>
+        </span>
+        <span className="shrink-0 text-sm">시작 →</span>
+      </Link>
+
       <div className="space-y-6">
         {/* 솔라피 (문자) — 가장 중요 */}
         <Card>
@@ -215,7 +230,8 @@ export default async function SettingsPage() {
           <p className="text-sm font-bold">상품 결제 연결</p>
           <p className="mt-1 text-xs text-zinc-400">
             퍼널 빌더의 CTA 버튼 링크를 <code>{"{{checkout}}"}</code> 로 두면 아래
-            상품의 결제창(<code>/checkout</code>)으로 자동 연결됩니다.
+            상품의 결제창(<code>/checkout</code>)으로 자동 연결됩니다. 아래는{" "}
+            <b>기본 캠페인</b> 기준이에요.
           </p>
           <table className="mt-3 w-full text-sm">
             <tbody className="divide-y">
@@ -223,12 +239,19 @@ export default async function SettingsPage() {
               <OfferRow label="VOD 하단(4단계)" offer={vodOffer} />
             </tbody>
           </table>
-          <Link
-            href="/admin/products"
-            className="mt-3 inline-block text-xs text-blue-600 underline"
-          >
-            상품 관리에서 결제 URL 입력 →
-          </Link>
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+            <Link href="/admin/products/new" className="text-blue-600 underline">
+              새 상품 만들기 →
+            </Link>
+            {defaultCampaign && (
+              <Link
+                href={`/admin/campaigns/${defaultCampaign.id}/settings`}
+                className="text-blue-600 underline"
+              >
+                기본 캠페인에 상품 연결 →
+              </Link>
+            )}
+          </div>
         </Card>
 
         {/* 환경변수 체크리스트 */}

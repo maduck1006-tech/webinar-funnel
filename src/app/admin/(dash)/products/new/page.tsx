@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { campaigns } from "@/db/schema";
+import { WizardShell } from "../../_wizard";
 import { ProductWizard } from "./ProductWizard";
 
 export const dynamic = "force-dynamic";
@@ -24,24 +24,17 @@ export default async function NewProductPage({
       .where(eq(campaigns.id, sp.campaign));
     campaignName = c?.name ?? null;
   }
+  const exit =
+    sp.return && sp.return.startsWith("/") ? sp.return : "/admin/products";
 
   return (
-    <div className="mx-auto max-w-[560px] py-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-lg font-bold">새 상품 만들기</h1>
-        <Link
-          href={sp.return && sp.return.startsWith("/") ? sp.return : "/admin/products"}
-          className="text-xs text-zinc-500 underline"
-        >
-          나가기
-        </Link>
-      </div>
+    <WizardShell title="새 상품 만들기" exitHref={exit}>
       <ProductWizard
         campaignId={sp.campaign ?? ""}
         campaignName={campaignName}
         placement={sp.placement ?? "both"}
         returnTo={sp.return ?? ""}
       />
-    </div>
+    </WizardShell>
   );
 }

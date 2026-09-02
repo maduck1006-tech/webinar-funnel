@@ -35,6 +35,9 @@ export default async function CampaignSettings({
     .where(eq(campaignProducts.campaignId, id));
   const mappedMap = new Map(mapped.map((m) => [m.productId, m.placement]));
   const mappedFull = new Map(mapped.map((m) => [m.productId, m]));
+  const nameOf = new Map(allProducts.map((p) => [p.id, p.name]));
+  const productName = (pid: string | null) =>
+    pid ? (nameOf.get(pid) ?? "삭제된 상품") : null;
 
   // 이 캠페인의 퍼널에 실제 존재하는 단계 → 상품을 놓을 수 있는 위치만 노출
   const enabledSteps = new Set(
@@ -294,65 +297,21 @@ export default async function CampaignSettings({
                   </div>
 
                   {on && (
-                    <details className="ml-7 mt-1.5 rounded-lg border bg-zinc-50/50 p-2">
-                      <summary className="cursor-pointer text-[11px] font-medium text-zinc-500">
-                        + 이 상품 주문서에 추가 오퍼 붙이기 (범프 · 업셀 · 다운셀)
-                        {(cp?.bumpProductId ||
-                          cp?.upsellProductId ||
-                          cp?.downsellProductId) && (
-                          <span className="ml-1 text-[var(--fn-accent,#ff3d2e)]">
-                            ●
-                          </span>
-                        )}
-                      </summary>
-                      <form
-                        action={setCampaignProduct}
-                        className="mt-2 space-y-2"
+                    <div className="ml-7 mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <Link
+                        href={`/admin/campaigns/${id}/offers/${p.id}`}
+                        className="rounded border border-blue-500 px-2 py-0.5 text-[11px] font-semibold text-blue-600"
                       >
-                        <input type="hidden" name="campaignId" value={id} />
-                        <input type="hidden" name="productId" value={p.id} />
-                        <input type="hidden" name="offers" value="1" />
-                        <label className="block text-[11px] text-zinc-500">
-                          오더 범프 (주문서 체크박스로 붙는 소액 추가상품)
-                          <OfferSelect
-                            name="bumpProductId"
-                            products={allProducts}
-                            excludeId={p.id}
-                            selected={cp?.bumpProductId ?? ""}
-                          />
-                        </label>
-                        <label className="block text-[11px] text-zinc-500">
-                          범프 문구 (비우면 상품 설명)
-                          <input
-                            name="bumpDescription"
-                            defaultValue={cp?.bumpDescription ?? undefined}
-                            placeholder="예: 실전 템플릿 30종도 함께"
-                            className="mt-0.5 w-full rounded border px-2 py-1 text-xs"
-                          />
-                        </label>
-                        <label className="block text-[11px] text-zinc-500">
-                          원클릭 업셀 (결제 직후 오퍼 페이지)
-                          <OfferSelect
-                            name="upsellProductId"
-                            products={allProducts}
-                            excludeId={p.id}
-                            selected={cp?.upsellProductId ?? ""}
-                          />
-                        </label>
-                        <label className="block text-[11px] text-zinc-500">
-                          다운셀 (업셀 거절 시)
-                          <OfferSelect
-                            name="downsellProductId"
-                            products={allProducts}
-                            excludeId={p.id}
-                            selected={cp?.downsellProductId ?? ""}
-                          />
-                        </label>
-                        <button className="rounded border bg-white px-3 py-1 text-xs font-semibold">
-                          오퍼 저장
-                        </button>
-                      </form>
-                    </details>
+                        {offerParts(cp, productName).length > 0
+                          ? "추가 매출 수정"
+                          : "+ 추가 매출 붙이기"}
+                      </Link>
+                      <span className="text-[11px] text-zinc-500">
+                        {offerParts(cp, productName).length > 0
+                          ? offerParts(cp, productName).join(" · ")
+                          : "오더범프 · 업셀 · 다운셀 (선택)"}
+                      </span>
+                    </div>
                   )}
                 </li>
               );
@@ -499,33 +458,23 @@ export default async function CampaignSettings({
   );
 }
 
-function OfferSelect({
-  name,
-  products,
-  excludeId,
-  selected,
-}: {
-  name: string;
-  products: { id: string; name: string; price: number }[];
-  excludeId: string;
-  selected: string;
-}) {
-  return (
-    <select
-      name={name}
-      defaultValue={selected}
-      className="mt-0.5 w-full rounded border px-2 py-1 text-xs"
-    >
-      <option value="">— 없음 —</option>
-      {products
-        .filter((p) => p.id !== excludeId)
-        .map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.name} ({p.price.toLocaleString("ko-KR")}원)
-          </option>
-        ))}
-    </select>
-  );
+/** 이 매핑에 붙은 추가 오퍼를 사람 말로 한 줄씩 */
+function offerParts(
+  cp:
+    | {
+        bumpProductId: string | null;
+        upsellProductId: string | null;
+        downsellProductId: string | null;
+      }
+    | undefined,
+  nameOf: (id: string | null) => string | null,
+): string[] {
+  if (!cp) return [];
+  return [
+    cp.bumpProductId && `범프 ${nameOf(cp.bumpProductId)}`,
+    cp.upsellProductId && `업셀 ${nameOf(cp.upsellProductId)}`,
+    cp.downsellProductId && `다운셀 ${nameOf(cp.downsellProductId)}`,
+  ].filter((x): x is string => Boolean(x));
 }
 
 function F({
