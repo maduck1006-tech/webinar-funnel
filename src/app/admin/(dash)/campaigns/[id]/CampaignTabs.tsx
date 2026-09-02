@@ -7,7 +7,11 @@ export function CampaignTabs({ id, slug }: { id: string; slug: string }) {
   const pathname = usePathname();
   const tabs = [
     { label: "개요", href: `/admin/campaigns/${id}`, match: `/admin/campaigns/${id}` },
-    { label: "퍼널", href: `/admin/flow?campaign=${slug}`, match: "/admin/flow" },
+    {
+      label: "퍼널",
+      href: `/admin/campaigns/${id}/funnel`,
+      match: `/admin/campaigns/${id}/funnel`,
+    },
     {
       label: "자동 메시지",
       href: `/admin/automation?campaign=${id}`,
