@@ -8,7 +8,7 @@
 ## 진행 현황
 - ✅ **P0 안전망** (커밋 `e0bea48`, 배포됨): A2 바운더리 · A3 Gate CTA · B2/B6 결제 에러 한국어화
 - ✅ **P0 공유·유입** (커밋 `ab9ef88`, 배포됨): A1 캠페인별 메타/OG(Puck 자동추출) · A8/D1 viewport·theme-color · 퍼널 내부 페이지 noindex
-- ⬜ P1 폼 마찰 (A6 + B4 + B1 + B3)
+- ✅ **P1 폼 마찰** (커밋 `dad7ee5`, 배포됨): lib/form-validate.ts 공용 · A6 LeadForm · B4 ContactStep · B1 결제 타임아웃 · B3 주문 요약 상시
 - ⬜ P1 관리자 (E1 + E2)
 
 ### P0 공유·유입 후속(선택)
