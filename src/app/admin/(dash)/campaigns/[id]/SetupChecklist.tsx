@@ -250,122 +250,142 @@ export function SetupChecklist({
         </a>
       </summary>
       <div className="space-y-4 border-t px-4 py-3">
-        {groups.map((g) => (
+        {groups.map((g, gi) => (
           <div key={g.title}>
-            <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-zinc-400">
-              {g.title}
-            </p>
-            <ul className="space-y-2">
-              {g.items.map((it) => (
-                <li key={it.id} className="text-[13px]">
-                  <div className="flex items-start gap-2">
-                    <span
-                      className={
-                        it.done
-                          ? "text-emerald-500"
-                          : it.required
-                            ? "text-amber-500"
-                            : "text-zinc-300"
-                      }
-                    >
-                      {it.done ? "✓" : it.required ? "!" : "○"}
-                    </span>
-                    <span className="flex-1">
-                      <span
-                        className={
-                          it.done ? "text-zinc-400 line-through" : "text-zinc-800"
-                        }
-                      >
-                        {it.label}
-                      </span>
-                      {!it.done && it.help && (
-                        <span className="block text-[11px] text-zinc-400">
-                          {it.help}
-                        </span>
-                      )}
-                    </span>
-                    <span className="flex shrink-0 items-center gap-2">
-                      {it.preview && (
-                        <a
-                          href={it.preview}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-[12px] font-semibold text-zinc-500"
-                        >
-                          미리보기 ↗
-                        </a>
-                      )}
-                      {!it.done && !it.inline && it.href && (
-                        <a
-                          href={it.href}
-                          className="text-[12px] font-semibold text-blue-600"
-                        >
-                          하러가기 →
-                        </a>
-                      )}
-                      {!it.done && it.inline?.kind === "product" && (
-                        <ProductInline
+            <ChecklistGroup group={g} campaignId={campaignId} />
+            {/* 퍼널(2) 그룹 뒤에 CRM 메시지(3) 섹션 */}
+            {gi === 1 && messages.length > 0 && (
+              <div className="mt-4">
+                <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-zinc-400">
+                  3 · CRM 메시지 — 자동으로 나가는 문자
+                </p>
+                <p className="mb-2 text-[11.5px] leading-relaxed text-zinc-500">
+                  신청·시청·결제에 맞춰 문자가 자동으로 나갑니다. 아래에서 바로
+                  켜고 끄고, 문구도 다듬을 수 있어요.{" "}
+                  <b>후속 문자가 매출의 절반</b>을 만듭니다.
+                </p>
+                {essentialMsgs.length > 0 && (
+                  <>
+                    <p className="mb-1 text-[11px] font-semibold text-zinc-600">
+                      꼭 켜야 하는 것
+                    </p>
+                    <ul className="space-y-1.5">
+                      {essentialMsgs.map((m) => (
+                        <MessageRow
+                          key={m.automationId}
                           campaignId={campaignId}
-                          slotKey={it.inline.slotKey}
-                          productType={it.inline.productType}
-                          priceMode={it.inline.priceMode}
+                          m={m}
                         />
-                      )}
-                    </span>
-                  </div>
-                  {!it.done && it.inline?.kind === "setting" && (
-                    <SettingInline
-                      campaignId={campaignId}
-                      field={it.inline.field}
-                      value={it.inline.value}
-                      placeholder={it.inline.placeholder}
-                    />
-                  )}
-                </li>
-              ))}
-            </ul>
+                      ))}
+                    </ul>
+                  </>
+                )}
+                {optionalMsgs.length > 0 && (
+                  <>
+                    <p className="mb-1 mt-3 text-[11px] font-semibold text-zinc-600">
+                      매출을 더 올리는 것 (선택)
+                    </p>
+                    <ul className="space-y-1.5">
+                      {optionalMsgs.map((m) => (
+                        <MessageRow
+                          key={m.automationId}
+                          campaignId={campaignId}
+                          m={m}
+                        />
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         ))}
-
-        {messages.length > 0 && (
-          <div>
-            <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-zinc-400">
-              3 · CRM 메시지 — 자동으로 나가는 문자
-            </p>
-            <p className="mb-2 text-[11.5px] leading-relaxed text-zinc-500">
-              신청·시청·결제에 맞춰 문자가 자동으로 나갑니다. 아래에서 바로
-              켜고 끄고, 문구도 다듬을 수 있어요. <b>후속 문자가 매출의 절반</b>을
-              만듭니다.
-            </p>
-
-            {essentialMsgs.length > 0 && (
-              <>
-                <p className="mb-1 text-[11px] font-semibold text-zinc-600">
-                  꼭 켜야 하는 것
-                </p>
-                <ul className="space-y-1.5">
-                  {essentialMsgs.map((m) => (
-                    <MessageRow key={m.automationId} campaignId={campaignId} m={m} />
-                  ))}
-                </ul>
-              </>
-            )}
-
-            {optionalMsgs.length > 0 && (
-              <>
-                <p className="mb-1 mt-3 text-[11px] font-semibold text-zinc-600">
-                  매출을 더 올리는 것 (선택)
-                </p>
-                <ul className="space-y-1.5">
-                  {optionalMsgs.map((m) => (
-                    <MessageRow key={m.automationId} campaignId={campaignId} m={m} />
-                  ))}
-                </ul>
-              </>
-            )}
-          </div>
-        )}
       </div>
     </details>
+  );
+}
+
+function ChecklistGroup({
+  group: g,
+  campaignId,
+}: {
+  group: SetupGroup;
+  campaignId: string;
+}) {
+  return (
+    <>
+      <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-zinc-400">
+        {g.title}
+      </p>
+      <ul className="space-y-2">
+        {g.items.map((it) => (
+          <li key={it.id} className="text-[13px]">
+            <div className="flex items-start gap-2">
+              <span
+                className={
+                  it.done
+                    ? "text-emerald-500"
+                    : it.required
+                      ? "text-amber-500"
+                      : "text-zinc-300"
+                }
+              >
+                {it.done ? "✓" : it.required ? "!" : "○"}
+              </span>
+              <span className="flex-1">
+                <span
+                  className={
+                    it.done ? "text-zinc-400 line-through" : "text-zinc-800"
+                  }
+                >
+                  {it.label}
+                </span>
+                {!it.done && it.help && (
+                  <span className="block text-[11px] text-zinc-400">
+                    {it.help}
+                  </span>
+                )}
+              </span>
+              <span className="flex shrink-0 items-center gap-2">
+                {it.preview && (
+                  <a
+                    href={it.preview}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[12px] font-semibold text-zinc-500"
+                  >
+                    미리보기 ↗
+                  </a>
+                )}
+                {!it.done && !it.inline && it.href && (
+                  <a
+                    href={it.href}
+                    className="text-[12px] font-semibold text-blue-600"
+                  >
+                    하러가기 →
+                  </a>
+                )}
+                {!it.done && it.inline?.kind === "product" && (
+                  <ProductInline
+                    campaignId={campaignId}
+                    slotKey={it.inline.slotKey}
+                    productType={it.inline.productType}
+                    priceMode={it.inline.priceMode}
+                  />
+                )}
+              </span>
+            </div>
+            {!it.done && it.inline?.kind === "setting" && (
+              <SettingInline
+                campaignId={campaignId}
+                field={it.inline.field}
+                value={it.inline.value}
+                placeholder={it.inline.placeholder}
+              />
+            )}
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
