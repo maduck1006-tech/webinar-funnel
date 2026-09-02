@@ -7,7 +7,7 @@ import { Card, PageHeader, Tag, fmtDate, won } from "@/components/admin-ui";
 import { SectionTabs } from "../SectionTabs";
 import { SubmitButton } from "../form-ui";
 import { ImagePicker } from "@/components/ImagePicker";
-import { saveProduct, toggleProduct } from "./actions";
+import { connectExistingProduct, saveProduct, toggleProduct } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +72,18 @@ export default async function ProductsPage({
     for (const cp of cps) {
       linkMap.set(cp.productId, [...(linkMap.get(cp.productId) ?? []), cp.name]);
     }
+  } catch {
+    /* noop */
+  }
+
+  // 연결 안 된 상품을 그 자리에서 붙일 수 있게 캠페인 목록을 준비
+  let campaignOpts: { id: string; name: string }[] = [];
+  try {
+    campaignOpts = await db
+      .select({ id: campaigns.id, name: campaigns.name })
+      .from(campaigns)
+      .where(eq(campaigns.isTemplate, false))
+      .orderBy(desc(campaigns.isDefault));
   } catch {
     /* noop */
   }
@@ -164,6 +176,33 @@ export default async function ProductsPage({
                       <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-zinc-500">
                         {linkedCampaigns.length > 0 ? (
                           <span>· 연결 캠페인: {linkedCampaigns.join(", ")}</span>
+                        ) : campaignOpts.length > 0 ? (
+                          <form
+                            action={connectExistingProduct}
+                            className="flex items-center gap-1.5"
+                          >
+                            <input type="hidden" name="productId" value={p.id} />
+                            <span className="text-amber-600">
+                              · 아직 퍼널에 안 붙었어요 →
+                            </span>
+                            <select
+                              name="campaignId"
+                              defaultValue={campaignOpts[0].id}
+                              className="rounded border bg-transparent px-1.5 py-0.5 text-[11px]"
+                            >
+                              {campaignOpts.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.name}
+                                </option>
+                              ))}
+                            </select>
+                            <SubmitButton
+                              className="rounded border border-blue-500 px-2 py-0.5 text-[11px] font-semibold text-blue-600"
+                              pendingLabel="…"
+                            >
+                              연결
+                            </SubmitButton>
+                          </form>
                         ) : (
                           <span className="text-amber-600">
                             · 아직 캠페인에 연결 안 됨

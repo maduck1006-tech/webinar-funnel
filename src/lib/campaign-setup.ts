@@ -95,6 +95,11 @@ export type CheckItem = {
         priceMode: "paid" | "free";
       }
     | {
+        kind: "offer-links";
+        campaignId: string;
+        products: { id: string; name: string; hasOffer: boolean }[];
+      }
+    | {
         kind: "product-connect";
         campaignId: string;
         newHref: string;
@@ -153,6 +158,7 @@ export async function getSetupChecklist(campaign: Campaign): Promise<{
     db
       .select({
         productId: campaignProducts.productId,
+        name: products.name,
         placement: campaignProducts.placement,
         price: products.price,
         active: products.active,
@@ -345,7 +351,9 @@ export async function getSetupChecklist(campaign: Campaign): Promise<{
         help: "설정 화면에서 토스 결제 키를 넣으면 모든 캠페인에 적용됩니다",
         done: false,
         required: true,
-        href: "/admin/settings",
+        href: `/admin/settings?return=${encodeURIComponent(
+          `/admin/campaigns/${id}`,
+        )}`,
       });
     }
     funnel.push({
@@ -372,10 +380,20 @@ export async function getSetupChecklist(campaign: Campaign): Promise<{
         label: hasOffers
           ? "추가 매출(오더범프·업셀·다운셀) 설정됨"
           : "추가 매출 붙이기 — 오더범프·업셀·다운셀 (선택)",
-        help: "결제 객단가를 올리는 장치. 캠페인 설정의 '연결 상품'에서 상품마다 지정합니다",
+        help: "결제 객단가를 올리는 장치. 상품마다 따로 지정합니다",
         done: hasOffers,
         required: false,
-        href: settings,
+        inline: {
+          kind: "offer-links",
+          campaignId: id,
+          products: activeMapped.map((m) => ({
+            id: m.productId,
+            name: m.name,
+            hasOffer: Boolean(
+              m.bumpProductId || m.upsellProductId || m.downsellProductId,
+            ),
+          })),
+        },
       });
     }
   }

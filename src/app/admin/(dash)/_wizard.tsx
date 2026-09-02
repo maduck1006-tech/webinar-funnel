@@ -125,12 +125,16 @@ export function Wizard({
   );
 
   const cls = "rounded-2xl border bg-white p-5 shadow-sm";
+  // 1단계를 넘겼으면 '나가면 잃을 게 있다'고 Shell 에 알린다
+  const dirty = idx > 0 ? "1" : undefined;
   return action ? (
-    <form action={action} className={cls}>
+    <form action={action} className={cls} data-wizard-dirty={dirty}>
       {inner}
     </form>
   ) : (
-    <div className={cls}>{inner}</div>
+    <div className={cls} data-wizard-dirty={dirty}>
+      {inner}
+    </div>
   );
 }
 
@@ -263,7 +267,19 @@ export function WizardShell({
     <div className="mx-auto max-w-[560px] py-6">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-lg font-bold">{title}</h1>
-        <Link href={exitHref} className="text-xs text-zinc-500 underline">
+        <Link
+          href={exitHref}
+          className="text-xs text-zinc-500 underline"
+          onClick={(e) => {
+            const inProgress = document.querySelector('[data-wizard-dirty="1"]');
+            if (
+              inProgress &&
+              !window.confirm("지금 나가면 입력한 내용이 사라집니다. 나갈까요?")
+            ) {
+              e.preventDefault();
+            }
+          }}
+        >
           {exitLabel}
         </Link>
       </div>

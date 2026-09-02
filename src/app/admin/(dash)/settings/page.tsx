@@ -16,7 +16,14 @@ function envSet(key: string) {
   return Boolean(process.env[key] && process.env[key] !== "");
 }
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ return?: string }>;
+}) {
+  const { return: returnTo } = await searchParams;
+  const backHref =
+    returnTo && returnTo.startsWith("/") ? returnTo : null;
   const site =
     process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
     (process.env.VERCEL_PROJECT_PRODUCTION_URL
@@ -81,6 +88,15 @@ export default async function SettingsPage() {
         title="연동 설정"
         desc="실사용 전 연결해야 하는 외부 서비스"
       />
+
+      {backHref && (
+        <Link
+          href={backHref}
+          className="mb-4 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-[12.5px] text-blue-900"
+        >
+          ← 설정을 마쳤으면 하던 캠페인으로 돌아가기
+        </Link>
+      )}
 
       <Link
         href="/admin/settings/setup"

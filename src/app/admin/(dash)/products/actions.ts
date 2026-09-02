@@ -141,6 +141,7 @@ export async function connectExistingProduct(fd: FormData) {
     .onConflictDoNothing();
   revalidatePath(`/admin/campaigns/${campaignId}`);
   revalidatePath(`/admin/campaigns/${campaignId}/settings`);
+  revalidatePath("/admin/products");
 }
 
 export async function toggleProduct(fd: FormData) {

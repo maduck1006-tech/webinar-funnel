@@ -12,6 +12,41 @@ export default async function AdminToday() {
     <>
       <PageHeader title="오늘" desc="지금 처리할 것부터" />
 
+      {/* 아직 아무것도 없는 계정 — 어디서 시작하는지부터 알려준다 */}
+      {t.campaigns.length === 0 && (
+        <Card className="mb-6">
+          <p className="text-sm font-bold">👋 처음이시죠? 순서는 두 개뿐이에요</p>
+          <p className="mt-1 text-[12.5px] leading-relaxed text-zinc-500">
+            먼저 문자·결제 같은 <b>외부 서비스를 연결</b>하고, 그다음 <b>퍼널을 하나</b>
+            만들면 됩니다. 나머지는 만들면서 체크리스트가 알려줘요.
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <Link
+              href="/admin/settings/setup"
+              className="rounded-xl bg-black p-3.5 text-white"
+            >
+              <span className="block text-sm font-semibold">
+                1 · 처음 설정 마법사 →
+              </span>
+              <span className="mt-0.5 block text-[11.5px] opacity-70">
+                문자 · 결제 · 예약 · 추적을 하나씩
+              </span>
+            </Link>
+            <Link
+              href="/admin/campaigns/new"
+              className="rounded-xl border border-zinc-300 p-3.5"
+            >
+              <span className="block text-sm font-semibold text-zinc-900">
+                2 · 첫 캠페인 만들기 →
+              </span>
+              <span className="mt-0.5 block text-[11.5px] text-zinc-500">
+                퍼널 형태를 고르면 페이지까지 한 번에
+              </span>
+            </Link>
+          </div>
+        </Card>
+      )}
+
       {/* 지금 처리할 것 */}
       <Card className="mb-6">
         <p className="mb-3 text-sm font-bold">지금 처리할 것</p>

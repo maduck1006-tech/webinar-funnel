@@ -126,6 +126,34 @@ function ProductConnectInline({
   );
 }
 
+/** 연결된 상품마다 추가 매출(범프·업셀·다운셀) 위저드로 바로 보내기 */
+function OfferLinksInline({
+  campaignId,
+  products,
+}: {
+  campaignId: string;
+  products: { id: string; name: string; hasOffer: boolean }[];
+}) {
+  return (
+    <div className="mt-1.5 flex w-full flex-wrap gap-1.5">
+      {products.map((p) => (
+        <a
+          key={p.id}
+          href={`/admin/campaigns/${campaignId}/offers/${p.id}`}
+          className={`rounded-lg border px-2.5 py-1 text-[12px] font-semibold ${
+            p.hasOffer
+              ? "border-zinc-300 text-zinc-500"
+              : "border-blue-500 text-blue-600"
+          }`}
+        >
+          {p.hasOffer ? "✓ " : "+ "}
+          {p.name}
+        </a>
+      ))}
+    </div>
+  );
+}
+
 const FIELD_PLACEHOLDER: Record<string, string> = {
   bookingEmbedUrl: "되는시간 임베드 URL",
   groupChatUrl: "오픈카톡 초대 링크",
@@ -427,6 +455,12 @@ function ChecklistGroup({
                 field={it.inline.field}
                 value={it.inline.value}
                 placeholder={it.inline.placeholder}
+              />
+            )}
+            {it.inline?.kind === "offer-links" && (
+              <OfferLinksInline
+                campaignId={it.inline.campaignId}
+                products={it.inline.products}
               />
             )}
             {!it.done && it.inline?.kind === "product-connect" && (

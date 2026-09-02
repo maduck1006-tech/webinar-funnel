@@ -50,10 +50,13 @@ const VARS: { name: string; desc: string }[] = [
 
 export default async function AutomationEditor({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ created?: string }>;
 }) {
   const { id } = await params;
+  const { created } = await searchParams;
 
   const [auto] = await db
     .select()
@@ -95,6 +98,32 @@ export default async function AutomationEditor({
           </span>
         }
       />
+
+      {created === "1" && (
+        <div className="mb-5 flex flex-col gap-2.5 rounded-xl border border-emerald-300 bg-emerald-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-bold text-emerald-900">
+              ✓ 만들어졌어요 — 아직 <u>꺼진 상태</u>입니다
+            </p>
+            <p className="mt-0.5 text-[12.5px] leading-relaxed text-emerald-800">
+              아래에서 문구를 확인한 뒤 켜주세요. 켜는 순간부터 조건에 맞는
+              손님에게 실제로 문자가 나갑니다.
+            </p>
+          </div>
+          {!auto.enabled && (
+            <form action={toggleAutomation} className="shrink-0">
+              <input type="hidden" name="id" value={auto.id} />
+              <input type="hidden" name="next" value="true" />
+              <SubmitButton
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white"
+                pendingLabel="켜는 중…"
+              >
+                지금 켜기
+              </SubmitButton>
+            </form>
+          )}
+        </div>
+      )}
 
       {/* 요약 문장 */}
       <div className="mb-6 rounded-xl border border-dashed border-zinc-300 bg-zinc-50 p-4 text-sm leading-relaxed text-zinc-700">
