@@ -180,14 +180,17 @@ export function previewText(body: string): string {
 
 /* ---------- 시각 컴포넌트 ---------- */
 
-/** 문자 미리보기 — 카톡 말풍선 느낌 */
+/** 문자 미리보기 — 카톡 말풍선 느낌 (admin 다크테마 무관하게 항상 밝게) */
 export function PhoneBubble({ text }: { text: string }) {
   return (
     <div className="rounded-2xl bg-[#b2c7d9] p-3">
-      <div className="max-w-[85%] rounded-xl rounded-tl-sm bg-white px-3 py-2 text-[13px] leading-relaxed text-zinc-800 shadow-sm">
+      <div
+        className="max-w-[90%] rounded-xl rounded-tl-sm px-3 py-2 text-[13px] leading-relaxed shadow-sm"
+        style={{ background: "#ffffff", color: "#27272a" }}
+      >
         <p className="whitespace-pre-wrap">{text || "(내용을 입력하세요)"}</p>
       </div>
-      <p className="mt-1 pl-1 text-[10px] text-zinc-500/80">
+      <p className="mt-1 pl-1 text-[10px]" style={{ color: "#3f4a5a" }}>
         미리보기 · 실제 발송 시 변수는 손님 정보로 채워집니다
       </p>
     </div>

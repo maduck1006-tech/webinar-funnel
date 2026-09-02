@@ -31,18 +31,16 @@ function FlowChips({
 }) {
   const steps = resolveFlowSteps(campaign);
   return (
-    <div className="flex flex-wrap items-center gap-1">
+    <div className="flex flex-wrap items-center gap-1.5">
       {steps.map((s, i) => (
-        <span key={s.pageType} className="flex items-center gap-1">
-          <span
-            className={`rounded px-1.5 py-0.5 text-[11px] ${
-              s.enabled
-                ? "bg-zinc-800 text-zinc-100"
-                : "bg-zinc-100 text-zinc-400 line-through"
-            }`}
-          >
-            {STEP_META[s.pageType]?.title ?? s.pageType}
-          </span>
+        <span key={s.pageType} className="flex items-center gap-1.5">
+          {s.enabled ? (
+            <Tag tone="blue">{STEP_META[s.pageType]?.title ?? s.pageType}</Tag>
+          ) : (
+            <span className="rounded-full px-2 py-0.5 text-[11px] text-zinc-500 line-through">
+              {STEP_META[s.pageType]?.title ?? s.pageType}
+            </span>
+          )}
           {i < steps.length - 1 && (
             <span className="text-[10px] text-zinc-400">→</span>
           )}
