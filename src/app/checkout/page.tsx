@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { campaigns, leads, products } from "@/db/schema";
-import { resolveLeadId } from "@/lib/lead";
+import { isUuid, resolveLeadId } from "@/lib/lead";
 import { CheckoutClient } from "./CheckoutClient";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +23,7 @@ export default async function CheckoutPage({
   }>;
 }) {
   const { p: productId, l: lParam, c: campaignParam, role } = await searchParams;
-  if (!productId) return notFound();
+  if (!isUuid(productId)) return notFound();
   const orderRole =
     role === "upsell" || role === "downsell" ? role : "main";
 

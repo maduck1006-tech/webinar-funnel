@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { db } from "@/db";
 import { affiliates } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -197,12 +198,12 @@ export default async function AffiliatesPage({
               {editing ? "저장" : "만들기"}
             </button>
             {editing && (
-              <a
+              <Link
                 href="/admin/affiliates"
                 className="block pt-1 text-center text-xs text-zinc-500 underline"
               >
                 취소
-              </a>
+              </Link>
             )}
           </form>
           <p className="mt-3 rounded-lg bg-zinc-50 px-3 py-2 text-[11px] leading-relaxed text-zinc-500">

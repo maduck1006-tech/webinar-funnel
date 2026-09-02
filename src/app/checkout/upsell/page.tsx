@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { campaigns, leads, products } from "@/db/schema";
-import { resolveLeadId } from "@/lib/lead";
+import { isUuid, resolveLeadId } from "@/lib/lead";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +44,7 @@ export default async function UpsellPage({
   }
   const vodUrl = `${basePath}/vod?paid=1${leadQs}`;
 
-  if (!productId) redirect(vodUrl);
+  if (!isUuid(productId)) redirect(vodUrl);
 
   const [product] = await db
     .select()

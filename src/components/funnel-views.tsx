@@ -8,7 +8,7 @@ import { FunnelPage } from "@/puck/FunnelPage";
 import { PaidTracker } from "@/components/PaidTracker";
 import { OfferTracker } from "@/components/OfferTracker";
 import { previewEnabled } from "@/lib/preview";
-import { resolveLeadId } from "@/lib/lead";
+import { isUuid, resolveLeadId } from "@/lib/lead";
 import { resolveVariant } from "@/lib/ab";
 import {
   campaignBasePath,
@@ -488,7 +488,7 @@ export async function SalesView({
   const leadId = await resolveLeadId(l);
   // ?p= 로 특정 상품 지정(크로스셀 등), 없으면 캠페인의 sales 상품
   let offer = await getActiveOffer(campaign.id, "sales");
-  if (p) {
+  if (isUuid(p)) {
     const [prod] = await db
       .select()
       .from(products)
@@ -549,8 +549,9 @@ export async function DeliveryView({
   const basePath = campaignBasePath(campaign);
 
   // 상품 미지정이면 이 캠페인의 세일즈 상품으로 폴백
-  const offer = p ? null : await getActiveOffer(campaign.id, "sales");
-  const productId = p || offer?.productId;
+  const pid = isUuid(p) ? p : undefined;
+  const offer = pid ? null : await getActiveOffer(campaign.id, "sales");
+  const productId = pid || offer?.productId;
 
   if (!leadId || !productId) {
     return (

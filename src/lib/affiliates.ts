@@ -14,10 +14,11 @@ export async function linkReferral(
   code: string | undefined | null,
 ): Promise<void> {
   if (!code) return;
+  const norm = code.trim().toLowerCase();
   const [aff] = await db
     .select({ id: affiliates.id })
     .from(affiliates)
-    .where(and(eq(affiliates.code, code), eq(affiliates.status, "active")));
+    .where(and(eq(affiliates.code, norm), eq(affiliates.status, "active")));
   if (!aff) return;
   await db
     .insert(affiliateReferrals)
