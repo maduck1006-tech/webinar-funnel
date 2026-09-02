@@ -228,3 +228,31 @@ body {
   padding: 0.1em 0.35em;
   font-size: 0.9em;
 }
+
+/* =========================================================
+   접근성 — 키보드 포커스 링 + 모션 감소 (A8)
+   ========================================================= */
+.funnel-theme :focus-visible,
+.admin-theme :focus-visible {
+  outline: 2px solid var(--fn-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+/* 마우스 클릭으로 얻은 포커스에는 링 숨김(브라우저 기본 동작 보강) */
+.funnel-theme :focus:not(:focus-visible),
+.admin-theme :focus:not(:focus-visible) {
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fn-in,
+  .fn-topbar,
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

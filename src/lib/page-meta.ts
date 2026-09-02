@@ -67,9 +67,14 @@ export async function landingMetadata(campaign: Campaign): Promise<Metadata> {
   const origin = siteOrigin();
   const { title, description, image } = await deriveFromLanding(campaign);
   const path = campaign.isDefault ? "/" : `/${campaign.slug}`;
-  const ogImage = image
-    ? [{ url: image, width: 1200, height: 630 }]
-    : undefined;
+
+  // Puck Hero 이미지가 없으면 브랜딩된 폴백 OG 이미지를 생성
+  const ogUrl =
+    image ||
+    `${origin}/api/og?t=${encodeURIComponent(title)}&n=${encodeURIComponent(
+      campaign.name,
+    )}`;
+  const ogImage = [{ url: ogUrl, width: 1200, height: 630 }];
 
   return {
     metadataBase: new URL(origin),
@@ -86,10 +91,10 @@ export async function landingMetadata(campaign: Campaign): Promise<Metadata> {
       locale: "ko_KR",
     },
     twitter: {
-      card: image ? "summary_large_image" : "summary",
+      card: "summary_large_image",
       title,
       description,
-      images: image ? [image] : undefined,
+      images: [ogUrl],
     },
   };
 }

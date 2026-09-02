@@ -9,11 +9,12 @@
 - ✅ **P0 안전망** (커밋 `e0bea48`, 배포됨): A2 바운더리 · A3 Gate CTA · B2/B6 결제 에러 한국어화
 - ✅ **P0 공유·유입** (커밋 `ab9ef88`, 배포됨): A1 캠페인별 메타/OG(Puck 자동추출) · A8/D1 viewport·theme-color · 퍼널 내부 페이지 noindex
 - ✅ **P1 폼 마찰** (커밋 `dad7ee5`, 배포됨): lib/form-validate.ts 공용 · A6 LeadForm · B4 ContactStep · B1 결제 타임아웃 · B3 주문 요약 상시
-- ⬜ P1 관리자 (E1 + E2)
+- ✅ **P1 관리자** (커밋 `82fdcaf`, 배포됨): E1 SubmitButton(저장 중 상태) · E2 ConfirmSubmit(삭제 확인)
+- ✅ **P2 배치 1** (커밋 대기): A8 focus-visible + reduced-motion · A4 booking iframe 로딩/실패 · OG 이미지 동적 폴백(/api/og)
+- ⬜ P2 나머지: A5 종착 카피 · A7 만료 후 CTA 비활성 · C1 로그인 목적지 · C2 OTP 보조문구 · D2 폰트 · D3 next/image · E3 빈상태 · E4 어필리에이트 상세 · E5 모바일 관리자 · E6 표 검색
 
-### P0 공유·유입 후속(선택)
-- OG 이미지가 랜딩 Hero 에 없으면 미리보기에 이미지가 안 붙음 → `opengraph-image.tsx` 동적 폴백(next/og) 추가하면 100% 커버
-- 캠페인별 SEO 오버라이드 컬럼(`seoTitle`/`seoDescription`/`ogImageUrl`) — 현재는 Puck 콘텐츠에서 자동 추출만
+### 후속(선택)
+- 캠페인별 SEO 오버라이드 컬럼(`seoTitle`/`seoDescription`/`ogImageUrl`) — 현재는 Puck 콘텐츠 자동 추출 + /api/og 폴백
 
 ---
 

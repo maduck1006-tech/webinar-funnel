@@ -7,6 +7,7 @@ import { enrollLead } from "@/lib/messaging";
 import { FunnelPage } from "@/puck/FunnelPage";
 import { PaidTracker } from "@/components/PaidTracker";
 import { OfferTracker } from "@/components/OfferTracker";
+import { BookingEmbed } from "@/components/BookingEmbed";
 import { previewEnabled } from "@/lib/preview";
 import { isUuid, resolveLeadId } from "@/lib/lead";
 import { resolveVariant } from "@/lib/ab";
@@ -474,12 +475,7 @@ export async function BookingView({
   return (
     <FunnelPage campaign={campaign} pageType="booking">
       {embed ? (
-        <iframe
-          src={embed}
-          className="mt-4 h-[720px] w-full rounded-xl border border-[var(--fn-line)] bg-white"
-          title="상담 예약"
-          loading="eager"
-        />
+        <BookingEmbed src={embed} />
       ) : (
         <div className="mt-4 grid h-56 place-items-center rounded-xl border border-dashed border-[var(--fn-line)] bg-[var(--fn-bg-2)] text-sm text-[var(--fn-sub)]">
           되는시간(WhatTime) 예약 캘린더가 여기 표시됩니다
