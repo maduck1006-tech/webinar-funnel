@@ -19,6 +19,15 @@ export type CheckItem = {
   done: boolean;
   required: boolean;
   href?: string;
+  /** 인라인으로 채울 수 있는 항목 */
+  inline?:
+    | {
+        kind: "product";
+        slotKey: string;
+        productType: string;
+        priceMode: "paid" | "free";
+      }
+    | { kind: "setting"; field: "bookingEmbedUrl" | "groupChatUrl"; value: string };
 };
 
 export type SetupGroup = {
@@ -104,11 +113,16 @@ export async function getSetupChecklist(campaign: Campaign): Promise<{
         label: slot.label,
         help:
           slot.priceMode === "free"
-            ? "무료 상품으로 등록 (가격 0, 가격모드 무료)"
-            : "상품을 만들고 이 퍼널에 연결하세요",
+            ? "무료 상품 (가격 0)"
+            : "상품을 만들면 이 퍼널에 자동 연결됩니다",
         done: filled,
         required: slot.required,
-        href: "/admin/products",
+        inline: {
+          kind: "product",
+          slotKey: slot.key,
+          productType: slot.productType,
+          priceMode: slot.priceMode ?? "paid",
+        },
       });
     }
   } else {
@@ -129,7 +143,11 @@ export async function getSetupChecklist(campaign: Campaign): Promise<{
       label: "되는시간 예약 링크 연결",
       done: !!campaign.bookingEmbedUrl,
       required: true,
-      href: settings,
+      inline: {
+        kind: "setting",
+        field: "bookingEmbedUrl",
+        value: campaign.bookingEmbedUrl ?? "",
+      },
     });
   }
   if (campaign.terminalStep === "groupchat" || stepTypes.has("groupchat")) {
@@ -137,6 +155,11 @@ export async function getSetupChecklist(campaign: Campaign): Promise<{
       id: "groupchat-url",
       label: "단톡방(오픈카톡) 초대 링크 연결",
       done: !!campaign.groupChatUrl,
+      inline: {
+        kind: "setting",
+        field: "groupChatUrl",
+        value: campaign.groupChatUrl ?? "",
+      },
       required: true,
       href: settings,
     });

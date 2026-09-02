@@ -14,6 +14,7 @@ import {
   messageAutomations,
   messageAutomationSteps,
   orders,
+  products,
 } from "@/db/schema";
 import { getTemplate } from "@/lib/funnel-templates";
 import { bustAbCache, isValidSlug } from "@/lib/campaign";
@@ -533,6 +534,67 @@ export async function setFlowStep(fd: FormData) {
   await db
     .update(campaigns)
     .set({ flow: { steps }, updatedAt: new Date() })
+    .where(eq(campaigns.id, campaignId));
+  revalidatePath(`/admin/campaigns/${campaignId}`);
+}
+
+/**
+ * 설정 체크리스트에서 상품을 인라인으로 만들고 이 퍼널에 자동 연결.
+ * fd: campaignId, slotKey, name, price, imageUrl?, tossOrderName?, freeMonths?
+ * (docs/funnel-templates-plan.md — 한 흐름으로)
+ */
+export async function createSlotProduct(fd: FormData) {
+  const campaignId = String(fd.get("campaignId"));
+  const slotKey = String(fd.get("slotKey"));
+  const name = String(fd.get("name") ?? "").trim();
+  if (!campaignId || !name) return;
+
+  const [c] = await db.select().from(campaigns).where(eq(campaigns.id, campaignId));
+  if (!c) return;
+  const tpl = c.templateKey ? getTemplate(c.templateKey) : undefined;
+  const slot = tpl?.productSlots.find((s) => s.key === slotKey);
+  if (!slot) return;
+
+  const price =
+    slot.priceMode === "free"
+      ? 0
+      : Number(String(fd.get("price") ?? "0").replace(/[^\d]/g, "")) || 0;
+  const isMembership = slot.productType === "membership";
+
+  const [prod] = await db
+    .insert(products)
+    .values({
+      name,
+      price,
+      type: slot.productType,
+      kind: isMembership ? "membership" : "one_time",
+      priceMode: slot.priceMode ?? "paid",
+      membershipFreeMonths: isMembership
+        ? Number(String(fd.get("freeMonths") ?? "1").replace(/[^\d]/g, "")) || 1
+        : 0,
+      imageUrl: String(fd.get("imageUrl") ?? "").trim() || null,
+      tossOrderName: String(fd.get("tossOrderName") ?? "").trim() || null,
+      active: true,
+    })
+    .returning({ id: products.id });
+
+  await db
+    .insert(campaignProducts)
+    .values({ campaignId, productId: prod.id, placement: slot.placement })
+    .onConflictDoNothing();
+
+  revalidatePath(`/admin/campaigns/${campaignId}`);
+}
+
+/** 체크리스트에서 되는시간/단톡방 링크를 인라인 저장 */
+export async function saveSettingField(fd: FormData) {
+  const campaignId = String(fd.get("campaignId"));
+  const field = String(fd.get("field"));
+  const value = String(fd.get("value") ?? "").trim() || null;
+  if (!["bookingEmbedUrl", "groupChatUrl"].includes(field)) return;
+  await db
+    .update(campaigns)
+    .set({ [field]: value, updatedAt: new Date() })
     .where(eq(campaigns.id, campaignId));
   revalidatePath(`/admin/campaigns/${campaignId}`);
 }
