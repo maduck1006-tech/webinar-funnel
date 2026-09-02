@@ -76,8 +76,6 @@ export default async function ProductsPage({
     /* noop */
   }
 
-  const nameById = new Map(list.map((p) => [p.id, p.name]));
-
   return (
     <>
       <PageHeader
@@ -164,16 +162,6 @@ export default async function ProductsPage({
                       </p>
 
                       <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-zinc-500">
-                        {p.bumpProductId && (
-                          <Tag tone="amber">
-                            + 범프: {nameById.get(p.bumpProductId) ?? "?"}
-                          </Tag>
-                        )}
-                        {p.upsellProductId && (
-                          <Tag tone="amber">
-                            + 업셀: {nameById.get(p.upsellProductId) ?? "?"}
-                          </Tag>
-                        )}
                         {linkedCampaigns.length > 0 ? (
                           <span>· 연결 캠페인: {linkedCampaigns.join(", ")}</span>
                         ) : (
@@ -370,65 +358,16 @@ export default async function ProductsPage({
               </div>
             </FormSection>
 
-            {/* 5. 추가 매출 */}
-            <details className="rounded-lg border p-3">
-              <summary className="cursor-pointer text-xs font-medium text-zinc-600">
-                💰 추가 매출 붙이기 (선택) — 오더 범프 · 원클릭 업셀
-              </summary>
-              <p className="mt-2 text-[11px] leading-relaxed text-zinc-400">
-                연결할 상품도 먼저 등록·판매중이어야 합니다.
-              </p>
-              <label className="mt-3 block">
-                <span className="text-xs font-medium text-zinc-700">
-                  오더 범프 상품
-                </span>
-                <span className="block text-[11px] text-zinc-400">
-                  주문서에 체크박스로 붙는 소액 추가상품. 같은 결제에 합산돼요.
-                </span>
-                <ProductSelect
-                  name="bumpProductId"
-                  list={list}
-                  excludeId={editing?.id}
-                  selected={editing?.bumpProductId ?? ""}
-                />
-              </label>
-              <label className="mt-2 block">
-                <span className="text-[11px] text-zinc-400">
-                  범프 체크박스 문구 (비우면 상품 설명)
-                </span>
-                <input
-                  name="bumpDescription"
-                  defaultValue={editing?.bumpDescription ?? undefined}
-                  placeholder="예: 실전 템플릿 30종도 함께 받기"
-                  className="mt-1 w-full rounded border px-2.5 py-1.5"
-                />
-              </label>
-              <label className="mt-3 block">
-                <span className="text-xs font-medium text-zinc-700">
-                  원클릭 업셀(OTO) 상품
-                </span>
-                <span className="block text-[11px] text-zinc-400">
-                  결제 완료 직후 뜨는 오퍼 페이지의 상품
-                </span>
-                <ProductSelect
-                  name="upsellProductId"
-                  list={list}
-                  excludeId={editing?.id}
-                  selected={editing?.upsellProductId ?? ""}
-                />
-              </label>
-              <label className="mt-2 block">
-                <span className="text-xs font-medium text-zinc-700">
-                  다운셀 상품 (업셀 거절 시)
-                </span>
-                <ProductSelect
-                  name="downsellProductId"
-                  list={list}
-                  excludeId={editing?.id}
-                  selected={editing?.downsellProductId ?? ""}
-                />
-              </label>
-            </details>
+            {/* 5. 추가 매출 → 캠페인별로 이동 */}
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-[12px] leading-relaxed text-blue-900">
+              💰 <b>오더 범프 · 원클릭 업셀 · 다운셀</b>은 이제{" "}
+              <b>캠페인마다 다르게</b> 설정합니다. (같은 상품을 A 캠페인엔 메인, B
+              캠페인엔 업셀로 쓸 수 있게)
+              <br />
+              <span className="mt-1 block text-blue-700">
+                캠페인 관리 → (캠페인) → 설정 → 연결 상품 → &quot;+ 추가 오퍼&quot;
+              </span>
+            </div>
 
             {/* 6. 번들 */}
             <details className="rounded-lg border p-3">

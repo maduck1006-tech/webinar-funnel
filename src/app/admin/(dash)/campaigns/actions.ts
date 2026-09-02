@@ -451,7 +451,6 @@ export async function endAbTest(fd: FormData) {
 export async function setCampaignProduct(fd: FormData) {
   const campaignId = String(fd.get("campaignId"));
   const productId = String(fd.get("productId"));
-  const placement = String(fd.get("placement") ?? "both");
   const remove = fd.get("remove") === "true";
   if (remove) {
     await db
@@ -462,15 +461,37 @@ export async function setCampaignProduct(fd: FormData) {
           eq(campaignProducts.productId, productId),
         ),
       );
-  } else {
-    await db
-      .insert(campaignProducts)
-      .values({ campaignId, productId, placement })
-      .onConflictDoUpdate({
-        target: [campaignProducts.campaignId, campaignProducts.productId],
-        set: { placement },
-      });
+    revalidatePath(`/admin/campaigns/${campaignId}/settings`);
+    return;
   }
+
+  const uuidOrNull = (k: string) => {
+    const v = String(fd.get(k) ?? "").trim();
+    return v || null;
+  };
+  // "offers" 폼이면 오퍼 필드만, 아니면 placement 토글
+  const isOffers = fd.get("offers") === "1";
+  const patch = isOffers
+    ? {
+        bumpProductId: uuidOrNull("bumpProductId"),
+        bumpDescription: String(fd.get("bumpDescription") ?? "").trim() || null,
+        upsellProductId: uuidOrNull("upsellProductId"),
+        downsellProductId: uuidOrNull("downsellProductId"),
+      }
+    : { placement: String(fd.get("placement") ?? "both") };
+
+  await db
+    .insert(campaignProducts)
+    .values({
+      campaignId,
+      productId,
+      placement: String(fd.get("placement") ?? "both"),
+      ...patch,
+    })
+    .onConflictDoUpdate({
+      target: [campaignProducts.campaignId, campaignProducts.productId],
+      set: patch,
+    });
   revalidatePath(`/admin/campaigns/${campaignId}/settings`);
 }
 

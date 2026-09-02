@@ -43,3 +43,6 @@ next-env.d.ts
 # claude code local
 .claude/scheduled_tasks.lock
 .claude/settings.local.json
+
+# Remotion
+out/

@@ -34,6 +34,7 @@ export default async function CampaignSettings({
     .from(campaignProducts)
     .where(eq(campaignProducts.campaignId, id));
   const mappedMap = new Map(mapped.map((m) => [m.productId, m.placement]));
+  const mappedFull = new Map(mapped.map((m) => [m.productId, m]));
 
   // 이 캠페인의 퍼널에 실제 존재하는 단계 → 상품을 놓을 수 있는 위치만 노출
   const enabledSteps = new Set(
@@ -242,39 +243,116 @@ export default async function CampaignSettings({
             )}
             {allProducts.map((p) => {
               const on = mappedMap.has(p.id);
+              const cp = mappedFull.get(p.id);
               return (
-                <li key={p.id} className="flex items-center gap-2 py-2.5">
-                  <form action={setCampaignProduct} className="flex flex-1 items-center gap-2">
-                    <input type="hidden" name="campaignId" value={id} />
-                    <input type="hidden" name="productId" value={p.id} />
-                    <input type="hidden" name="remove" value={on ? "true" : "false"} />
-                    <button
-                      className={`h-5 w-5 rounded border ${on ? "bg-black" : "bg-white"}`}
-                      aria-label="toggle"
+                <li key={p.id} className="py-2.5">
+                  <div className="flex items-center gap-2">
+                    <form
+                      action={setCampaignProduct}
+                      className="flex flex-1 items-center gap-2"
                     >
-                      {on && <span className="text-xs text-white">✓</span>}
-                    </button>
-                    <span className="flex-1">{p.name}</span>
-                    {!p.active && <Tag tone="gray">중지</Tag>}
-                  </form>
-                  {on && (
-                    <form action={setCampaignProduct} className="flex items-center gap-1">
                       <input type="hidden" name="campaignId" value={id} />
                       <input type="hidden" name="productId" value={p.id} />
-                      <input type="hidden" name="remove" value="false" />
-                      <select
-                        name="placement"
-                        defaultValue={mappedMap.get(p.id)}
-                        className="rounded border px-1 py-0.5 text-xs"
+                      <input
+                        type="hidden"
+                        name="remove"
+                        value={on ? "true" : "false"}
+                      />
+                      <button
+                        className={`h-5 w-5 rounded border ${on ? "bg-black" : "bg-white"}`}
+                        aria-label="toggle"
                       >
-                        {placementOpts.map((o) => (
-                          <option key={o.value} value={o.value}>
-                            {o.label}
-                          </option>
-                        ))}
-                      </select>
-                      <button className="rounded border px-2 text-xs">적용</button>
+                        {on && <span className="text-xs text-white">✓</span>}
+                      </button>
+                      <span className="flex-1">{p.name}</span>
+                      {!p.active && <Tag tone="gray">중지</Tag>}
                     </form>
+                    {on && (
+                      <form
+                        action={setCampaignProduct}
+                        className="flex items-center gap-1"
+                      >
+                        <input type="hidden" name="campaignId" value={id} />
+                        <input type="hidden" name="productId" value={p.id} />
+                        <input type="hidden" name="remove" value="false" />
+                        <select
+                          name="placement"
+                          defaultValue={mappedMap.get(p.id)}
+                          className="rounded border px-1 py-0.5 text-xs"
+                        >
+                          {placementOpts.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </select>
+                        <button className="rounded border px-2 text-xs">
+                          적용
+                        </button>
+                      </form>
+                    )}
+                  </div>
+
+                  {on && (
+                    <details className="ml-7 mt-1.5 rounded-lg border bg-zinc-50/50 p-2">
+                      <summary className="cursor-pointer text-[11px] font-medium text-zinc-500">
+                        + 이 상품 주문서에 추가 오퍼 붙이기 (범프 · 업셀 · 다운셀)
+                        {(cp?.bumpProductId ||
+                          cp?.upsellProductId ||
+                          cp?.downsellProductId) && (
+                          <span className="ml-1 text-[var(--fn-accent,#ff3d2e)]">
+                            ●
+                          </span>
+                        )}
+                      </summary>
+                      <form
+                        action={setCampaignProduct}
+                        className="mt-2 space-y-2"
+                      >
+                        <input type="hidden" name="campaignId" value={id} />
+                        <input type="hidden" name="productId" value={p.id} />
+                        <input type="hidden" name="offers" value="1" />
+                        <label className="block text-[11px] text-zinc-500">
+                          오더 범프 (주문서 체크박스로 붙는 소액 추가상품)
+                          <OfferSelect
+                            name="bumpProductId"
+                            products={allProducts}
+                            excludeId={p.id}
+                            selected={cp?.bumpProductId ?? ""}
+                          />
+                        </label>
+                        <label className="block text-[11px] text-zinc-500">
+                          범프 문구 (비우면 상품 설명)
+                          <input
+                            name="bumpDescription"
+                            defaultValue={cp?.bumpDescription ?? undefined}
+                            placeholder="예: 실전 템플릿 30종도 함께"
+                            className="mt-0.5 w-full rounded border px-2 py-1 text-xs"
+                          />
+                        </label>
+                        <label className="block text-[11px] text-zinc-500">
+                          원클릭 업셀 (결제 직후 오퍼 페이지)
+                          <OfferSelect
+                            name="upsellProductId"
+                            products={allProducts}
+                            excludeId={p.id}
+                            selected={cp?.upsellProductId ?? ""}
+                          />
+                        </label>
+                        <label className="block text-[11px] text-zinc-500">
+                          다운셀 (업셀 거절 시)
+                          <OfferSelect
+                            name="downsellProductId"
+                            products={allProducts}
+                            excludeId={p.id}
+                            selected={cp?.downsellProductId ?? ""}
+                          />
+                        </label>
+                        <button className="rounded border bg-white px-3 py-1 text-xs font-semibold">
+                          오퍼 저장
+                        </button>
+                      </form>
+                    </details>
                   )}
                 </li>
               );
@@ -418,6 +496,35 @@ export default async function CampaignSettings({
         </Card>
       )}
     </>
+  );
+}
+
+function OfferSelect({
+  name,
+  products,
+  excludeId,
+  selected,
+}: {
+  name: string;
+  products: { id: string; name: string; price: number }[];
+  excludeId: string;
+  selected: string;
+}) {
+  return (
+    <select
+      name={name}
+      defaultValue={selected}
+      className="mt-0.5 w-full rounded border px-2 py-1 text-xs"
+    >
+      <option value="">— 없음 —</option>
+      {products
+        .filter((p) => p.id !== excludeId)
+        .map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name} ({p.price.toLocaleString("ko-KR")}원)
+          </option>
+        ))}
+    </select>
   );
 }
 
