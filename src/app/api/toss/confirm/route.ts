@@ -25,7 +25,7 @@ export async function GET(req: Request) {
   const amount = Number(amountStr);
 
   if (!paymentKey || !orderId) {
-    return redirectFail("INVALID_PARAMS", "paymentKey 또는 orderId 누락", url);
+    return redirectFail("INVALID_PARAMS");
   }
 
   // 1. pending_orders 조회 → amount 위변조 검증
@@ -36,11 +36,11 @@ export async function GET(req: Request) {
     .limit(1);
 
   if (!pending) {
-    return redirectFail("ORDER_NOT_FOUND", "주문 정보를 찾을 수 없습니다", url);
+    return redirectFail("ORDER_NOT_FOUND");
   }
   if (pending.amount !== amount) {
     reportError("toss.confirm", `amount mismatch: expected=${pending.amount} got=${amount}`, { orderId });
-    return redirectFail("AMOUNT_MISMATCH", "결제 금액이 일치하지 않습니다", url);
+    return redirectFail("AMOUNT_MISMATCH");
   }
 
   // 2. 이미 처리된 주문 (멱등 — 새로고침 대응)
@@ -60,13 +60,14 @@ export async function GET(req: Request) {
     confirmed = await confirmTossPayment({ paymentKey, orderId, amount });
   } catch (e) {
     reportError("toss.confirm", e, { orderId, paymentKey });
-    return redirectFail("CONFIRM_FAILED", String(e), url);
+    const tossCode = (e as { tossCode?: string })?.tossCode;
+    return redirectFail(tossCode || "CONFIRM_FAILED");
   }
 
   if (confirmed.status !== "DONE") {
     // 가상계좌 등 비즉시 결제는 P1 미지원
     reportError("toss.confirm", `unexpected status: ${confirmed.status}`, { orderId });
-    return redirectFail("PAYMENT_PENDING", `결제 상태(${confirmed.status}) 처리 중입니다. 잠시 후 시청 페이지를 확인하세요.`, url);
+    return redirectFail("PAYMENT_PENDING");
   }
 
   // 4. orders insert
@@ -243,10 +244,13 @@ function getOrigin() {
   );
 }
 
-function redirectFail(code: string, message: string, _reqUrl: URL) {
+/**
+ * 결제 실패 페이지로 리다이렉트. code 만 전달하고 raw 메시지는 넘기지 않는다
+ * (fail 페이지가 lib/payment-errors.ts 로 한국어 문구를 매핑).
+ */
+function redirectFail(code: string) {
   const failUrl = new URL("/checkout/fail", getOrigin());
   failUrl.searchParams.set("code", code);
-  failUrl.searchParams.set("message", message);
   return NextResponse.redirect(failUrl, { status: 302 });
 }
 

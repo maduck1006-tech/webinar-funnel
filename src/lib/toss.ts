@@ -41,9 +41,13 @@ export async function confirmTossPayment({
 
   const data = (await res.json()) as Record<string, unknown>;
   if (!res.ok) {
-    const code = data.code ?? "UNKNOWN";
+    const code = String(data.code ?? "UNKNOWN");
     const msg = data.message ?? res.statusText;
-    throw new Error(`toss confirm 실패 [${code}]: ${msg}`);
+    const err = new Error(`toss confirm 실패 [${code}]: ${msg}`) as Error & {
+      tossCode?: string;
+    };
+    err.tossCode = code;
+    throw err;
   }
   return {
     paymentKey: String(data.paymentKey),

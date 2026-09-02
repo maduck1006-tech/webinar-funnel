@@ -163,7 +163,13 @@ async function renderLiveReplayGate({
 }) {
   if (!leadId) {
     return (
-      <Gate title="시청 링크가 필요합니다">
+      <Gate
+        title="시청 링크가 필요해요"
+        actions={[
+          { label: "내 콘텐츠 보관함 열기", href: "/login?next=/library", primary: true },
+          { label: "다시 신청하기", href: landingHref(campaign) },
+        ]}
+      >
         문자로 받으신 신청 확인 링크로 접속해 주세요.
       </Gate>
     );
@@ -172,13 +178,24 @@ async function renderLiveReplayGate({
   const event = await getRegisteredEvent(leadId);
   if (!event) {
     return (
-      <Gate title="예정된 회차가 없습니다">
-        관리자에게 문의해 주세요. (캠페인에 라이브 일정이 설정돼 있지 않습니다)
+      <Gate
+        title="예정된 회차가 없어요"
+        actions={[{ label: "다시 신청하기", href: landingHref(campaign), primary: true }]}
+      >
+        아직 다음 라이브 일정이 잡히지 않았어요. 일정이 확정되면 문자로
+        안내드릴게요.
       </Gate>
     );
   }
   if (event.status === "canceled") {
-    return <Gate title="이 회차는 취소되었습니다">다음 안내를 기다려 주세요.</Gate>;
+    return (
+      <Gate
+        title="이 회차는 취소되었어요"
+        actions={[{ label: "다시 신청하기", href: landingHref(campaign), primary: true }]}
+      >
+        다음 회차 안내를 문자로 보내드릴게요.
+      </Gate>
+    );
   }
 
   const now = new Date();
@@ -225,9 +242,11 @@ async function renderLiveReplayGate({
 
   if (now >= closesAt) {
     return (
-      <Gate title="리플레이 기간이 종료되었습니다">
-        라이브 종료로부터 {event.replayWindowHours}시간이 지나 더 이상 시청할 수
-        없습니다.
+      <Gate
+        title="다시보기가 마감되었어요"
+        actions={[{ label: "다음 회차 신청하기", href: landingHref(campaign), primary: true }]}
+      >
+        라이브 종료 후 {event.replayWindowHours}시간이 지나 다시보기가 닫혔어요.
       </Gate>
     );
   }
@@ -360,18 +379,43 @@ export async function VodView({
     }
   }
 
-  if (gate === "expired")
+  if (gate === "expired") {
+    const buyUrl = offer
+      ? resolveCheckoutUrl(offer, { basePath, leadId })
+      : undefined;
+    const actions: GateAction[] = [];
+    if (buyUrl) actions.push({ label: "결제하고 계속 보기", href: buyUrl, primary: true });
+    actions.push({
+      label: "다시 신청하기",
+      href: landingHref(campaign),
+      primary: !buyUrl,
+    });
     return (
-      <Gate title="시청 기간이 종료되었습니다">
-        신청 시점으로부터 {windowH}시간이 지나 더 이상 시청할 수 없습니다.
+      <Gate title="시청 기간이 종료되었어요" actions={actions}>
+        신청하신 지 {windowH}시간이 지나 무료 시청이 마감됐어요.
       </Gate>
     );
+  }
   if (gate === "not-found")
-    return <Gate title="잘못된 접근입니다">유효하지 않은 시청 링크입니다.</Gate>;
+    return (
+      <Gate
+        title="링크를 확인해 주세요"
+        actions={[{ label: "다시 신청하기", href: landingHref(campaign), primary: true }]}
+      >
+        유효하지 않은 시청 링크예요. 문자로 받으신 링크를 다시 열어 주세요.
+      </Gate>
+    );
   if (gate === "no-id")
     return (
-      <Gate title="시청 링크가 필요합니다">
+      <Gate
+        title="시청 링크가 필요해요"
+        actions={[
+          { label: "내 콘텐츠 보관함 열기", href: "/login?next=/library", primary: true },
+          { label: "무료 강의 다시 신청", href: landingHref(campaign) },
+        ]}
+      >
         문자로 받으신 &quot;무료 강의 보러가기&quot; 링크로 접속해 주세요.
+        이미 신청하셨다면 보관함에서 이어볼 수 있어요.
       </Gate>
     );
 
@@ -555,7 +599,12 @@ export async function DeliveryView({
 
   if (!leadId || !productId) {
     return (
-      <Gate title="다운로드 링크가 필요합니다">
+      <Gate
+        title="다운로드 링크가 필요해요"
+        actions={[
+          { label: "내 콘텐츠 보관함 열기", href: "/login?next=/library", primary: true },
+        ]}
+      >
         구매 확인 문자로 받으신 링크로 접속해 주세요.
       </Gate>
     );
@@ -566,7 +615,14 @@ export async function DeliveryView({
     .from(products)
     .where(eq(products.id, productId));
   if (!product) {
-    return <Gate title="상품을 찾을 수 없습니다">유효하지 않은 링크입니다.</Gate>;
+    return (
+      <Gate
+        title="링크를 확인해 주세요"
+        actions={[{ label: "내 콘텐츠 보관함 열기", href: "/login?next=/library", primary: true }]}
+      >
+        유효하지 않은 링크예요. 구매 확인 문자의 링크를 다시 열어 주세요.
+      </Gate>
+    );
   }
 
   let ok = await hasEntitlement(leadId, productId);
@@ -580,11 +636,14 @@ export async function DeliveryView({
 
   if (!ok) {
     return (
-      <Gate title="구매가 필요합니다">
-        아직 구매하지 않은 상품이에요.{" "}
-        <a href={`${basePath}/sales?l=${leadId}`} className="underline">
-          세일즈 페이지로 이동
-        </a>
+      <Gate
+        title="구매가 필요해요"
+        actions={[
+          { label: "상품 보러가기", href: `${basePath}/sales?l=${leadId}`, primary: true },
+          { label: "이미 구매했어요 · 보관함 열기", href: "/login?next=/library" },
+        ]}
+      >
+        아직 구매하지 않은 상품이에요.
       </Gate>
     );
   }
@@ -628,7 +687,12 @@ export async function CourseView({
 
   if (!leadId || !offer) {
     return (
-      <Gate title="강의실 접근이 필요합니다">
+      <Gate
+        title="강의실 접근이 필요해요"
+        actions={[
+          { label: "내 콘텐츠 보관함 열기", href: "/login?next=/library", primary: true },
+        ]}
+      >
         구매 확인 문자로 받으신 링크로 접속해 주세요.
       </Gate>
     );
@@ -638,11 +702,14 @@ export async function CourseView({
   const member = ent ? false : await hasActiveSubscription(leadId);
   if (!ent && !member) {
     return (
-      <Gate title="구매가 필요합니다">
-        아직 구매하지 않은 강의예요.{" "}
-        <a href={`${basePath}/sales?l=${leadId}`} className="underline">
-          세일즈 페이지로 이동
-        </a>
+      <Gate
+        title="구매가 필요해요"
+        actions={[
+          { label: "강의 보러가기", href: `${basePath}/sales?l=${leadId}`, primary: true },
+          { label: "이미 구매했어요 · 보관함 열기", href: "/login?next=/library" },
+        ]}
+      >
+        아직 구매하지 않은 강의예요.
       </Gate>
     );
   }
@@ -650,8 +717,8 @@ export async function CourseView({
   const tree = await getCourseByProduct(offer.productId);
   if (!tree || tree.modules.every((m) => m.lessons.length === 0)) {
     return (
-      <Gate title="강의 준비 중입니다">
-        상품 관리에서 강의 모듈/레슨을 등록하면 여기에 표시됩니다.
+      <Gate title="강의가 곧 열려요">
+        강의 콘텐츠를 준비하고 있어요. 오픈되면 문자로 안내드릴게요.
       </Gate>
     );
   }
@@ -779,21 +846,50 @@ async function markCompleteAction(fd: FormData) {
   redirect(redirectTo);
 }
 
+type GateAction = { label: string; href: string; primary?: boolean };
+
 function Gate({
   title,
   children,
+  actions,
 }: {
   title: string;
   children: React.ReactNode;
+  actions?: GateAction[];
 }) {
   return (
     <div className="funnel-theme funnel-shell grid min-h-dvh place-items-center px-6 text-center">
       <div className="fn-in max-w-sm rounded-2xl border border-[var(--fn-line)] bg-[var(--fn-bg-2)] p-8 text-[var(--fn-ink)]">
         <h1 className="mb-2 text-xl font-bold">{title}</h1>
         <p className="text-[var(--fn-sub)]">{children}</p>
+        {actions && actions.length > 0 && (
+          <div className="mt-5 flex flex-col gap-2">
+            {actions.map((a) => (
+              <a
+                key={a.href + a.label}
+                href={a.href}
+                className={
+                  a.primary
+                    ? "rounded-xl bg-[var(--fn-accent)] px-5 py-3 text-[14px] font-bold text-white"
+                    : "rounded-xl border border-[var(--fn-line)] px-5 py-3 text-[14px] font-semibold text-[var(--fn-ink)]"
+                }
+              >
+                {a.label}
+              </a>
+            ))}
+          </div>
+        )}
+        <p className="mt-4 text-[11px] leading-relaxed text-[var(--fn-sub)]">
+          도움이 필요하면 신청하신 문자에 그대로 회신해 주세요.
+        </p>
       </div>
     </div>
   );
+}
+
+/** 이 캠페인의 랜딩(신청) 경로 */
+function landingHref(campaign: Campaign): string {
+  return campaignBasePath(campaign) || "/";
 }
 
 /** 라우트에서 재사용: 캠페인 없으면 404 처리용 */

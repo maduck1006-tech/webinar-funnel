@@ -3,6 +3,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { loadTossPayments, ANONYMOUS } from "@tosspayments/tosspayments-sdk";
 import { track, trackOnce } from "@/lib/track";
+import { paymentErrorInfo } from "@/lib/payment-errors";
+
+/** 토스 SDK 에러 → 사용자용 문구 (raw 메시지/코드 노출 방지) */
+function sdkErr(e: unknown): string | null {
+  const code = (e as { code?: string })?.code;
+  if (code && ["PAY_PROCESS_CANCELED", "PAY_PROCESS_ABORTED", "USER_CANCEL"].includes(code)) {
+    return null; // 사용자가 스스로 취소 — 에러로 표시하지 않음
+  }
+  const info = paymentErrorInfo(code);
+  return `${info.title} — ${info.detail}`;
+}
 
 type Lead = { id: string; name: string; email: string; phone: string };
 
@@ -133,9 +144,9 @@ export function CheckoutClient(props: CheckoutClientProps) {
   if (!clientKey) {
     return (
       <Shell>
-        <p className="text-sm text-red-400">
-          결제가 아직 연결되지 않았습니다. (관리자: NEXT_PUBLIC_TOSS_CLIENT_KEY 설정
-          필요)
+        <p className="text-sm text-white/70">
+          지금은 결제를 진행할 수 없어요. 잠시 후 다시 시도하시거나 신청하신
+          문자로 문의해 주세요.
         </p>
       </Shell>
     );
@@ -433,8 +444,8 @@ function PayStep({
         customerName: lead.name || undefined,
       });
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (!msg.includes("CANCELED")) setErr(msg);
+      const m = sdkErr(e);
+      if (m) setErr(m);
       setPaying(false);
     }
   }, [paying, lead, clientKey, successUrl, failUrl]);
@@ -464,7 +475,8 @@ function PayStep({
         setWidgetReady(true);
       } catch (e) {
         startedRef.current = false; // 실패 시 재시도 허용
-        setErr(String(e));
+        console.error("toss widget load failed", e);
+        setErr(sdkErr({ code: "WIDGET_LOAD_FAILED" }));
       }
     })();
     // 최초 1회만. amount 변경은 아래 effect 가 처리.
@@ -531,8 +543,8 @@ function PayStep({
         customerMobilePhone: lead?.phone?.replace(/[^0-9]/g, "") || undefined,
       });
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (!msg.includes("PAY_PROCESS_CANCELED")) setErr(msg);
+      const m = sdkErr(e);
+      if (m) setErr(m);
       setPaying(false);
     }
   }, [
