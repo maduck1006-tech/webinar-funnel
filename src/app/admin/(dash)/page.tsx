@@ -1,93 +1,95 @@
-import { Card, PageHeader, Stat, fmtDate, won } from "@/components/admin-ui";
-import { CampaignFilter } from "@/components/CampaignFilter";
-import { getDashboard } from "@/lib/admin-queries";
-import { listCampaigns } from "@/lib/campaign";
+import Link from "next/link";
+import { Card, PageHeader, Tag, won } from "@/components/admin-ui";
+import { getToday } from "@/lib/today";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminDashboard({
-  searchParams,
-}: {
-  searchParams: Promise<{ campaign?: string }>;
-}) {
-  const { campaign } = await searchParams;
-  const [d, campaignOptions] = await Promise.all([
-    getDashboard(campaign),
-    listCampaigns(),
-  ]);
-  const max = Math.max(1, ...d.funnel.map((f) => f.value));
+export default async function AdminToday() {
+  const t = await getToday();
+  const { week } = t;
 
   return (
     <>
-      <PageHeader
-        title="대시보드"
-        desc="퍼널 전체 현황 · 지표 → 전환 퍼널 → 실시간 이벤트"
-        actions={<CampaignFilter options={campaignOptions} />}
-      />
+      <PageHeader title="오늘" desc="지금 처리할 것부터" />
 
-      {!d.connected && (
-        <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">
-          DB 연결/데이터가 없어 0으로 표시됩니다. <code>npm run db:push</code> +{" "}
-          <code>npm run seed</code> 후 확인하세요.
-        </p>
-      )}
+      {/* 지금 처리할 것 */}
+      <Card className="mb-6">
+        <p className="mb-3 text-sm font-bold">지금 처리할 것</p>
+        {t.actions.length === 0 ? (
+          <p className="py-2 text-sm text-zinc-400">
+            처리할 게 없어요. 좋은 상태입니다. ✓
+          </p>
+        ) : (
+          <ul className="space-y-1.5">
+            {t.actions.map((a) => (
+              <li key={a.label}>
+                <Link
+                  href={a.href}
+                  className="flex items-center justify-between rounded-lg border border-amber-200 px-3 py-2 text-sm hover:bg-zinc-50"
+                >
+                  <span className="text-zinc-800">• {a.label}</span>
+                  <span className="text-zinc-400">→</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="신규 DB 입력 (7일)" value={`${d.metrics.newLeads7d}건`} />
-        <Stat label="VOD 시청 시작률" value={`${d.metrics.watchRate}%`} />
-        <Stat
-          label="저가 상품 구매"
-          value={`${d.metrics.purchases}건 · ${won(d.metrics.revenue)}`}
-        />
-        <Stat label="상담 예약" value={`${d.metrics.bookings}건`} />
-      </div>
-
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <Card>
-          <p className="mb-4 text-sm font-bold">퍼널 전환</p>
-          <div className="space-y-3">
-            {d.funnel.map((f, i) => {
-              const prev = i > 0 ? d.funnel[i - 1].value : f.value;
-              const rate = prev ? Math.round((f.value / prev) * 100) : 100;
-              return (
-                <div key={f.label}>
-                  <div className="mb-1 flex justify-between text-xs text-zinc-500">
-                    <span>{f.label}</span>
-                    <span className="tabular-nums">
-                      {f.value.toLocaleString()}
-                      {i > 0 && ` · ${rate}%`}
-                    </span>
-                  </div>
-                  <div className="h-6 rounded bg-zinc-100">
-                    <div
-                      className="h-6 rounded bg-zinc-800"
-                      style={{ width: `${(f.value / max) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-
-        <Card>
-          <p className="mb-4 text-sm font-bold">실시간 이벤트 피드</p>
-          {d.feed.length === 0 ? (
-            <p className="py-8 text-center text-sm text-zinc-400">이벤트 없음</p>
-          ) : (
-            <ul className="divide-y text-sm">
-              {d.feed.map((e, i) => (
-                <li key={i} className="flex gap-3 py-2">
-                  <span className="shrink-0 tabular-nums text-zinc-400">
-                    {fmtDate(e.at)}
-                  </span>
-                  <span>{e.text}</span>
-                </li>
-              ))}
-            </ul>
+      {/* 이번 주 */}
+      <Card className="mb-6">
+        <div className="flex items-baseline justify-between">
+          <p className="text-sm font-bold">이번 주 매출 (7일)</p>
+          {week.deltaPct != null && (
+            <span
+              className={`text-sm font-semibold ${
+                week.deltaPct >= 0 ? "text-emerald-600" : "text-red-500"
+              }`}
+            >
+              {week.deltaPct >= 0 ? "▲" : "▼"} 지난주 대비{" "}
+              {Math.abs(week.deltaPct)}%
+            </span>
           )}
-        </Card>
-      </div>
+        </div>
+        <p className="mt-1 text-3xl font-extrabold tabular-nums">
+          {won(week.revenue)}
+        </p>
+        <p className="mt-2 text-xs text-zinc-500">
+          신규 신청 {week.newLeads} · 구매 {week.purchases} · 상담 예약{" "}
+          {week.bookings}
+          {week.prevRevenue > 0 && ` · 지난주 ${won(week.prevRevenue)}`}
+        </p>
+      </Card>
+
+      {/* 캠페인별 */}
+      <Card>
+        <p className="mb-3 text-sm font-bold">캠페인</p>
+        <div className="grid gap-2.5 sm:grid-cols-2">
+          {t.campaigns.length === 0 && (
+            <p className="text-sm text-zinc-400">캠페인 없음</p>
+          )}
+          {t.campaigns.map((c) => (
+            <Link
+              key={c.id}
+              href={`/admin/campaigns/${c.id}`}
+              className="rounded-xl border border-zinc-200 p-3.5 transition hover:border-zinc-400"
+            >
+              <div className="flex items-center gap-2">
+                <span className="truncate font-semibold text-zinc-900">
+                  {c.name}
+                </span>
+                <Tag tone={c.status === "live" ? "green" : "amber"}>
+                  {c.status === "live" ? "발행" : "임시"}
+                </Tag>
+                {c.isDefault && <Tag tone="gray">기본</Tag>}
+              </div>
+              <p className="mt-1.5 text-xs text-zinc-500">
+                신청 {c.leads} · 구매 {c.purchases} · 매출 {won(c.revenue)}
+              </p>
+            </Link>
+          ))}
+        </div>
+      </Card>
     </>
   );
 }
