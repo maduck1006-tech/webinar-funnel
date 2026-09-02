@@ -125,6 +125,20 @@ export default async function AutomationPage({
 
       <SectionTabs set="customer" />
 
+      {campaignId && (
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-[12.5px] text-blue-900">
+          <span>
+            🔗 <b>
+              {campaignOptions.find((c) => c.id === campaignId)?.name ?? "캠페인"}
+            </b>{" "}
+            캠페인 기준으로 보는 중 — 전역 기본 + 이 캠페인 전용만 표시됩니다.
+          </span>
+          <Link href="/admin/automation" className="shrink-0 underline">
+            전체 보기
+          </Link>
+        </div>
+      )}
+
       {/* 초보자용 설명 카드 */}
       <Card className="mb-6 !bg-zinc-900 text-white">
         <p className="text-sm font-bold">💡 처음이신가요? 이렇게 동작해요</p>

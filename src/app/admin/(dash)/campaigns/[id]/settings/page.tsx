@@ -6,6 +6,7 @@ import { campaignProducts, campaigns, events, products } from "@/db/schema";
 import { Card, PageHeader, Tag } from "@/components/admin-ui";
 import { CampaignTabs } from "../CampaignTabs";
 import { ConfirmSubmit, SubmitButton } from "../../../form-ui";
+import { resolveFlowSteps, STEP_META } from "@/lib/funnel-flow";
 import {
   deleteEvent,
   saveEvent,
@@ -33,6 +34,29 @@ export default async function CampaignSettings({
     .from(campaignProducts)
     .where(eq(campaignProducts.campaignId, id));
   const mappedMap = new Map(mapped.map((m) => [m.productId, m.placement]));
+
+  // 이 캠페인의 퍼널에 실제 존재하는 단계 → 상품을 놓을 수 있는 위치만 노출
+  const enabledSteps = new Set(
+    resolveFlowSteps(c)
+      .filter((s) => s.enabled)
+      .map((s) => s.pageType),
+  );
+  const placementOpts: { value: string; label: string }[] = [];
+  if (enabledSteps.has("thankyou") && enabledSteps.has("vod"))
+    placementOpts.push({ value: "both", label: "땡큐 + VOD 두 곳 (권장)" });
+  if (enabledSteps.has("thankyou"))
+    placementOpts.push({ value: "thankyou", label: "땡큐 페이지" });
+  if (enabledSteps.has("vod"))
+    placementOpts.push({ value: "vod_bottom", label: "VOD 시청 페이지 하단" });
+  if (enabledSteps.has("sales"))
+    placementOpts.push({ value: "sales", label: "세일즈 페이지 (메인 상품)" });
+  if (placementOpts.length === 0)
+    placementOpts.push({ value: "both", label: "기본" });
+  const flowTitles = resolveFlowSteps(c)
+    .filter((s) => s.enabled)
+    .map((s) => STEP_META[s.pageType]?.title ?? s.pageType)
+    .join(" → ");
+
   const campaignEvents = await db
     .select()
     .from(events)
@@ -200,9 +224,12 @@ export default async function CampaignSettings({
 
         <Card>
           <p className="mb-1 text-sm font-bold">연결 상품</p>
-          <p className="mb-3 text-xs text-zinc-400">
-            체크한 상품이 이 캠페인의 CTA(<code>{"{{checkout}}"}</code>)와 가격
-            블록에 연결됩니다.
+          <p className="mb-2 text-xs text-zinc-400">
+            체크하면 이 캠페인의 CTA 버튼(<code>{"{{checkout}}"}</code>)과 가격
+            블록에 연결됩니다. 위치는 이 퍼널의 단계 중에서 고릅니다.
+          </p>
+          <p className="mb-3 rounded bg-zinc-50 px-2 py-1.5 text-[11px] text-zinc-500">
+            이 퍼널: {flowTitles}
           </p>
           <ul className="divide-y text-sm">
             {allProducts.length === 0 && (
@@ -240,10 +267,11 @@ export default async function CampaignSettings({
                         defaultValue={mappedMap.get(p.id)}
                         className="rounded border px-1 py-0.5 text-xs"
                       >
-                        <option value="both">전체(땡큐+VOD)</option>
-                        <option value="thankyou">땡큐만</option>
-                        <option value="vod_bottom">VOD만</option>
-                        <option value="sales">세일즈 페이지 (전자책/강의/상담)</option>
+                        {placementOpts.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
                       </select>
                       <button className="rounded border px-2 text-xs">적용</button>
                     </form>
