@@ -44,7 +44,7 @@ export default async function ProductsPage({
       <SectionTabs set="product" />
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <Card className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <div className="-mx-5 overflow-x-auto px-5"><table className="w-full min-w-[600px] text-sm">
             <thead>
               <tr className="border-b text-left text-xs text-zinc-500">
                 <th className="pb-2">상품명</th>
@@ -131,7 +131,7 @@ export default async function ProductsPage({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </Card>
 
         <Card>

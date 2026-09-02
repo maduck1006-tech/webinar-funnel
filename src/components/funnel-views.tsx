@@ -477,8 +477,10 @@ export async function BookingView({
       {embed ? (
         <BookingEmbed src={embed} />
       ) : (
-        <div className="mt-4 grid h-56 place-items-center rounded-xl border border-dashed border-[var(--fn-line)] bg-[var(--fn-bg-2)] text-sm text-[var(--fn-sub)]">
-          되는시간(WhatTime) 예약 캘린더가 여기 표시됩니다
+        <div className="mt-4 grid min-h-56 place-items-center rounded-xl border border-dashed border-[var(--fn-line)] bg-[var(--fn-bg-2)] px-5 py-8 text-center text-sm leading-relaxed text-[var(--fn-sub)]">
+          예약 캘린더를 준비하고 있어요.
+          <br />
+          곧 신청하신 번호로 예약 안내를 보내드릴게요.
         </div>
       )}
     </FunnelPage>
@@ -507,8 +509,10 @@ export async function GroupChatView({
       }}
     >
       {!campaign.groupChatUrl && (
-        <div className="mt-4 grid h-40 place-items-center rounded-xl border border-dashed border-[var(--fn-line)] bg-[var(--fn-bg-2)] text-sm text-[var(--fn-sub)]">
-          캠페인 설정에 단톡방 초대 링크를 입력하면 여기에 입장 버튼이 표시됩니다
+        <div className="mt-4 grid min-h-40 place-items-center rounded-xl border border-dashed border-[var(--fn-line)] bg-[var(--fn-bg-2)] px-5 py-8 text-center text-sm leading-relaxed text-[var(--fn-sub)]">
+          입장 링크를 준비하고 있어요.
+          <br />
+          곧 신청하신 번호로 문자를 보내드릴게요.
         </div>
       )}
     </FunnelPage>
@@ -659,8 +663,10 @@ export async function DeliveryView({
       }}
     >
       {!assetUrl && (
-        <div className="mt-4 grid h-40 place-items-center rounded-xl border border-dashed border-[var(--fn-line)] bg-[var(--fn-bg-2)] text-sm text-[var(--fn-sub)]">
-          상품 관리에서 전자책 파일 URL 을 입력하면 여기에 다운로드 버튼이 표시됩니다
+        <div className="mt-4 grid min-h-40 place-items-center rounded-xl border border-dashed border-[var(--fn-line)] bg-[var(--fn-bg-2)] px-5 py-8 text-center text-sm leading-relaxed text-[var(--fn-sub)]">
+          다운로드 파일을 준비하고 있어요.
+          <br />
+          곧 신청하신 번호로 다운로드 링크를 보내드릴게요.
         </div>
       )}
     </FunnelPage>

@@ -136,7 +136,7 @@ export default async function CrmListPage({
 
       <Card className="overflow-x-auto">
         {!connected && <p className="mb-2 text-sm text-amber-600">DB 미연결</p>}
-        <table className="w-full text-sm">
+        <div className="-mx-5 overflow-x-auto px-5"><table className="w-full min-w-[600px] text-sm">
           <thead>
             <tr className="border-b text-left text-xs text-zinc-500">
               <th className="pb-2">이메일</th>
@@ -171,7 +171,7 @@ export default async function CrmListPage({
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </Card>
     </>
   );

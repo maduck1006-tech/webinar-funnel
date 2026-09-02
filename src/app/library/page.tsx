@@ -107,6 +107,10 @@ export default async function LibraryPage() {
             >
               다른 번호로 로그인
             </Link>
+            <p className="mt-3 text-[11.5px] leading-relaxed text-[var(--fn-sub)]">
+              결제는 하셨는데 안 보이면 신청·결제하신 문자에 그대로 회신해 주세요.
+              바로 연결해 드릴게요.
+            </p>
           </div>
         ) : (
           <div className="mt-6 space-y-6">
@@ -139,7 +143,7 @@ export default async function LibraryPage() {
                 <a
                   key={c.productId}
                   href={c.href}
-                  className="flex items-center gap-3 rounded-2xl border border-[var(--fn-accent)]/40 bg-[var(--fn-accent)]/8 p-3.5 transition hover:border-[var(--fn-accent)]"
+                  className="flex items-center gap-3 rounded-2xl border border-[var(--fn-accent)]/60 bg-[var(--fn-accent)]/15 p-3.5 transition hover:border-[var(--fn-accent)]"
                 >
                   {c.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element

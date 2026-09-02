@@ -14,7 +14,10 @@ function formatPhone(raw: string): string {
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const next = params.get("next") || "/library";
+  // 같은 사이트 내부 경로만 허용 (오픈 리다이렉트 방지)
+  const nextRaw = params.get("next") || "/library";
+  const next =
+    nextRaw.startsWith("/") && !nextRaw.startsWith("//") ? nextRaw : "/library";
 
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
@@ -158,6 +161,10 @@ function LoginForm() {
                   {cooldown > 0 ? `재전송 ${cooldown}초` : "인증번호 재전송"}
                 </button>
               </div>
+              <p className="mt-2 text-[11.5px] leading-relaxed text-[var(--fn-sub)]">
+                문자가 1분 넘게 안 오면 스팸함을 확인하시거나, 번호가 맞는지 다시
+                확인해 주세요.
+              </p>
             </>
           )}
 

@@ -55,7 +55,7 @@ export default async function AffiliatesPage({
 
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <Card>
-          <table className="w-full text-sm">
+          <div className="-mx-5 overflow-x-auto px-5"><table className="w-full min-w-[600px] text-sm">
             <thead>
               <tr className="border-b text-left text-xs text-zinc-400">
                 <th className="py-2">이름 / 코드</th>
@@ -132,7 +132,7 @@ export default async function AffiliatesPage({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </Card>
 
         <Card>
