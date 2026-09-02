@@ -110,6 +110,8 @@ export default async function CampaignHub({
           groups={checklist.groups}
           requiredDone={checklist.requiredDone}
           requiredTotal={checklist.requiredTotal}
+          messages={checklist.messages}
+          previewUrl={checklist.previewUrl}
         />
       )}
 

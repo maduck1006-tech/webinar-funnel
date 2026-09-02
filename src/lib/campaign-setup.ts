@@ -1,16 +1,81 @@
 import "server-only";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq, isNull, or } from "drizzle-orm";
 import { db } from "@/db";
 import {
   campaignPages,
   campaignProducts,
   events,
   messageAutomations,
+  messageAutomationSteps,
   products,
   type Campaign,
 } from "@/db/schema";
 import { getTemplate } from "@/lib/funnel-templates";
 import { resolveFlowSteps, STEP_META } from "@/lib/funnel-flow";
+
+/**
+ * 자동 메시지(CRM) — 초보자용 '무엇을·왜' 안내.
+ * key 별 친절 설명 + 꼭 켜야 하는지(essential) 여부.
+ */
+export const AUTOMATION_GUIDE: Record<
+  string,
+  { icon: string; what: string; essential: boolean }
+> = {
+  signup_confirm: {
+    icon: "🎟️",
+    what: "신청하자마자 시청 링크를 문자로 보냅니다. 이게 없으면 신청자가 강의를 못 찾아요. 반드시 켜두세요.",
+    essential: true,
+  },
+  watch_deadline: {
+    icon: "⏰",
+    what: "48시간 무료 시청이 닫히기 전에 3번 리마인드합니다. '내일 봐야지' 하다 놓치는 사람을 붙잡아요.",
+    essential: true,
+  },
+  payment_nudge: {
+    icon: "💬",
+    what: "강의를 열어본 사람에게 30분 뒤 상품을 안내합니다. 매출의 상당 부분이 여기서 나와요.",
+    essential: true,
+  },
+  payment_done: {
+    icon: "✅",
+    what: "결제하면 '어디서 보는지' 안내 문자가 나갑니다. 없으면 '돈 냈는데요?' 문의가 옵니다.",
+    essential: true,
+  },
+  soap_opera: {
+    icon: "📖",
+    what: "신청 후 5일간 당신의 이야기를 들려주는 시퀀스. 관계를 쌓아 결제·상담 전환을 올립니다. (선택)",
+    essential: false,
+  },
+  watched_no_buy: {
+    icon: "👀",
+    what: "강의는 봤는데 아직 안 산 사람에게 집중 리마인드. '결제 유도'와 겹치면 하나만 쓰세요. (선택)",
+    essential: false,
+  },
+  cart_abandon: {
+    icon: "🛒",
+    what: "결제창까지 갔다가 나간 사람에게 '카드 문제였나요?' 복구 메시지. 이탈 매출을 되살립니다. (선택)",
+    essential: false,
+  },
+  post_purchase_ascend: {
+    icon: "🚀",
+    what: "결제한 사람에게 온보딩 + 다음 상품 안내. 재구매·업셀용. (선택)",
+    essential: false,
+  },
+};
+
+export type SetupMessage = {
+  automationId: string;
+  key: string | null;
+  name: string;
+  enabled: boolean;
+  icon: string;
+  what: string;
+  essential: boolean;
+  firstBody: string;
+  stepCount: number;
+  isGlobal: boolean;
+  editHref: string;
+};
 
 export type CheckItem = {
   id: string;
@@ -19,6 +84,8 @@ export type CheckItem = {
   done: boolean;
   required: boolean;
   href?: string;
+  /** 실제 사용자 화면을 새 탭에서 바로 보는 링크 */
+  preview?: string;
   /** 인라인으로 채울 수 있는 항목 */
   inline?:
     | {
@@ -65,13 +132,18 @@ export async function getSetupChecklist(campaign: Campaign): Promise<{
   groups: SetupGroup[];
   requiredDone: number;
   requiredTotal: number;
+  messages: SetupMessage[];
+  previewUrl: string;
 }> {
   const id = campaign.id;
+  const basePath = campaign.isDefault ? "" : `/${campaign.slug}`;
+  // 관리자 전용 오버뷰(Clerk 보호) — 프로덕션에서도 열림
+  const previewUrl = `/preview?campaign=${campaign.slug}`;
   const tpl = campaign.templateKey ? getTemplate(campaign.templateKey) : undefined;
   const steps = resolveFlowSteps(campaign).filter((s) => s.enabled);
   const stepTypes = new Set(steps.map((s) => s.pageType));
 
-  const [mapped, pages, autoOff, ev] = await Promise.all([
+  const [mapped, pages, ev] = await Promise.all([
     db
       .select({
         placement: campaignProducts.placement,
@@ -87,15 +159,6 @@ export async function getSetupChecklist(campaign: Campaign): Promise<{
       .from(campaignPages)
       .where(
         and(eq(campaignPages.campaignId, id), eq(campaignPages.published, true)),
-      ),
-    db
-      .select({ id: messageAutomations.id })
-      .from(messageAutomations)
-      .where(
-        and(
-          eq(messageAutomations.campaignId, id),
-          eq(messageAutomations.enabled, false),
-        ),
       ),
     db.select({ id: events.id }).from(events).where(eq(events.campaignId, id)),
   ]);
@@ -221,6 +284,7 @@ export async function getSetupChecklist(campaign: Campaign): Promise<{
       done: copyPending.length === 0,
       required: false,
       href: builderFor(copyPending[0] ?? copyPages[0]),
+      preview: `${basePath}${STEP_META[copyPending[0] ?? copyPages[0]]?.path ?? "/"}`,
     });
   }
 
@@ -246,6 +310,9 @@ export async function getSetupChecklist(campaign: Campaign): Promise<{
     href: deadEnds[0]
       ? builderFor(deadEnds[0].pageType)
       : funnelOverview,
+    preview: deadEnds[0]
+      ? `${basePath}${STEP_META[deadEnds[0].pageType]?.path ?? "/"}`
+      : undefined,
   });
 
   // 결제 연결
@@ -263,19 +330,61 @@ export async function getSetupChecklist(campaign: Campaign): Promise<{
     });
   }
 
-  /* ── 3. 후속 + 추적 ── */
+  /* ── 3. CRM 메시지 (자동으로 나가는 문자) ── */
+  const autoRows = await db
+    .select()
+    .from(messageAutomations)
+    .where(
+      or(eq(messageAutomations.campaignId, id), isNull(messageAutomations.campaignId)),
+    )
+    .orderBy(asc(messageAutomations.createdAt));
+
+  // key 별로 캠페인 전용본이 전역 기본을 덮어씀
+  const overridden = new Set(
+    autoRows.filter((a) => a.campaignId && a.key).map((a) => a.key),
+  );
+  const effective = autoRows.filter(
+    (a) => a.campaignId || !(a.key && overridden.has(a.key)),
+  );
+
+  const messages: SetupMessage[] = (
+    await Promise.all(
+      effective.map(async (a) => {
+        const steps = await db
+          .select({
+            body: messageAutomationSteps.body,
+            enabled: messageAutomationSteps.enabled,
+          })
+          .from(messageAutomationSteps)
+          .where(eq(messageAutomationSteps.automationId, a.id))
+          .orderBy(asc(messageAutomationSteps.stepOrder));
+        const bodies = steps.map((s) => s.body.trim()).filter(Boolean);
+        // 내용이 비어있는 커스텀 자동화(설정 미완)는 체크리스트에서 숨김
+        if (!a.key && bodies.length === 0) return null;
+        const guide = a.key ? AUTOMATION_GUIDE[a.key] : undefined;
+        return {
+          automationId: a.id,
+          key: a.key,
+          name: a.name,
+          enabled: a.enabled,
+          icon: guide?.icon ?? "✉️",
+          what:
+            guide?.what ??
+            "직접 만든 자동 메시지입니다. 내용을 확인하고 필요하면 켜세요.",
+          essential: guide?.essential ?? false,
+          firstBody: bodies[0] ?? "",
+          stepCount: bodies.length,
+          isGlobal: !a.campaignId,
+          editHref: `/admin/automation/${a.id}`,
+        } satisfies SetupMessage;
+      }),
+    )
+  ).filter((m): m is SetupMessage => m !== null);
+  // 꼭 켜야 하는 것 먼저, 그 다음 선택
+  messages.sort((x, y) => Number(y.essential) - Number(x.essential));
+
+  /* ── 4. 추적 ── */
   const followup: CheckItem[] = [
-    {
-      id: "automations",
-      label:
-        autoOff.length === 0
-          ? "자동 메시지 검토·활성화 완료"
-          : `자동 메시지 ${autoOff.length}개 검토 후 켜기`,
-      help: "후속이 매출의 대부분입니다",
-      done: autoOff.length === 0,
-      required: false,
-      href: `/admin/automation?campaign=${id}`,
-    },
     {
       id: "pixel",
       label: "추적 픽셀 연결 (Meta 또는 GA4)",
@@ -294,7 +403,7 @@ export async function getSetupChecklist(campaign: Campaign): Promise<{
   const groups: SetupGroup[] = [
     { title: "1 · 오퍼 — 뭘 파는가", items: offer },
     { title: "2 · 퍼널 — 경로가 뚫렸는가", items: funnel },
-    { title: "3 · 후속 · 추적 — 새는 곳은 없는가", items: followup },
+    { title: "4 · 추적 — 성과가 보이는가", items: followup },
   ];
 
   const all = groups.flatMap((g) => g.items);
@@ -303,5 +412,7 @@ export async function getSetupChecklist(campaign: Campaign): Promise<{
     groups,
     requiredDone: req.filter((i) => i.done).length,
     requiredTotal: req.length,
+    messages,
+    previewUrl,
   };
 }

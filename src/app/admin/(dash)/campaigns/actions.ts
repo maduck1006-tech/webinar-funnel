@@ -603,3 +603,17 @@ export async function saveSettingField(fd: FormData) {
     .where(eq(campaigns.id, campaignId));
   revalidatePath(`/admin/campaigns/${campaignId}`);
 }
+
+/** 체크리스트에서 자동 메시지(CRM) on/off 를 인라인 토글 */
+export async function setAutomationEnabled(fd: FormData) {
+  const automationId = String(fd.get("automationId"));
+  const enabled = fd.get("enabled") === "true";
+  const campaignId = String(fd.get("campaignId") ?? "");
+  if (!automationId) return;
+  await db
+    .update(messageAutomations)
+    .set({ enabled, updatedAt: new Date() })
+    .where(eq(messageAutomations.id, automationId));
+  if (campaignId) revalidatePath(`/admin/campaigns/${campaignId}`);
+  revalidatePath("/admin/automation");
+}
