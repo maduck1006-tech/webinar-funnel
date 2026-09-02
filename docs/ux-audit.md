@@ -10,8 +10,13 @@
 - ✅ **P0 공유·유입** (커밋 `ab9ef88`, 배포됨): A1 캠페인별 메타/OG(Puck 자동추출) · A8/D1 viewport·theme-color · 퍼널 내부 페이지 noindex
 - ✅ **P1 폼 마찰** (커밋 `dad7ee5`, 배포됨): lib/form-validate.ts 공용 · A6 LeadForm · B4 ContactStep · B1 결제 타임아웃 · B3 주문 요약 상시
 - ✅ **P1 관리자** (커밋 `82fdcaf`, 배포됨): E1 SubmitButton(저장 중 상태) · E2 ConfirmSubmit(삭제 확인)
-- ✅ **P2 배치 1** (커밋 대기): A8 focus-visible + reduced-motion · A4 booking iframe 로딩/실패 · OG 이미지 동적 폴백(/api/og)
-- ⬜ P2 나머지: A5 종착 카피 · A7 만료 후 CTA 비활성 · C1 로그인 목적지 · C2 OTP 보조문구 · D2 폰트 · D3 next/image · E3 빈상태 · E4 어필리에이트 상세 · E5 모바일 관리자 · E6 표 검색
+- ✅ **P2 배치 1** (커밋 `791960f`): A8 focus-visible + reduced-motion · A4 booking iframe 로딩/실패 · OG 이미지 동적 폴백(/api/og)
+- ✅ **P2 배치 2** (커밋 `476c977`): A5 종착 카피 · C1 로그인 오픈리다이렉트 방지 · C2 OTP 보조문구 · C3 보관함 문의·대비 · E5 모바일 관리자 표 스크롤
+
+### 의도적 보류 (P2, 하지 않음)
+- **A7 만료 후 CTA 비활성** — Countdown 블록은 이미 만료 상태 표시, UrgencyBar 는 만료 시 CTA 숨김. 메인 CTA 버튼까지 막는 건 비즈니스 판단(에버그린 퍼널은 카운트다운 0 이후에도 결제 허용이 일반적) → 요청 시 metadata flag 로 구현 가능
+- **D3 next/image 전환** — `<img>` 다수. LCP/CLS 이득은 있으나 광범위·회귀 위험. 히어로 이미지만 선별 전환 권장
+- **E3 빈 상태 액션 버튼 / E4 어필리에이트 상세 드로어 / E6 표 검색·정렬** — 데이터 규모 커지면 필요. 현재 우선순위 낮음
 
 ### 후속(선택)
 - 캠페인별 SEO 오버라이드 컬럼(`seoTitle`/`seoDescription`/`ogImageUrl`) — 현재는 Puck 콘텐츠 자동 추출 + /api/og 폴백
