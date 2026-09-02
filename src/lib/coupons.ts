@@ -1,7 +1,7 @@
 import "server-only";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { couponRedemptions, coupons, type Coupon } from "@/db/schema";
+import { couponRedemptions, coupons, leads, type Coupon } from "@/db/schema";
 
 export type CouponCheck =
   | {
@@ -48,6 +48,19 @@ export async function validateCoupon(opts: {
   }
   if (c.endsAt && c.endsAt < now) {
     return { ok: false, reason: "사용 기간이 지난 쿠폰이에요." };
+  }
+  // 개인별 마감: 이 리드의 신청 후 N시간
+  if (c.leadWindowHours != null && opts.leadId) {
+    const [l] = await db
+      .select({ createdAt: leads.createdAt })
+      .from(leads)
+      .where(eq(leads.id, opts.leadId));
+    if (
+      l &&
+      l.createdAt.getTime() + c.leadWindowHours * 3600_000 < now.getTime()
+    ) {
+      return { ok: false, reason: "이 혜택의 마감 시간이 지났어요." };
+    }
   }
   if (c.maxRedemptions != null && c.redeemedCount >= c.maxRedemptions) {
     return { ok: false, reason: "쿠폰이 모두 소진됐어요." };

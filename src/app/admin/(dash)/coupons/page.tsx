@@ -168,6 +168,21 @@ export default async function CouponsPage({
                 />
               </label>
             </div>
+            <label className="block">
+              <span className="text-xs text-zinc-500">
+                개인별 마감 — 신청 후 N시간 (선택 · 진짜 마감)
+              </span>
+              <input
+                name="leadWindowHours"
+                defaultValue={editing?.leadWindowHours?.toString() ?? ""}
+                placeholder="예: 48"
+                className="mt-1 w-full rounded border px-2 py-1"
+              />
+              <span className="mt-1 block text-[11px] text-zinc-400">
+                각 고객의 신청 시각 + N시간이 지나면 이 쿠폰이 무효가 되고 정가로
+                결제됩니다. 카운트다운도 이 시각을 표시합니다.
+              </span>
+            </label>
             <div className="flex gap-2">
               <label className="block flex-1">
                 <span className="text-xs text-zinc-500">시작 (선택)</span>

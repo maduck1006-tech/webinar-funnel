@@ -504,8 +504,10 @@ export const config: Config<FunnelProps, RootProps> = {
           deadlineIso={
             deadlineIso ||
             (puck?.metadata?.vodDeadlineIso as string | undefined) ||
-            // 라이브 웨비나 신청 퍼널의 땡큐 페이지: 회차 시작시각까지 카운트다운
+            // 라이브 웨비나 신청 퍼널의 땡큐 페이지: 회차 시작시각까지
             (puck?.metadata?.eventStartsAtIso as string | undefined) ||
+            // 개인별 마감(Deadline Funnel): 이 손님의 오퍼 만료 시각
+            (puck?.metadata?.offerDeadlineIso as string | undefined) ||
             ""
           }
           expiredText={expiredText}

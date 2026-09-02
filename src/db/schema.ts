@@ -590,6 +590,11 @@ export const coupons = pgTable(
     redeemedCount: integer("redeemed_count").notNull().default(0),
     /** 최소 주문 금액 (null = 없음) */
     minAmount: integer("min_amount"),
+    /**
+     * 개인별 마감(Deadline Funnel): 값이 있으면 각 리드의 신청시각 + N시간 뒤 만료.
+     * 진짜 마감 — 지나면 이 쿠폰은 무효(정가 결제). (docs/multi-product-funnel-plan.md 보완 4)
+     */
+    leadWindowHours: integer("lead_window_hours"),
     /** 적용 대상 상품 id 목록 (null/빈배열 = 전체) */
     productIds: jsonb("product_ids").$type<string[]>(),
     createdAt: timestamp("created_at", { withTimezone: true })

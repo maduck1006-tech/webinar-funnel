@@ -25,6 +25,7 @@ function parse(fd: FormData) {
     value,
     minAmount: num("minAmount"),
     maxRedemptions: num("maxRedemptions"),
+    leadWindowHours: num("leadWindowHours"),
     startsAt: date("startsAt"),
     endsAt: date("endsAt"),
     active: fd.get("active") === "on",

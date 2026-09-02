@@ -53,6 +53,24 @@ export async function LandingView({ campaign }: { campaign: Campaign }) {
   );
 }
 
+/** 이 손님의 오퍼 마감 시각 (신청 + vodWindowHours). 카운트다운·개인별 마감 쿠폰에 사용 */
+async function offerDeadlineIso(
+  leadId: string | null,
+): Promise<string | undefined> {
+  if (!leadId) return undefined;
+  try {
+    const [lead] = await db
+      .select({ exp: leads.vodExpiresAt })
+      .from(leads)
+      .where(eq(leads.id, leadId));
+    return lead?.exp && lead.exp.getTime() > Date.now()
+      ? lead.exp.toISOString()
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** 3단계 — 땡큐 + 저가상품 */
 export async function ThankYouView({
   campaign,
@@ -72,6 +90,7 @@ export async function ThankYouView({
     eventStartsAtIso = event?.startsAt.toISOString();
     liveUrl = event?.externalLiveUrl ?? undefined;
   }
+  const offerDeadline = await offerDeadlineIso(leadId);
 
   return (
     <FunnelPage
@@ -86,6 +105,7 @@ export async function ThankYouView({
         price: offer?.price,
         compareAt: offer?.compareAt ?? undefined,
         eventStartsAtIso,
+        offerDeadlineIso: offerDeadline,
         liveUrl,
         nextStepUrl: nextStepUrl(campaign, "thankyou", leadId),
         nextStepPath: (() => {
@@ -487,6 +507,7 @@ export async function SalesView({
     }
   }
   const basePath = campaignBasePath(campaign);
+  const offerDeadline = await offerDeadlineIso(leadId);
   return (
     <FunnelPage
       campaign={campaign}
@@ -500,6 +521,7 @@ export async function SalesView({
         productName: offer?.name,
         price: offer?.price,
         compareAt: offer?.compareAt ?? undefined,
+        offerDeadlineIso: offerDeadline,
       }}
     >
       {offer && (
