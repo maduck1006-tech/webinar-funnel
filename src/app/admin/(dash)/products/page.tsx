@@ -42,13 +42,6 @@ const TYPE_META: Record<
   },
 };
 
-const PLACEMENT_LABEL: Record<string, string> = {
-  both: "땡큐 + VOD",
-  thankyou: "땡큐 페이지",
-  vod_bottom: "VOD 시청",
-  sales: "세일즈 페이지",
-};
-
 async function getProducts(): Promise<Product[]> {
   try {
     return await db.select().from(products).orderBy(desc(products.createdAt));
@@ -171,7 +164,6 @@ export default async function ProductsPage({
                       </p>
 
                       <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-zinc-500">
-                        <span>노출: {PLACEMENT_LABEL[p.placement] ?? p.placement}</span>
                         {p.bumpProductId && (
                           <Tag tone="amber">
                             + 범프: {nameById.get(p.bumpProductId) ?? "?"}
@@ -353,47 +345,29 @@ export default async function ProductsPage({
               />
             </FormSection>
 
-            {/* 4. 노출 위치 */}
-            <FormSection num={4} title="퍼널 어디에 보여줄까요?">
-              {[
-                {
-                  v: "both",
-                  t: "땡큐 + VOD 시청 두 곳 (권장)",
-                  d: "신청 직후와 영상 아래, 두 번 기회를 줍니다",
-                },
-                { v: "thankyou", t: "땡큐 페이지만", d: "신청 직후에만" },
-                {
-                  v: "vod_bottom",
-                  t: "VOD 시청 페이지만",
-                  d: "영상 아래에서만",
-                },
-                {
-                  v: "sales",
-                  t: "세일즈 페이지",
-                  d: "전자책·강의·상담 등 유료 세일즈 퍼널의 메인 상품",
-                },
-              ].map((o) => (
-                <label
-                  key={o.v}
-                  className="flex cursor-pointer items-start gap-2 rounded-lg border p-2"
+            {/* 4. 퍼널 연결 안내 */}
+            <FormSection num={4} title="퍼널에 어떻게 붙이나요?">
+              {/* 실제 노출 위치는 campaignProducts.placement — 캠페인 설정에서 지정 */}
+              <input
+                type="hidden"
+                name="placement"
+                value={editing?.placement ?? "both"}
+              />
+              <div className="rounded-lg bg-blue-50 p-3 text-[12px] leading-relaxed text-blue-900">
+                이 상품이 <b>어느 퍼널의 어느 지점</b>에 뜨는지는 여기가 아니라{" "}
+                <b>캠페인에 연결할 때</b> 정합니다.
+                <br />
+                <span className="mt-1 block text-blue-700">
+                  캠페인 관리 → (캠페인 선택) → &quot;상품 연결&quot;에서 이 상품을
+                  체크하고 위치(땡큐 / VOD 하단 / 세일즈 페이지)를 고르세요.
+                </span>
+                <Link
+                  href="/admin/campaigns"
+                  className="mt-2 inline-block font-semibold underline"
                 >
-                  <input
-                    type="radio"
-                    name="placement"
-                    value={o.v}
-                    defaultChecked={(editing?.placement ?? "both") === o.v}
-                    className="mt-0.5"
-                  />
-                  <span>
-                    <span className="block text-xs font-medium text-zinc-700">
-                      {o.t}
-                    </span>
-                    <span className="block text-[11px] text-zinc-400">
-                      {o.d}
-                    </span>
-                  </span>
-                </label>
-              ))}
+                  캠페인 관리로 가기 →
+                </Link>
+              </div>
             </FormSection>
 
             {/* 5. 추가 매출 */}
