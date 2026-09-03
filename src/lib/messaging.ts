@@ -13,7 +13,7 @@ import {
   type MessageAutomationTrigger,
 } from "@/db/schema";
 import { getActiveOffer, resolveCheckoutUrl } from "@/lib/funnel-offer";
-import { getRegisteredEvent } from "@/lib/events";
+import { getRegisteredEvent, replayClosesAt } from "@/lib/events";
 import { sendMessage, type KakaoSend } from "@/lib/solapi";
 import { kakaoTemplates } from "@/db/schema";
 
@@ -85,6 +85,9 @@ export async function buildMessageVars(
 
   const event = await getRegisteredEvent(leadId).catch(() => null);
 
+  // 마감시각: 라이브 퍼널이면 회차 리플레이가 닫히는 시각, 그 외엔 무료시청 만료.
+  const deadlineAt = event ? replayClosesAt(event) : lead?.vodExpiresAt ?? null;
+
   return {
     링크: watchUrl,
     예약링크: bookingUrl,
@@ -106,8 +109,8 @@ export async function buildMessageVars(
       : "",
     상품명: productName ?? "자료",
     이름: lead?.name ?? "회원",
-    마감시각: lead?.vodExpiresAt
-      ? lead.vodExpiresAt.toLocaleString("ko-KR", {
+    마감시각: deadlineAt
+      ? deadlineAt.toLocaleString("ko-KR", {
           month: "long",
           day: "numeric",
           hour: "numeric",
