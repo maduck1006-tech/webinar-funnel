@@ -140,6 +140,15 @@ body {
 .admin-theme .divide-y > * + * {
   border-color: var(--fn-line) !important;
 }
+/*
+ * 카드형 단일 선택의 '선택됨' 표시.
+ * 위 .border 규칙이 !important 라 인라인 style 로는 테두리를 못 바꾼다.
+ * (React 의 style prop 은 !important 를 못 실음) → 전용 클래스로 이긴다.
+ */
+.pick-on {
+  border-color: var(--fn-accent, #2563eb) !important;
+  background: var(--fn-bg-2, #eff6ff);
+}
 
 /* --- 서피스 --- */
 .admin-theme .bg-white {

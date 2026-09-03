@@ -1,7 +1,14 @@
 import "server-only";
 import { and, asc, desc, eq, gt, lte } from "drizzle-orm";
 import { db } from "@/db";
-import { eventRegistrations, events, leads, type Event } from "@/db/schema";
+import { randomBytes } from "node:crypto";
+import {
+  eventNotices,
+  eventRegistrations,
+  events,
+  leads,
+  type Event,
+} from "@/db/schema";
 import { sendSms } from "@/lib/solapi";
 
 /** 캠페인의 다음 예정 회차 (가장 임박한 scheduled 이벤트) */
@@ -136,4 +143,150 @@ export async function sendEventPreReminders(now = new Date()): Promise<{
   }
 
   return { d1, h1 };
+}
+
+/* ------------------------------------------------------------------ *
+ * 라이브 안내 수동 발송 + 참석 추적
+ *
+ * 사람마다 다른 주소(/live/{token})를 보내고, 그 주소를 눌러야 참석으로
+ * 기록된다. 그래서 "보낸 수"와 "실제로 들어온 수"를 나눠 볼 수 있다.
+ * 지금은 문자로 나가고, 알림톡 채널이 준비되면 보내는 통로만 갈아끼운다.
+ * ------------------------------------------------------------------ */
+
+/**
+ * 보내는 '시점'. 웨비나 참석률은 한 번 보내서 오르지 않고
+ * 하루 전 → 1시간 전 → 시작 직전 → 시작 후(미입장자) 시퀀스로 오른다.
+ *  - rsvp  : 참석 의사만 접수 (링크에 ?rsvp=1)
+ *  - nudge : 아직 입장 안 한 사람에게만
+ */
+export type LiveNoticeKind = "rsvp" | "soon" | "start" | "nudge";
+
+/** 12자 URL-safe 토큰. 문자 길이를 아끼려고 UUID 대신 짧게. */
+function newToken() {
+  return randomBytes(9).toString("base64url");
+}
+
+/** 안내 문구 + 개인별 링크를 한 통으로 */
+export function buildNoticeText(
+  body: string,
+  name: string | null,
+  link: string,
+  startsAt?: Date | null,
+): string {
+  const filled = body
+    .replace(/\{이름\}/g, name ?? "회원")
+    .replace(/\{일시\}/g, startsAt ? fmtKst(startsAt) : "");
+  return `${filled.trim()}\n\n${link}`;
+}
+
+export async function countRegistrations(eventId: string): Promise<number> {
+  const rows = await db
+    .select({ id: eventRegistrations.id })
+    .from(eventRegistrations)
+    .innerJoin(leads, eq(leads.id, eventRegistrations.leadId))
+    .where(eq(eventRegistrations.eventId, eventId));
+  return rows.length;
+}
+
+export async function sendLiveNotice(opts: {
+  eventId: string;
+  kind: LiveNoticeKind;
+  body: string;
+  /** 입력했으면 회차의 라이브 링크도 이 값으로 갱신 */
+  liveUrl?: string | null;
+  memo?: string | null;
+  /** 값이 있으면 이 번호 한 곳으로만 (추적 링크 없이) */
+  testPhone?: string | null;
+  /** 실제 발송 없이 로직만 */
+  dryRun?: boolean;
+}): Promise<{ total: number; sent: number; failed: number; test: boolean }> {
+  const { eventId, kind, body, memo, testPhone, dryRun } = opts;
+  const liveUrl = opts.liveUrl?.trim() || null;
+  const isRsvp = kind === "rsvp";
+  const onlyUnattended = kind === "nudge";
+
+  const [event] = await db.select().from(events).where(eq(events.id, eventId));
+  if (!event) throw new Error("회차를 찾을 수 없습니다");
+
+  if (liveUrl && liveUrl !== event.externalLiveUrl) {
+    await db
+      .update(events)
+      .set({ externalLiveUrl: liveUrl })
+      .where(eq(events.id, eventId));
+  }
+
+  // 테스트 발송 — 명단을 건드리지 않고 문구만 확인한다
+  if (testPhone) {
+    const sample = buildNoticeText(
+      body,
+      "홍길동",
+      `${SITE}/live/sample${isRsvp ? "?rsvp=1" : ""}`,
+      event.startsAt,
+    );
+    if (!dryRun) await sendSms(testPhone, sample, { immediate: true });
+    return { total: 1, sent: dryRun ? 0 : 1, failed: 0, test: true };
+  }
+
+  const rows = (
+    await db
+      .select({
+        regId: eventRegistrations.id,
+        token: eventRegistrations.token,
+        attendedAt: eventRegistrations.attendedAt,
+        phone: leads.phone,
+        name: leads.name,
+      })
+      .from(eventRegistrations)
+      .innerJoin(leads, eq(leads.id, eventRegistrations.leadId))
+      .where(eq(eventRegistrations.eventId, eventId))
+  ).filter((r) => (onlyUnattended ? !r.attendedAt : true));
+
+  let sent = 0;
+  let failed = 0;
+
+  for (const r of rows) {
+    if (!r.phone) {
+      failed++;
+      continue;
+    }
+    // 토큰은 처음 보낼 때 한 번만 발급하고 이후 재사용한다
+    let token = r.token;
+    if (!token) {
+      token = newToken();
+      await db
+        .update(eventRegistrations)
+        .set({ token })
+        .where(eq(eventRegistrations.id, r.regId));
+    }
+    const link = `${SITE}/live/${token}${isRsvp ? "?rsvp=1" : ""}`;
+    try {
+      if (!dryRun) {
+        await sendSms(
+          r.phone,
+          buildNoticeText(body, r.name, link, event.startsAt),
+          { immediate: true },
+        );
+        await db
+          .update(eventRegistrations)
+          .set({ notifiedAt: new Date() })
+          .where(eq(eventRegistrations.id, r.regId));
+      }
+      sent++;
+    } catch {
+      failed++;
+    }
+  }
+
+  await db.insert(eventNotices).values({
+    eventId,
+    kind,
+    memo: memo?.trim() || null,
+    body,
+    liveUrl,
+    sentCount: dryRun ? 0 : sent,
+    failedCount: failed,
+    dryRun: !!dryRun,
+  });
+
+  return { total: rows.length, sent, failed, test: false };
 }

@@ -190,19 +190,12 @@ export function Choice<T extends string>({
             key={o.v}
             type="button"
             onClick={() => onChange(o.v)}
-            /* 색은 토큰으로. admin 다크테마가 text-zinc-900 은 밝게 바꾸고
-               bg-blue-50 은 그대로 둬서, 유틸리티로 선택 상태를 칠하면
-               '흰 배경 + 흰 글씨'가 된다. */
-            style={
-              on
-                ? {
-                    borderColor: "var(--fn-accent, #2563eb)",
-                    background: "var(--fn-bg-2, #eff6ff)",
-                  }
-                : undefined
-            }
+            /* 선택 상태는 .pick-on 으로. admin 다크테마가 text-zinc-900 은
+               밝게 바꾸고 bg-blue-50 은 그대로 둬서 유틸리티로 칠하면
+               '흰 배경 + 흰 글씨'가 되고, .border 는 !important 라
+               인라인 style 로도 못 이긴다. */
             className={`flex w-full items-start gap-3 rounded-xl border p-3 text-left transition ${
-              on ? "" : "border-zinc-200 hover:border-zinc-300"
+              on ? "pick-on" : "border-zinc-200 hover:border-zinc-300"
             }`}
           >
             {o.icon && <span className="text-2xl leading-none">{o.icon}</span>}

@@ -3,7 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export function CampaignTabs({ id, slug }: { id: string; slug: string }) {
+export function CampaignTabs({
+  id,
+  slug,
+  live,
+}: {
+  id: string;
+  slug: string;
+  /** 라이브 웨비나 캠페인에서만 '라이브 안내' 탭을 띄운다 */
+  live?: boolean;
+}) {
   const pathname = usePathname();
   const tabs = [
     { label: "개요", href: `/admin/campaigns/${id}`, match: `/admin/campaigns/${id}` },
@@ -12,6 +21,15 @@ export function CampaignTabs({ id, slug }: { id: string; slug: string }) {
       href: `/admin/campaigns/${id}/funnel`,
       match: `/admin/campaigns/${id}/funnel`,
     },
+    ...(live
+      ? [
+          {
+            label: "라이브 안내",
+            href: `/admin/campaigns/${id}/live`,
+            match: `/admin/campaigns/${id}/live`,
+          },
+        ]
+      : []),
     {
       label: "자동 메시지",
       href: `/admin/automation?campaign=${id}`,

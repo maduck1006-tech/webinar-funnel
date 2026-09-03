@@ -594,11 +594,53 @@ export const eventRegistrations = pgTable(
     /** 사전 리마인더(24h/1h 전) 중복발송 방지 플래그 — 크론이 daily 자동화 엔진 밖에서 직접 관리 */
     remindedD1: boolean("reminded_d1").notNull().default(false),
     remindedH1: boolean("reminded_h1").notNull().default(false),
+    /**
+     * 개인별 추적 토큰. 안내 발송 시 /live/{token} 을 보내고,
+     * 그 주소를 눌러야 참석으로 기록된다(= 클릭이 곧 참석).
+     */
+    token: text("token"),
+    /** 수동 안내를 마지막으로 보낸 시각 */
+    notifiedAt: timestamp("notified_at", { withTimezone: true }),
+    /** 라이브 입장 링크를 누른 시각 = 참석 */
+    attendedAt: timestamp("attended_at", { withTimezone: true }),
+    /** '참석 의사 확인'에 응답한 시각 */
+    rsvpAt: timestamp("rsvp_at", { withTimezone: true }),
   },
   (t) => [
     uniqueIndex("event_registrations_event_lead_idx").on(t.eventId, t.leadId),
     index("event_registrations_lead_idx").on(t.leadId),
+    uniqueIndex("event_registrations_token_idx").on(t.token),
   ],
+);
+
+/**
+ * 라이브 회차 수동 안내 발송 기록. "언제 · 무엇을 · 몇 명에게 보냈나"를 남긴다.
+ * (D-1/1시간 전 자동 리마인더는 event_registrations 의 플래그로 관리)
+ */
+export const eventNotices = pgTable(
+  "event_notices",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    /** 'notice' = 강의 안내(클릭→입장) | 'rsvp' = 참석 의사 확인(클릭→참석 접수) */
+    kind: text("kind").notNull().default("notice"),
+    /** 관리자가 적어둔 메모 (예: 3/15 1회차) */
+    memo: text("memo"),
+    /** 보낸 본문 (변수 치환 전) */
+    body: text("body").notNull(),
+    /** 보낼 때 사용한 라이브 링크 */
+    liveUrl: text("live_url"),
+    sentCount: integer("sent_count").notNull().default(0),
+    failedCount: integer("failed_count").notNull().default(0),
+    /** 실제 발송 없이 로직만 돌린 검증 발송 */
+    dryRun: boolean("dry_run").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("event_notices_event_idx").on(t.eventId, t.createdAt)],
 );
 
 export const lessonProgress = pgTable(

@@ -102,7 +102,11 @@ export default async function CampaignHub({
         }
       />
 
-      <CampaignTabs id={id} slug={campaign.slug} />
+      <CampaignTabs
+        id={id}
+        slug={campaign.slug}
+        live={campaign.funnelType === "live_webinar_reg"}
+      />
 
       {checklist && (
         <SetupChecklist

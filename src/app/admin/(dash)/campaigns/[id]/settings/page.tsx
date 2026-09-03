@@ -84,7 +84,11 @@ export default async function CampaignSettings({
         }
       />
 
-      <CampaignTabs id={id} slug={c.slug} />
+      <CampaignTabs
+        id={id}
+        slug={c.slug}
+        live={c.funnelType === "live_webinar_reg"}
+      />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

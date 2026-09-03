@@ -32,7 +32,11 @@ export default async function CampaignFunnelTab({
         title={`${campaign.name} · 퍼널`}
         desc="단계를 넣고 빼고 순서를 바꾸세요. 아래는 실제 페이지가 어떻게 연결되는지 보는 지도입니다."
       />
-      <CampaignTabs id={id} slug={campaign.slug} />
+      <CampaignTabs
+        id={id}
+        slug={campaign.slug}
+        live={campaign.funnelType === "live_webinar_reg"}
+      />
 
       <FunnelStepBuilder campaign={campaign} />
 
