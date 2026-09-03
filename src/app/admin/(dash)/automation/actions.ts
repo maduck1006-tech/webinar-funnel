@@ -223,6 +223,21 @@ export async function updateStep(fd: FormData) {
         (Number.isFinite(mins) ? mins : 0),
     ),
   );
+  const channel = String(fd.get("channel") ?? "sms") === "alimtalk" ? "alimtalk" : "sms";
+  const kakaoTemplateId =
+    channel === "alimtalk"
+      ? String(fd.get("kakaoTemplateId") ?? "").trim() || null
+      : null;
+  let kakaoVariableMap: Record<string, string> | null = null;
+  if (channel === "alimtalk") {
+    try {
+      const raw = String(fd.get("kakaoVariableMap") ?? "");
+      kakaoVariableMap = raw ? JSON.parse(raw) : null;
+    } catch {
+      kakaoVariableMap = null;
+    }
+  }
+
   await db
     .update(messageAutomationSteps)
     .set({
@@ -230,6 +245,9 @@ export async function updateStep(fd: FormData) {
       audience: String(fd.get("audience") ?? "all") as never,
       body: String(fd.get("body") ?? ""),
       enabled: fd.get("enabled") === "on",
+      channel,
+      kakaoTemplateId,
+      kakaoVariableMap,
     })
     .where(eq(messageAutomationSteps.id, id));
   rev(automationId);

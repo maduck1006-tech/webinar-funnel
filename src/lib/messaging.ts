@@ -14,7 +14,8 @@ import {
 } from "@/db/schema";
 import { getActiveOffer, resolveCheckoutUrl } from "@/lib/funnel-offer";
 import { getRegisteredEvent } from "@/lib/events";
-import { sendSms } from "@/lib/solapi";
+import { sendMessage, type KakaoSend } from "@/lib/solapi";
+import { kakaoTemplates } from "@/db/schema";
 
 /** 문자 링크용 절대 도메인. env 미설정 시 Vercel 프로덕션 도메인으로 폴백 */
 const SITE = (
@@ -218,7 +219,37 @@ async function sendStep(opts: {
   try {
     const vars = await buildMessageVars(campaignId, leadId);
     const body = fillTemplate(step.body, vars);
-    await sendSms(phone, body, immediate ? { immediate: true } : undefined);
+
+    // 알림톡 채널이면 템플릿 + 변수매핑으로. 실패 시 sendMessage 가 body 로 대체발송.
+    let kakao: KakaoSend | null = null;
+    if (step.channel === "alimtalk" && step.kakaoTemplateId) {
+      const [tpl] = await db
+        .select({
+          solapiTemplateId: kakaoTemplates.solapiTemplateId,
+          channelId: kakaoTemplates.channelId,
+          status: kakaoTemplates.status,
+        })
+        .from(kakaoTemplates)
+        .where(eq(kakaoTemplates.id, step.kakaoTemplateId))
+        .limit(1);
+      if (tpl && tpl.status === "APPROVED") {
+        const map = step.kakaoVariableMap ?? {};
+        const variables: Record<string, string> = {};
+        for (const [tplVar, ourKey] of Object.entries(map)) {
+          variables[`#{${tplVar}}`] = fillTemplate(ourKey, vars);
+        }
+        kakao = {
+          templateId: tpl.solapiTemplateId,
+          channelId: tpl.channelId,
+          variables,
+        };
+      }
+    }
+
+    await sendMessage(phone, body, {
+      ...(immediate ? { immediate: true } : {}),
+      kakao,
+    });
     await db
       .insert(messageSends)
       .values({ leadId, stepId: step.id, status: "sent", sentAt: new Date() })

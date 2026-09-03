@@ -19,6 +19,9 @@ import {
   updateStep,
 } from "../actions";
 import { TRIGGER_LABEL } from "../page";
+import { StepChannelField } from "../StepChannelField";
+import { listKakaoTemplates } from "@/lib/kakao";
+import { solapiConfigured } from "@/lib/solapi";
 import {
   AUDIENCE_META,
   automationSummary,
@@ -57,6 +60,18 @@ export default async function AutomationEditor({
 }) {
   const { id } = await params;
   const { created } = await searchParams;
+
+  const kakaoTemplates = solapiConfigured
+    ? (await listKakaoTemplates())
+        .filter((t) => t.status === "APPROVED")
+        .map((t) => ({
+          id: t.id,
+          name: t.name,
+          content: t.content,
+          header: t.header,
+          variables: t.variables,
+        }))
+    : [];
 
   const [auto] = await db
     .select()
@@ -248,6 +263,13 @@ export default async function AutomationEditor({
                           <StepBodyField id={step.id} defaultValue={step.body} />
                         </div>
                       </div>
+
+                      <StepChannelField
+                        templates={kakaoTemplates}
+                        defaultChannel={step.channel}
+                        defaultTemplateId={step.kakaoTemplateId}
+                        defaultMap={step.kakaoVariableMap}
+                      />
 
                       <div className="flex gap-2 border-t pt-3">
                         <SubmitButton className="rounded-lg bg-black px-4 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800">

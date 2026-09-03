@@ -8,11 +8,13 @@ const apiSecret = process.env.SOLAPI_API_SECRET;
 const sender = process.env.SOLAPI_SENDER ?? "";
 
 let _service: SolapiMessageService | null = null;
-function service() {
+export function solapiService() {
   if (!apiKey || !apiSecret) throw new Error("SOLAPI credentials not set");
   _service ??= new SolapiMessageService(apiKey, apiSecret);
   return _service;
 }
+export const solapiConfigured = Boolean(apiKey && apiSecret);
+export const kakaoChannelId = process.env.SOLAPI_KAKAO_CHANNEL_ID ?? "";
 
 const SITE =
   process.env.NEXT_PUBLIC_SITE_URL ||
@@ -100,26 +102,76 @@ export function scheduledSendTime(now = new Date()): string | undefined {
   )} ${p(end)}:00:00`;
 }
 
+const DRY =
+  process.env.SOLAPI_DRY_RUN === "1" || process.env.SOLAPI_DRY_RUN === "true";
+
+export type KakaoSend = {
+  /** kakao_templates.solapiTemplateId */
+  templateId: string;
+  /** 발신프로필(채널) ID. 비우면 env SOLAPI_KAKAO_CHANNEL_ID */
+  channelId?: string;
+  /** 템플릿 변수 이름 → 채워넣을 값. 예: { "강의명": "실전 워크북" } */
+  variables?: Record<string, string>;
+};
+
 /**
- * @param opts.immediate  야간 차단 무시하고 즉시 발송 (예: 신청 직후 확인 문자)
+ * 한 통 발송. kakao 를 주면 알림톡으로 시도하고, 실패하면 text 를 문자로 대체발송한다.
+ * (알림톡은 카톡 미사용/채널차단 시 실패 → text 가 안전망)
+ *
+ * @param opts.immediate  야간 차단 무시하고 즉시 발송
  */
+export async function sendMessage(
+  to: string,
+  text: string,
+  opts?: { immediate?: boolean; kakao?: KakaoSend | null },
+) {
+  const scheduledDate = opts?.immediate ? undefined : scheduledSendTime();
+  const kakao = opts?.kakao ?? null;
+
+  if (DRY) {
+    console.info(
+      `[solapi:dry-run]${kakao ? " (알림톡)" : ""}${
+        scheduledDate ? ` (예약 ${scheduledDate})` : ""
+      } → ${to}: ${text.replace(/\n/g, " ").slice(0, 60)}`,
+    );
+    return { dryRun: true, scheduledDate, channel: kakao ? "alimtalk" : "sms" } as const;
+  }
+
+  const base = {
+    to,
+    from: sender,
+    ...(scheduledDate ? { scheduledDate } : {}),
+  };
+
+  if (kakao) {
+    try {
+      const res = await solapiService().send({
+        ...base,
+        kakaoOptions: {
+          pfId: kakao.channelId || kakaoChannelId,
+          templateId: kakao.templateId,
+          variables: kakao.variables ?? {},
+          // 알림톡 실패 시 솔라피가 문자로 자동 대체
+          disableSms: false,
+        },
+        // 대체발송용 본문
+        text,
+      });
+      return { ...res, channel: "alimtalk" } as const;
+    } catch (e) {
+      console.warn("[solapi] 알림톡 실패 → 문자 대체", e);
+    }
+  }
+
+  const res = await solapiService().send({ ...base, text });
+  return { ...res, channel: "sms" } as const;
+}
+
+/** @deprecated sendMessage 를 쓰세요. 기존 호출부 호환용 래퍼. */
 export async function sendSms(
   to: string,
   text: string,
   opts?: { immediate?: boolean },
 ) {
-  const scheduledDate = opts?.immediate ? undefined : scheduledSendTime();
-  if (process.env.SOLAPI_DRY_RUN === "1" || process.env.SOLAPI_DRY_RUN === "true") {
-    console.info(
-      `[solapi:dry-run]${scheduledDate ? ` (예약 ${scheduledDate})` : ""} → ${to}: ${text.replace(/\n/g, " ").slice(0, 60)}`,
-    );
-    return { dryRun: true, scheduledDate } as const;
-  }
-  const res = await service().send({
-    to,
-    from: sender,
-    text,
-    ...(scheduledDate ? { scheduledDate } : {}),
-  });
-  return res;
+  return sendMessage(to, text, opts);
 }

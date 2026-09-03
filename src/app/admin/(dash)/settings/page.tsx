@@ -140,12 +140,17 @@ export default async function SettingsPage({
             </li>
           </ol>
           <TestSmsForm />
-          <Link
-            href="/admin/automation"
-            className="mt-3 inline-block text-xs text-blue-600 underline"
-          >
-            자동화에서 문자 문구 편집 →
-          </Link>
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+            <Link href="/admin/automation" className="text-blue-600 underline">
+              자동화에서 문자 문구 편집 →
+            </Link>
+            <Link
+              href="/admin/settings/kakao"
+              className="text-blue-600 underline"
+            >
+              카카오 알림톡 템플릿 →
+            </Link>
+          </div>
         </Card>
 
         {/* 되는시간 */}

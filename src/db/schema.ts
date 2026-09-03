@@ -975,6 +975,35 @@ export const campaignMessages = pgTable(
 );
 
 /** 자동화 트리거 설정 (PRD 6.5) — 사전정의 트리거의 On/Off·템플릿·발송시점만 관리 */
+/**
+ * 솔라피에서 동기화한 카카오 알림톡 템플릿. 관리자가 자동 메시지에 연결해서 쓴다.
+ * 원본(문구·변수·버튼)은 카카오 심사 대상이라 여기서 수정 불가 — 조회·연결용.
+ */
+export const kakaoTemplates = pgTable(
+  "kakao_templates",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    /** 솔라피 템플릿 ID (KA01TP...) */
+    solapiTemplateId: text("solapi_template_id").notNull(),
+    /** 발신프로필 = 채널 ID (구 pfId) */
+    channelId: text("channel_id").notNull(),
+    name: text("name").notNull(),
+    /** 승인된 본문. #{변수} 자리표시자 포함 */
+    content: text("content").notNull(),
+    /** 강조표기 헤더 (없으면 null) */
+    header: text("header"),
+    /** 'PENDING' | 'INSPECTING' | 'APPROVED' | 'REJECTED' */
+    status: text("status").notNull().default("PENDING"),
+    /** 템플릿이 요구하는 변수 이름들 (["강의명","일시"]) */
+    variables: jsonb("variables").$type<string[]>().notNull().default([]),
+    /** 버튼 정의 원본 (링크형 버튼의 URL 에 변수를 꽂을 수 있음) */
+    buttons: jsonb("buttons").$type<Record<string, unknown>[]>().notNull().default([]),
+    /** 솔라피에서 마지막으로 당겨온 시각 */
+    syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("kakao_templates_solapi_id_idx").on(t.solapiTemplateId)],
+);
+
 export const automationTriggers = pgTable("automation_triggers", {
   id: uuid("id").defaultRandom().primaryKey(),
   key: messageTrigger("key").notNull().unique(),
@@ -1062,6 +1091,18 @@ export const messageAutomationSteps = pgTable(
     audience: messageAudience("audience").notNull().default("all"),
     /** 솔라피 문자 본문. 변수: {이름}{링크}{예약링크}{결제링크}{상품명}{마감시각}{다운로드링크} */
     body: text("body").notNull().default(""),
+    /**
+     * 발송 채널. 'sms' = 문자(body 그대로) | 'alimtalk' = 카카오 알림톡.
+     * alimtalk 이면 kakaoTemplateId 로 보내고, 실패 시 body 를 문자로 대체발송.
+     */
+    channel: text("channel").notNull().default("sms"),
+    /** kakao_templates.id (알림톡일 때) */
+    kakaoTemplateId: uuid("kakao_template_id"),
+    /**
+     * 템플릿 변수(#{강의명} 등) → 우리 치환키({강의명} 등) 매핑.
+     * 예: { "강의명": "{상품명}", "일시": "{마감시각}" }
+     */
+    kakaoVariableMap: jsonb("kakao_variable_map").$type<Record<string, string>>(),
     enabled: boolean("enabled").notNull().default(true),
   },
   (t) => [
