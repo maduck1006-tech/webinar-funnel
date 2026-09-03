@@ -49,3 +49,4 @@
 - 테스트: npm run test:cron (dev 서버 필요, CRON_SECRET 필요). 토스는 테스트 키로 /checkout E2E
 - VOD 카운트다운: /vod 가 lead.vodExpiresAt를 Render metadata.vodDeadlineIso로 주입, Countdown 블록이 사용
 - 에러 리포팅: src/lib/report.ts + src/instrumentation.ts (Sentry 자리, 현재 구조화 로그만)
+- 사업자 정보/푸터: src/lib/business.ts (등록증 기본값 + NEXT_PUBLIC_BIZ_* env 오버라이드). src/components/SiteFooter.tsx = 전 페이지 공통 푸터(사업자 정보 + /terms·/privacy 링크), FunnelPage·checkout 에서 렌더. 정적 페이지 /privacy·/terms (카카오 비즈니스 채널 심사·전자상거래법용, noindex)

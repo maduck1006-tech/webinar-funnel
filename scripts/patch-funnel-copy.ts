@@ -25,8 +25,7 @@ function patchLanding(d: PageData): boolean {
   if (d.root?.props) {
     d.root.props.topbarText = "지식 상품화 3시간 무료 강의";
     d.root.props.topbarCtaLabel = "지금 바로 신청";
-    d.root.props.topbarRushSeconds = 0;
-    d.root.props.topbarDeadlineIso = "";
+    // topbarRushSeconds/topbarDeadlineIso 는 건드리지 않음 (러시 게이지 유지)
   }
 
   const hero = byType(c, "Hero");

@@ -8,6 +8,7 @@ import {
   type Variant,
 } from "@/lib/campaign";
 import { CampaignTracking } from "@/components/CampaignTracking";
+import { SiteFooter } from "@/components/SiteFooter";
 import { config } from "./config";
 import { UrgencyBar } from "./blocks/UrgencyBar";
 
@@ -110,9 +111,7 @@ export async function FunnelPage({
         <div className="mx-auto max-w-[500px] px-5">{children}</div>
       )}
 
-      <footer className="mx-auto max-w-[500px] border-t border-[var(--fn-line)] px-5 py-6 text-center text-[11px] leading-relaxed text-[var(--fn-sub)]">
-        입력하신 정보는 강의 안내 목적에만 사용되며 안전하게 보관됩니다.
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { campaigns, leads, products } from "@/db/schema";
 import { isUuid, resolveLeadId } from "@/lib/lead";
 import { getProductOffers } from "@/lib/funnel-offer";
+import { SiteFooter } from "@/components/SiteFooter";
 import { CheckoutClient } from "./CheckoutClient";
 
 export const dynamic = "force-dynamic";
@@ -146,6 +147,7 @@ export default async function CheckoutPage({
         successUrl={successUrl}
         failUrl={`${origin}/checkout/fail`}
       />
+      <SiteFooter />
     </div>
   );
 }
