@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { asc, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -11,6 +10,7 @@ import {
 import { Card, PageHeader, Tag, fmtDate } from "@/components/admin-ui";
 import { CampaignTabs } from "../CampaignTabs";
 import { LiveNoticeForm, type EventOpt } from "./LiveNoticeForm";
+import { LiveEmptyGuide, LiveRhythmGuide } from "./LiveGuide";
 
 export const dynamic = "force-dynamic";
 
@@ -84,24 +84,19 @@ export default async function LiveNoticePage({
       <CampaignTabs id={id} slug={c.slug} live />
 
       {opts.length === 0 ? (
-        <Card>
-          <p className="py-8 text-center text-sm text-zinc-400">
-            아직 라이브 회차가 없어요.{" "}
-            <Link
-              href={`/admin/campaigns/${id}/settings`}
-              className="text-blue-600 underline"
-            >
-              캠페인 설정
-            </Link>
-            에서 회차를 먼저 만들어주세요.
-          </p>
-        </Card>
-      ) : (
-        <LiveNoticeForm
+        <LiveEmptyGuide
           campaignId={id}
-          events={opts}
-          siteOrigin={siteOrigin}
+          isLiveFunnel={c.funnelType === "live_webinar_reg"}
         />
+      ) : (
+        <>
+          <LiveRhythmGuide />
+          <LiveNoticeForm
+            campaignId={id}
+            events={opts}
+            siteOrigin={siteOrigin}
+          />
+        </>
       )}
 
       {history.length > 0 && (

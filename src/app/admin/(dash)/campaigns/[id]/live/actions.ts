@@ -19,8 +19,13 @@ export async function sendNotice(
   const body = String(fd.get("body") ?? "").trim();
   const raw = String(fd.get("kind") ?? "");
   const kind = (
-    ["rsvp", "soon", "start", "nudge"].includes(raw) ? raw : "soon"
+    ["rsvp", "soon", "start", "nudge", "custom"].includes(raw) ? raw : "soon"
   ) as LiveNoticeKind;
+  const audRaw = String(fd.get("audience") ?? "");
+  const audience = (
+    ["all", "unattended", "rsvped"].includes(audRaw) ? audRaw : undefined
+  ) as "all" | "unattended" | "rsvped" | undefined;
+  const withLink = fd.get("noLink") !== "on";
   const dryRun = fd.get("dryRun") === "on";
   const toTest = String(fd.get("recipients") ?? "all") === "test";
   const rawPhone = String(fd.get("testPhone") ?? "").trim();
@@ -45,6 +50,8 @@ export async function sendNotice(
       memo: String(fd.get("memo") ?? ""),
       testPhone,
       dryRun,
+      audience,
+      withLink,
     });
     revalidatePath(`/admin/campaigns/${campaignId}/live`);
 

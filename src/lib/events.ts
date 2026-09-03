@@ -159,7 +159,9 @@ export async function sendEventPreReminders(now = new Date()): Promise<{
  *  - rsvp  : 참석 의사만 접수 (링크에 ?rsvp=1)
  *  - nudge : 아직 입장 안 한 사람에게만
  */
-export type LiveNoticeKind = "rsvp" | "soon" | "start" | "nudge";
+export type LiveNoticeKind = "rsvp" | "soon" | "start" | "nudge" | "custom";
+/** 받는 사람 범위 */
+export type LiveAudience = "all" | "unattended" | "rsvped";
 
 /** 12자 URL-safe 토큰. 문자 길이를 아끼려고 UUID 대신 짧게. */
 function newToken() {
@@ -170,13 +172,13 @@ function newToken() {
 export function buildNoticeText(
   body: string,
   name: string | null,
-  link: string,
+  link: string | null,
   startsAt?: Date | null,
 ): string {
   const filled = body
     .replace(/\{이름\}/g, name ?? "회원")
     .replace(/\{일시\}/g, startsAt ? fmtKst(startsAt) : "");
-  return `${filled.trim()}\n\n${link}`;
+  return link ? `${filled.trim()}\n\n${link}` : filled.trim();
 }
 
 export async function countRegistrations(eventId: string): Promise<number> {
@@ -199,11 +201,17 @@ export async function sendLiveNotice(opts: {
   testPhone?: string | null;
   /** 실제 발송 없이 로직만 */
   dryRun?: boolean;
+  /** 받는 사람 범위. 없으면 kind 로 추론 (nudge→미입장자, 그 외→전체) */
+  audience?: LiveAudience;
+  /** false 면 추적 링크를 붙이지 않는다 (돌발 안내용). 기본 true */
+  withLink?: boolean;
 }): Promise<{ total: number; sent: number; failed: number; test: boolean }> {
   const { eventId, kind, body, memo, testPhone, dryRun } = opts;
   const liveUrl = opts.liveUrl?.trim() || null;
   const isRsvp = kind === "rsvp";
-  const onlyUnattended = kind === "nudge";
+  const withLink = opts.withLink !== false;
+  const audience: LiveAudience =
+    opts.audience ?? (kind === "nudge" ? "unattended" : "all");
 
   const [event] = await db.select().from(events).where(eq(events.id, eventId));
   if (!event) throw new Error("회차를 찾을 수 없습니다");
@@ -220,7 +228,7 @@ export async function sendLiveNotice(opts: {
     const sample = buildNoticeText(
       body,
       "홍길동",
-      `${SITE}/live/sample${isRsvp ? "?rsvp=1" : ""}`,
+      withLink ? `${SITE}/live/sample${isRsvp ? "?rsvp=1" : ""}` : null,
       event.startsAt,
     );
     if (!dryRun) await sendSms(testPhone, sample, { immediate: true });
@@ -233,13 +241,20 @@ export async function sendLiveNotice(opts: {
         regId: eventRegistrations.id,
         token: eventRegistrations.token,
         attendedAt: eventRegistrations.attendedAt,
+        rsvpAt: eventRegistrations.rsvpAt,
         phone: leads.phone,
         name: leads.name,
       })
       .from(eventRegistrations)
       .innerJoin(leads, eq(leads.id, eventRegistrations.leadId))
       .where(eq(eventRegistrations.eventId, eventId))
-  ).filter((r) => (onlyUnattended ? !r.attendedAt : true));
+  ).filter((r) =>
+    audience === "unattended"
+      ? !r.attendedAt
+      : audience === "rsvped"
+        ? Boolean(r.rsvpAt)
+        : true,
+  );
 
   let sent = 0;
   let failed = 0;
@@ -258,7 +273,9 @@ export async function sendLiveNotice(opts: {
         .set({ token })
         .where(eq(eventRegistrations.id, r.regId));
     }
-    const link = `${SITE}/live/${token}${isRsvp ? "?rsvp=1" : ""}`;
+    const link = withLink
+      ? `${SITE}/live/${token}${isRsvp ? "?rsvp=1" : ""}`
+      : null;
     try {
       if (!dryRun) {
         await sendSms(
