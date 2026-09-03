@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, max, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   campaignPages,
@@ -720,4 +720,171 @@ export async function setAutomationEnabled(fd: FormData) {
     .where(eq(messageAutomations.id, automationId));
   if (campaignId) revalidatePath(`/admin/campaigns/${campaignId}`);
   revalidatePath("/admin/automation");
+}
+
+/* ------------------------------------------------------------------ *
+ * 자동 메시지 — 캠페인 화면(개요·라이브 안내)에서 그 자리 편집
+ * 전역 기본을 건드리면 이 캠페인 전용본으로 복제 후 편집(clone-on-write).
+ * 스텝은 id 가 아니라 stepOrder 로 지목 — 복제되면 id 가 바뀌기 때문.
+ * ------------------------------------------------------------------ */
+
+function revCampaign(campaignId: string) {
+  if (campaignId) {
+    revalidatePath(`/admin/campaigns/${campaignId}`);
+    revalidatePath(`/admin/campaigns/${campaignId}/live`);
+  }
+  revalidatePath("/admin/automation");
+}
+
+/** 전역 기본이면 이 캠페인 전용본으로 복제하고 그 id 를 돌려준다(이미 전용이면 그대로). */
+async function ensureCampaignAutomation(
+  automationId: string,
+  campaignId: string,
+): Promise<string> {
+  const [src] = await db
+    .select()
+    .from(messageAutomations)
+    .where(eq(messageAutomations.id, automationId));
+  if (!src) return automationId;
+  if (src.campaignId) return automationId; // 이미 캠페인 전용(또는 다른 캠페인 것 — 손대지 않음)
+
+  if (src.key) {
+    const [existing] = await db
+      .select({ id: messageAutomations.id })
+      .from(messageAutomations)
+      .where(
+        and(
+          eq(messageAutomations.campaignId, campaignId),
+          eq(messageAutomations.key, src.key),
+        ),
+      );
+    if (existing) return existing.id;
+  }
+
+  const [copy] = await db
+    .insert(messageAutomations)
+    .values({
+      campaignId,
+      key: src.key,
+      name: src.name,
+      trigger: src.trigger,
+      enabled: src.enabled,
+      stopOn: src.stopOn,
+    })
+    .returning({ id: messageAutomations.id });
+
+  const steps = await db
+    .select()
+    .from(messageAutomationSteps)
+    .where(eq(messageAutomationSteps.automationId, automationId))
+    .orderBy(asc(messageAutomationSteps.stepOrder));
+  if (steps.length > 0) {
+    await db.insert(messageAutomationSteps).values(
+      steps.map((s) => ({
+        automationId: copy.id,
+        stepOrder: s.stepOrder,
+        delayMinutes: s.delayMinutes,
+        audience: s.audience,
+        body: s.body,
+        enabled: s.enabled,
+        channel: s.channel,
+        kakaoTemplateId: s.kakaoTemplateId,
+        kakaoVariableMap: s.kakaoVariableMap,
+      })),
+    );
+  }
+  return copy.id;
+}
+
+export async function toggleCampaignAutomation(fd: FormData) {
+  const automationId = String(fd.get("automationId") ?? "");
+  const campaignId = String(fd.get("campaignId") ?? "");
+  const enabled = fd.get("enabled") === "true";
+  if (!automationId || !campaignId) return;
+  const id = await ensureCampaignAutomation(automationId, campaignId);
+  await db
+    .update(messageAutomations)
+    .set({ enabled, updatedAt: new Date() })
+    .where(eq(messageAutomations.id, id));
+  revCampaign(campaignId);
+}
+
+export async function saveCampaignStep(fd: FormData) {
+  const automationId = String(fd.get("automationId") ?? "");
+  const campaignId = String(fd.get("campaignId") ?? "");
+  const stepOrder = Math.round(Number(fd.get("stepOrder") ?? 0));
+  if (!automationId || !campaignId || !stepOrder) return;
+  const id = await ensureCampaignAutomation(automationId, campaignId);
+  const days = Number(fd.get("days") ?? 0);
+  const hours = Number(fd.get("hours") ?? 0);
+  const mins = Number(fd.get("mins") ?? 0);
+  const delayMinutes = Math.max(
+    0,
+    Math.round(
+      (Number.isFinite(days) ? days : 0) * 1440 +
+        (Number.isFinite(hours) ? hours : 0) * 60 +
+        (Number.isFinite(mins) ? mins : 0),
+    ),
+  );
+  await db
+    .update(messageAutomationSteps)
+    .set({
+      delayMinutes,
+      audience: String(fd.get("audience") ?? "all") as never,
+      body: String(fd.get("body") ?? ""),
+    })
+    .where(
+      and(
+        eq(messageAutomationSteps.automationId, id),
+        eq(messageAutomationSteps.stepOrder, stepOrder),
+      ),
+    );
+  revCampaign(campaignId);
+}
+
+export async function addCampaignStep(fd: FormData) {
+  const automationId = String(fd.get("automationId") ?? "");
+  const campaignId = String(fd.get("campaignId") ?? "");
+  if (!automationId || !campaignId) return;
+  const id = await ensureCampaignAutomation(automationId, campaignId);
+  const [{ m } = { m: 0 }] = await db
+    .select({ m: max(messageAutomationSteps.stepOrder) })
+    .from(messageAutomationSteps)
+    .where(eq(messageAutomationSteps.automationId, id));
+  await db.insert(messageAutomationSteps).values({
+    automationId: id,
+    stepOrder: (m ?? 0) + 1,
+    delayMinutes: 1440,
+    audience: "all",
+    body: "",
+  });
+  revCampaign(campaignId);
+}
+
+export async function deleteCampaignStep(fd: FormData) {
+  const automationId = String(fd.get("automationId") ?? "");
+  const campaignId = String(fd.get("campaignId") ?? "");
+  const stepOrder = Math.round(Number(fd.get("stepOrder") ?? 0));
+  if (!automationId || !campaignId || !stepOrder) return;
+  const id = await ensureCampaignAutomation(automationId, campaignId);
+  await db
+    .delete(messageAutomationSteps)
+    .where(
+      and(
+        eq(messageAutomationSteps.automationId, id),
+        eq(messageAutomationSteps.stepOrder, stepOrder),
+      ),
+    );
+  const rows = await db
+    .select({ id: messageAutomationSteps.id })
+    .from(messageAutomationSteps)
+    .where(eq(messageAutomationSteps.automationId, id))
+    .orderBy(asc(messageAutomationSteps.stepOrder));
+  for (let i = 0; i < rows.length; i++) {
+    await db
+      .update(messageAutomationSteps)
+      .set({ stepOrder: i + 1 })
+      .where(eq(messageAutomationSteps.id, rows[i].id));
+  }
+  revCampaign(campaignId);
 }

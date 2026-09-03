@@ -8,7 +8,9 @@ import {
   events,
 } from "@/db/schema";
 import { Card, PageHeader, Tag, fmtDate } from "@/components/admin-ui";
+import { getCampaignAutomations } from "@/lib/campaign-setup";
 import { CampaignTabs } from "../CampaignTabs";
+import { InlineAutomationEditor } from "../InlineAutomationEditor";
 import { LiveNoticeForm, type EventOpt } from "./LiveNoticeForm";
 import { LiveEmptyGuide, LiveRhythmGuide } from "./LiveGuide";
 
@@ -75,6 +77,8 @@ export default async function LiveNoticePage({
     "https://class.launchscale.kr"
   ).trim();
 
+  const autos = await getCampaignAutomations(id).catch(() => []);
+
   return (
     <>
       <PageHeader
@@ -97,6 +101,18 @@ export default async function LiveNoticePage({
             siteOrigin={siteOrigin}
           />
         </>
+      )}
+
+      {autos.length > 0 && (
+        <Card className="mt-6">
+          <p className="text-sm font-bold">이 캠페인 자동 문자</p>
+          <p className="mb-3 mt-1 text-[12.5px] leading-relaxed text-zinc-500">
+            매 기수 똑같이 나가는 문자예요. 그날 손으로 보내는 건 위쪽{" "}
+            <b>이번 회차 채우기</b>. 여기서는 켜고 끄고, 문구도 바로 고칠 수
+            있어요.
+          </p>
+          <InlineAutomationEditor campaignId={id} automations={autos} />
+        </Card>
       )}
 
       {history.length > 0 && (

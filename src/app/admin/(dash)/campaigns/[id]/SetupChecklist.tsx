@@ -2,11 +2,8 @@
 
 import { useState } from "react";
 import type { SetupGroup, SetupMessage } from "@/lib/campaign-setup";
-import {
-  createSlotProduct,
-  saveSettingField,
-  setAutomationEnabled,
-} from "../actions";
+import { createSlotProduct, saveSettingField } from "../actions";
+import { OneAutomation, type EditableAutomation } from "./InlineAutomationEditor";
 import { connectExistingProduct } from "../../products/actions";
 import { SubmitButton } from "../../form-ui";
 
@@ -189,7 +186,7 @@ function SettingInline({
   );
 }
 
-/** CRM 메시지 한 줄 — 무엇을·왜 + on/off + 문구 미리보기 */
+/** CRM 메시지 한 줄 — on/off + 그 자리에서 문구 추가·수정·삭제 */
 function MessageRow({
   campaignId,
   m,
@@ -197,79 +194,17 @@ function MessageRow({
   campaignId: string;
   m: SetupMessage;
 }) {
-  const [showBody, setShowBody] = useState(false);
-  return (
-    <li className="rounded-lg border border-zinc-200 p-3">
-      <div className="flex items-start gap-2.5">
-        <span className="text-lg leading-none">{m.icon}</span>
-        <div className="min-w-0 flex-1">
-          <p className="flex flex-wrap items-center gap-1.5 text-[13px] font-semibold text-zinc-800">
-            {m.name}
-            {m.enabled ? (
-              <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
-                켜짐
-              </span>
-            ) : (
-              <span className="rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-bold text-zinc-500">
-                꺼짐
-              </span>
-            )}
-            {m.isGlobal && (
-              <span className="text-[10px] font-normal text-zinc-400">
-                (모든 캠페인 공통)
-              </span>
-            )}
-          </p>
-          <p className="mt-0.5 text-[11.5px] leading-relaxed text-zinc-500">
-            {m.what}
-          </p>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
-            {m.firstBody && (
-              <button
-                onClick={() => setShowBody((v) => !v)}
-                className="font-semibold text-zinc-500 underline"
-              >
-                {showBody ? "문구 접기" : "문구 미리보기"}
-                {m.stepCount > 1 ? ` (${m.stepCount}개 중 첫 문자)` : ""}
-              </button>
-            )}
-            <a
-              href={m.editHref}
-              className="font-semibold text-blue-600"
-              target="_blank"
-              rel="noreferrer"
-            >
-              문구 다듬기 ↗
-            </a>
-          </div>
-          {showBody && m.firstBody && (
-            <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-zinc-50 p-2 text-[11.5px] leading-relaxed text-zinc-600">
-              {m.firstBody}
-            </pre>
-          )}
-        </div>
-        <form action={setAutomationEnabled} className="shrink-0">
-          <input type="hidden" name="automationId" value={m.automationId} />
-          <input type="hidden" name="campaignId" value={campaignId} />
-          <input
-            type="hidden"
-            name="enabled"
-            value={m.enabled ? "false" : "true"}
-          />
-          <SubmitButton
-            className={`rounded-md px-2.5 py-1 text-[12px] font-semibold ${
-              m.enabled
-                ? "border border-zinc-300 text-zinc-600"
-                : "bg-emerald-600 text-white"
-            }`}
-            pendingLabel="…"
-          >
-            {m.enabled ? "끄기" : "켜기"}
-          </SubmitButton>
-        </form>
-      </div>
-    </li>
-  );
+  const a: EditableAutomation = {
+    id: m.automationId,
+    name: m.name,
+    icon: m.icon,
+    what: m.what,
+    trigger: m.trigger,
+    enabled: m.enabled,
+    isGlobal: m.isGlobal,
+    steps: m.steps,
+  };
+  return <OneAutomation a={a} campaignId={campaignId} />;
 }
 
 export function SetupChecklist({

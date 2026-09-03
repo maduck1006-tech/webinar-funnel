@@ -73,19 +73,106 @@ export const AUTOMATION_GUIDE: Record<
   },
 };
 
+/** 자동 메시지 한 통(스텝) — 개요·라이브 화면에서 그 자리에서 편집 */
+export type InlineStep = {
+  id: string;
+  stepOrder: number;
+  delayMinutes: number;
+  audience: string;
+  body: string;
+  enabled: boolean;
+};
+
 export type SetupMessage = {
   automationId: string;
   key: string | null;
   name: string;
+  trigger: string;
   enabled: boolean;
   icon: string;
   what: string;
   essential: boolean;
   firstBody: string;
   stepCount: number;
+  steps: InlineStep[];
   isGlobal: boolean;
   editHref: string;
 };
+
+export type CampaignAutomation = {
+  id: string;
+  key: string | null;
+  name: string;
+  trigger: string;
+  enabled: boolean;
+  icon: string;
+  what: string;
+  essential: boolean;
+  isGlobal: boolean;
+  steps: InlineStep[];
+};
+
+/**
+ * 이 캠페인에 실제로 적용되는 자동 메시지 목록 + 스텝 전체.
+ * 전역 기본 + 이 캠페인 전용(같은 key 는 캠페인 전용이 우선).
+ * 개요 체크리스트·라이브 안내 화면에서 그 자리 편집용.
+ */
+export async function getCampaignAutomations(
+  campaignId: string,
+): Promise<CampaignAutomation[]> {
+  const autoRows = await db
+    .select()
+    .from(messageAutomations)
+    .where(
+      or(
+        eq(messageAutomations.campaignId, campaignId),
+        isNull(messageAutomations.campaignId),
+      ),
+    )
+    .orderBy(asc(messageAutomations.createdAt))
+    .catch(() => []);
+
+  const overridden = new Set(
+    autoRows.filter((a) => a.campaignId && a.key).map((a) => a.key),
+  );
+  const effective = autoRows.filter(
+    (a) => a.campaignId || !(a.key && overridden.has(a.key)),
+  );
+
+  const out = await Promise.all(
+    effective.map(async (a) => {
+      const steps = await db
+        .select()
+        .from(messageAutomationSteps)
+        .where(eq(messageAutomationSteps.automationId, a.id))
+        .orderBy(asc(messageAutomationSteps.stepOrder));
+      const guide = a.key ? AUTOMATION_GUIDE[a.key] : undefined;
+      return {
+        id: a.id,
+        key: a.key,
+        name: a.name,
+        trigger: a.trigger,
+        enabled: a.enabled,
+        icon: guide?.icon ?? "✉️",
+        what:
+          guide?.what ??
+          "직접 만든 자동 메시지입니다. 내용을 확인하고 필요하면 켜세요.",
+        essential: guide?.essential ?? false,
+        isGlobal: !a.campaignId,
+        steps: steps.map((s) => ({
+          id: s.id,
+          stepOrder: s.stepOrder,
+          delayMinutes: s.delayMinutes,
+          audience: s.audience,
+          body: s.body,
+          enabled: s.enabled,
+        })),
+      } satisfies CampaignAutomation;
+    }),
+  );
+  // 커스텀(설정 미완·빈 내용)은 숨김
+  return out.filter((a) => a.key || a.steps.some((s) => s.body.trim()));
+}
 
 export type CheckItem = {
   id: string;
@@ -409,55 +496,24 @@ export async function getSetupChecklist(campaign: Campaign): Promise<{
   }
 
   /* ── 3. CRM 메시지 (자동으로 나가는 문자) ── */
-  const autoRows = await db
-    .select()
-    .from(messageAutomations)
-    .where(
-      or(eq(messageAutomations.campaignId, id), isNull(messageAutomations.campaignId)),
-    )
-    .orderBy(asc(messageAutomations.createdAt));
-
-  // key 별로 캠페인 전용본이 전역 기본을 덮어씀
-  const overridden = new Set(
-    autoRows.filter((a) => a.campaignId && a.key).map((a) => a.key),
-  );
-  const effective = autoRows.filter(
-    (a) => a.campaignId || !(a.key && overridden.has(a.key)),
-  );
-
-  const messages: SetupMessage[] = (
-    await Promise.all(
-      effective.map(async (a) => {
-        const steps = await db
-          .select({
-            body: messageAutomationSteps.body,
-            enabled: messageAutomationSteps.enabled,
-          })
-          .from(messageAutomationSteps)
-          .where(eq(messageAutomationSteps.automationId, a.id))
-          .orderBy(asc(messageAutomationSteps.stepOrder));
-        const bodies = steps.map((s) => s.body.trim()).filter(Boolean);
-        // 내용이 비어있는 커스텀 자동화(설정 미완)는 체크리스트에서 숨김
-        if (!a.key && bodies.length === 0) return null;
-        const guide = a.key ? AUTOMATION_GUIDE[a.key] : undefined;
-        return {
-          automationId: a.id,
-          key: a.key,
-          name: a.name,
-          enabled: a.enabled,
-          icon: guide?.icon ?? "✉️",
-          what:
-            guide?.what ??
-            "직접 만든 자동 메시지입니다. 내용을 확인하고 필요하면 켜세요.",
-          essential: guide?.essential ?? false,
-          firstBody: bodies[0] ?? "",
-          stepCount: bodies.length,
-          isGlobal: !a.campaignId,
-          editHref: `/admin/automation/${a.id}`,
-        } satisfies SetupMessage;
-      }),
-    )
-  ).filter((m): m is SetupMessage => m !== null);
+  const messages: SetupMessage[] = (await getCampaignAutomations(id)).map((a) => {
+    const bodies = a.steps.map((s) => s.body.trim()).filter(Boolean);
+    return {
+      automationId: a.id,
+      key: a.key,
+      name: a.name,
+      trigger: a.trigger,
+      enabled: a.enabled,
+      icon: a.icon,
+      what: a.what,
+      essential: a.essential,
+      firstBody: bodies[0] ?? "",
+      stepCount: a.steps.length,
+      steps: a.steps,
+      isGlobal: a.isGlobal,
+      editHref: `/admin/automation/${a.id}`,
+    } satisfies SetupMessage;
+  });
   // 꼭 켜야 하는 것 먼저, 그 다음 선택
   messages.sort((x, y) => Number(y.essential) - Number(x.essential));
 
