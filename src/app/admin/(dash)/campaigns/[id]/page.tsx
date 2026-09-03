@@ -8,6 +8,7 @@ import { campaignBasePath } from "@/lib/campaign";
 import { getSetupChecklist } from "@/lib/campaign-setup";
 import { SetupChecklist } from "./SetupChecklist";
 import { CampaignTabs } from "./CampaignTabs";
+import { ShareCampaignLink } from "./ShareCampaignLink";
 import { flowSummary, resolveFlowSteps } from "@/lib/funnel-flow";
 import { endAbTest, setCampaignStatus, startAbTest } from "../actions";
 
@@ -26,6 +27,11 @@ export default async function CampaignHub({
   if (!campaign) notFound();
 
   const basePath = campaignBasePath(campaign);
+  const siteOrigin = (
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
+    "https://class.launchscale.kr"
+  ).trim();
+  const shareUrl = siteOrigin + basePath;
 
   const [m] = await db
     .select({
@@ -107,6 +113,8 @@ export default async function CampaignHub({
         slug={campaign.slug}
         live={campaign.funnelType === "live_webinar_reg"}
       />
+
+      <ShareCampaignLink url={shareUrl} isLive={campaign.status === "live"} />
 
       {checklist && (
         <SetupChecklist
